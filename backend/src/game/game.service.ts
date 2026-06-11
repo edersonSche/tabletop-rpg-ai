@@ -36,6 +36,7 @@ export class GameService {
         campaignSetting: 'A medieval fantasy world of dark forests, dangerous dungeons, and warring kingdoms.',
         players: room.players,
         scene: room.scene,
+        currentLocation: room.currentLocation,
         history: room.history,
         currentAction: {
           playerId,
@@ -45,6 +46,10 @@ export class GameService {
       });
 
       this.validateAiResponseTarget(response, room.players);
+
+      if (response.location) {
+        room.currentLocation = response.location;
+      }
 
       this.turnManager.processTurn(roomId, room, response);
 
@@ -88,6 +93,7 @@ export class GameService {
         campaignSetting: 'A medieval fantasy world of dark forests, dangerous dungeons, and warring kingdoms.',
         players: room.players,
         scene: room.scene,
+        currentLocation: room.currentLocation,
         history: room.history,
         currentAction: {
           playerId,
@@ -100,6 +106,10 @@ export class GameService {
       });
 
       this.validateAiResponseTarget(response, room.players);
+
+      if (response.location) {
+        room.currentLocation = response.location;
+      }
 
       this.turnManager.processTurn(roomId, room, response);
 
@@ -130,11 +140,16 @@ export class GameService {
         campaignSetting: 'A medieval fantasy world of dark forests, dangerous dungeons, and warring kingdoms.',
         players: room.players,
         scene: 'The adventure is about to begin.',
+        currentLocation: room.currentLocation,
         history: [],
         currentAction: null,
       });
 
       this.validateAiResponseTarget(response, room.players);
+
+      if (response.location) {
+        room.currentLocation = response.location;
+      }
 
       this.turnManager.processTurn(roomId, room, response);
 
@@ -181,6 +196,7 @@ export class GameService {
       currentTurn: room.currentTurn,
       turnType: room.turnType,
       turnTarget: room.turnTarget,
+      currentLocation: room.currentLocation,
       scene: room.scene,
     };
   }

@@ -16,6 +16,7 @@ export interface AIContext {
     name: string;
   }>;
   scene: string;
+  currentLocation: string | null;
   history: Array<{
     role: 'player' | 'assistant' | 'system';
     playerId?: string;

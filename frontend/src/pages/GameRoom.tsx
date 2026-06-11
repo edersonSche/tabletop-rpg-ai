@@ -6,6 +6,7 @@ import { DiceRollButton } from '../components/Chat/DiceRollButton';
 import { PlayerList } from '../components/GameStatus/PlayerList';
 import { TurnIndicator } from '../components/GameStatus/TurnIndicator';
 import { TypingIndicator } from '../components/GameStatus/TypingIndicator';
+import { LocationBadge } from '../components/GameStatus/LocationBadge';
 
 export function GameRoom() {
   const {
@@ -51,6 +52,7 @@ export function GameRoom() {
         <aside className="w-56 bg-parchment-300 dark:bg-dungeon-900 border-r-2 border-parchment-400 dark:border-dungeon-600 p-3 hidden md:flex flex-col gap-4">
           {gameState && (
             <>
+              <LocationBadge location={gameState.currentLocation} />
               <TurnIndicator
                 currentTurn={turnUpdate?.currentTurn || null}
                 type={turnUpdate?.type || null}
@@ -82,13 +84,16 @@ export function GameRoom() {
           <div className="md:hidden bg-parchment-300 dark:bg-dungeon-900 border-b border-parchment-400 dark:border-dungeon-600 p-2 flex items-center justify-between px-4">
             {gameState && (
               <>
-                <TurnIndicator
+                <div className="flex items-center gap-2">
+                  <TurnIndicator
                   currentTurn={turnUpdate?.currentTurn || null}
                   type={turnUpdate?.type || null}
                   target={turnUpdate?.target || null}
                   players={gameState.players}
                   playerId={player.playerId}
                 />
+                  <LocationBadge location={gameState.currentLocation} />
+                </div>
                 <div className="flex gap-1">
                   {gameState.players.slice(0, 3).map(p => (
                     <span key={p.id} className={`w-6 h-6 flex items-center justify-center text-xs pixel-border ${

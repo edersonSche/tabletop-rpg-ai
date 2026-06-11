@@ -125,6 +125,7 @@ export class OpencodeProvider implements AIProvider {
       'Players:',
       ...context.players.map(p => `- ${p.name}`),
       '',
+      ...(context.currentLocation ? [`Current location: ${context.currentLocation}`] : []),
       `Current scene: ${context.scene}`,
       '',
     ];
@@ -163,6 +164,7 @@ export class OpencodeProvider implements AIProvider {
       'Respond with valid JSON using this exact schema:',
       '{',
       '  "narration": "Your narrative text here",',
+      '  "location": "optional — set when players move to a new place (e.g. \"tavern\", \"dark forest\", \"city square\")",',
       '  "next": {',
       '    "type": "group_action" | "call_player" | "call_roll" | "narration_only"',
       '  }',

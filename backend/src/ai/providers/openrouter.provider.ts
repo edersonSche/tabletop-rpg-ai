@@ -25,7 +25,7 @@ Setting: ${context.campaignSetting}
 
 Players:
 ${context.players.map(p => `- ${p.name}`).join('\n')}
-
+${context.currentLocation ? `\nCurrent location: ${context.currentLocation}` : ''}
 Current scene: ${context.scene}`,
       },
     ];

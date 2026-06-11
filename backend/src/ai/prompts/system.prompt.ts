@@ -10,6 +10,7 @@ export const SYSTEM_PROMPT = `You are the Game Master of a medieval fantasy RPG 
 You MUST ALWAYS respond in valid JSON format with exactly this structure:
 {
   "narration": "Your narrative here...",
+  "location": "location_name (optional — only when players move to a new place)",
   "next": {
     "type": "group_action" | "call_player" | "call_roll" | "narration_only",
     "target": "player_id_here",
@@ -17,6 +18,14 @@ You MUST ALWAYS respond in valid JSON format with exactly this structure:
     "dc": number
   }
 }
+
+## Location Field
+- Use the optional "location" field to tell the game when the characters move to a new place
+- Examples: "tavern", "dark forest", "city square", "ancient dungeon", "castle throne room", "mountain pass"
+- Only include "location" when the characters actually change locations
+- The location influences the narrative and what actions are possible
+- Keep location names descriptive but concise
+- If omitted, the current location stays the same
 
 ## Target Field Rules
 - For "call_player" and "call_roll" the "target" field is **REQUIRED** — you MUST include a valid player ID

@@ -20,6 +20,7 @@ export interface GameStateData {
   currentTurn: string | null;
   turnType: 'group_action' | 'call_player' | 'call_roll' | 'narration_only' | null;
   turnTarget: string | null;
+  currentLocation: string | null;
   scene: string;
   history: Array<{
     role: 'player' | 'assistant' | 'system';
@@ -39,6 +40,7 @@ export class GameState {
       currentTurn: null,
       turnType: null,
       turnTarget: null,
+      currentLocation: null,
       scene: '',
       history: [],
     };
