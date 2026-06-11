@@ -9,7 +9,7 @@ import {
 import { Server, Socket } from 'socket.io';
 import { Inject } from '@nestjs/common';
 import { RoomService } from './room.service';
-import { GameState } from '../game/game.state';
+import { GameState, NarrativeLanguage } from '../game/game.state';
 import { AIProvider } from '../ai/ai.interface';
 
 @WebSocketGateway({
@@ -65,9 +65,9 @@ export class RoomGateway implements OnGatewayDisconnect {
   @SubscribeMessage('lobby:create')
   async handleCreateRoom(
     @ConnectedSocket() client: Socket,
-    @MessageBody() data: { name: string; playerName: string },
+    @MessageBody() data: { name: string; playerName: string; language?: string },
   ) {
-    const room = this.roomService.create(data.name);
+    const room = this.roomService.create(data.name, data.language as NarrativeLanguage);
     const player = this.gameState.addPlayer(room.id, data.playerName);
 
     await this.aiProvider.onRoomReady?.(room.id);

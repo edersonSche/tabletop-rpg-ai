@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { v4 as uuid } from 'uuid';
-import { GameState } from '../game/game.state';
+import { GameState, NarrativeLanguage } from '../game/game.state';
 
 export interface RoomData {
   id: string;
@@ -14,11 +14,11 @@ export class RoomService {
 
   constructor(private gameState: GameState) {}
 
-  create(name: string): RoomData {
+  create(name: string, language: NarrativeLanguage = 'english'): RoomData {
     const id = uuid().slice(0, 8);
     const room: RoomData = { id, name, players: [] };
     this.rooms.set(id, room);
-    this.gameState.createRoom(id, name);
+    this.gameState.createRoom(id, name, language);
     return room;
   }
 

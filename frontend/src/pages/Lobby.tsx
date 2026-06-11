@@ -31,8 +31,8 @@ export function Lobby({ onEnterRoom }: LobbyProps) {
     return () => clearInterval(interval);
   }, []);
 
-  const handleCreate = (name: string, playerName: string) => {
-    createRoom(name, playerName);
+  const handleCreate = (name: string, playerName: string, language: string) => {
+    createRoom(name, playerName, language);
   };
 
   const handleJoin = (roomId: string, playerName: string) => {

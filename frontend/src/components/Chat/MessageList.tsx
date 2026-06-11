@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { Sword, Star, MessageText } from 'pixelarticons/react';
+import { TypewriterText } from './TypewriterText';
 
 interface Message {
   type: 'system' | 'action' | 'narration';
@@ -20,6 +21,13 @@ export function MessageList({ messages, isProcessing }: MessageListProps) {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isProcessing]);
 
+  const latestNarrationIndex = (() => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (messages[i].type === 'narration') return i;
+    }
+    return -1;
+  })();
+
   return (
     <div className="flex-1 overflow-y-auto p-4 space-y-3 scrollbar-pixel">
       {messages.length === 0 && (
@@ -35,7 +43,7 @@ export function MessageList({ messages, isProcessing }: MessageListProps) {
           return (
             <div key={i} className="text-mono text-parchment-800 dark:text-dungeon-100 leading-relaxed">
               <p className="text-gold text-xs mb-1 inline-flex items-center gap-1"><Star width={12} height={12} /> Game Master</p>
-              <p className="italic">{msg.content}</p>
+              <p className="italic">{i === latestNarrationIndex ? <TypewriterText text={msg.content} /> : msg.content}</p>
               <div className="border-t border-parchment-400 dark:border-dungeon-600 my-3"></div>
             </div>
           );

@@ -18,7 +18,7 @@ interface SocketContextValue {
   error: string | null;
   typingPlayers: Map<string, string>;
   isAiProcessing: boolean;
-  createRoom: (name: string, playerName: string) => void;
+  createRoom: (name: string, playerName: string, language?: string) => void;
   joinRoom: (roomId: string, playerName: string) => void;
   joinGameRoom: (roomId: string, playerName: string) => void;
   sendAction: (message: string) => void;
@@ -104,9 +104,9 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     return () => { s.disconnect(); };
   }, []);
 
-  const createRoom = useCallback((name: string, playerName: string) => {
+  const createRoom = useCallback((name: string, playerName: string, language?: string) => {
     if (!socketRef.current) return;
-    socketRef.current.emit('lobby:create', { name, playerName }, (response: any) => {
+    socketRef.current.emit('lobby:create', { name, playerName, language }, (response: any) => {
       if (response.success) {
         setPlayer(prev => ({ ...prev, roomId: response.room.id, playerId: response.playerId }));
       }

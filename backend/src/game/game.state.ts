@@ -1,5 +1,7 @@
 import { v4 as uuid } from 'uuid';
 
+export type NarrativeLanguage = 'english' | 'portuguese' | 'spanish';
+
 export interface Player {
   id: string;
   name: string;
@@ -16,6 +18,7 @@ export interface Player {
 export interface GameStateData {
   campaignId: string;
   campaignName: string;
+  language: NarrativeLanguage;
   players: Player[];
   currentTurn: string | null;
   turnType: 'group_action' | 'call_player' | 'call_roll' | 'narration_only' | null;
@@ -32,10 +35,11 @@ export interface GameStateData {
 export class GameState {
   private rooms: Map<string, GameStateData> = new Map();
 
-  createRoom(roomId: string, name: string): GameStateData {
+  createRoom(roomId: string, name: string, language: NarrativeLanguage = 'english'): GameStateData {
     const state: GameStateData = {
       campaignId: roomId,
       campaignName: name,
+      language,
       players: [],
       currentTurn: null,
       turnType: null,

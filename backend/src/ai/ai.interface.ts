@@ -11,6 +11,7 @@ export interface AIContext {
   roomId: string;
   campaignName: string;
   campaignSetting: string;
+  language: string;
   players: Array<{
     id: string;
     name: string;

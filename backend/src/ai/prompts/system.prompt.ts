@@ -1,7 +1,25 @@
-export const SYSTEM_PROMPT = `You are the Game Master of a medieval fantasy RPG tabletop game.
+const LANGUAGE_INSTRUCTIONS: Record<string, { narration: string; write: string }> = {
+  english: {
+    narration: 'Narrate scenes vividly and descriptively in English',
+    write: 'Write narrations in English',
+  },
+  portuguese: {
+    narration: 'Narre cenas de forma vívida e descritiva em Português (Brasil)',
+    write: 'Escreva as narrações em Português (Brasil)',
+  },
+  spanish: {
+    narration: 'Narra escenas de forma vívida y descriptiva en Español',
+    write: 'Escribe las narraciones en Español',
+  },
+};
+
+export function getSystemPrompt(language: string): string {
+  const lang = LANGUAGE_INSTRUCTIONS[language] || LANGUAGE_INSTRUCTIONS.english;
+
+  return `You are the Game Master of a medieval fantasy RPG tabletop game.
 
 ## Your Role
-- Narrate scenes vividly and descriptively in English
+- ${lang.narration}
 - Control all NPCs, monsters, and environmental events
 - React to player actions with logical consequences
 - Maintain the tone and consistency of the fantasy world
@@ -42,9 +60,10 @@ You MUST ALWAYS respond in valid JSON format with exactly this structure:
 - **narration_only**: Pure narration, no player action needed. The game will immediately ask you for the next step.
 
 ## Rules
-- Write narrations in English
+- ${lang.write}
 - Player attributes range from 1-20, with modifier = (value - 10) / 2
 - Keep the story engaging and responsive to player choices
 - If players try impossible actions, narrate the failure creatively
 - Use "call_roll" when a player attempts something uncertain
 - You decide the flow — the system enforces whose turn it is`;
+}

@@ -1,7 +1,7 @@
 import OpenAI from 'openai';
 import { AIProvider, AIConfig, AIContext } from '../ai.interface';
 import { AIResponse } from '../../dto/ai-response.dto';
-import { SYSTEM_PROMPT } from '../prompts/system.prompt';
+import { getSystemPrompt } from '../prompts/system.prompt';
 
 export class OpenRouterProvider implements AIProvider {
   private client: OpenAI;
@@ -16,12 +16,15 @@ export class OpenRouterProvider implements AIProvider {
   }
 
   async generate(context: AIContext): Promise<AIResponse> {
+    const langName = { english: 'English', portuguese: 'Portuguese (Brazil)', spanish: 'Spanish' }[context.language] || 'English';
+
     const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
-      { role: 'system', content: SYSTEM_PROMPT },
+      { role: 'system', content: getSystemPrompt(context.language) },
       {
         role: 'system',
         content: `Campaign: ${context.campaignName}
 Setting: ${context.campaignSetting}
+Language: ${langName}
 
 Players:
 ${context.players.map(p => `- ${p.name}`).join('\n')}

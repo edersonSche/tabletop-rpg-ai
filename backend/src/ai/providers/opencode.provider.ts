@@ -116,11 +116,14 @@ export class OpencodeProvider implements AIProvider {
   }
 
   private buildPrompt(context: AIContext): string {
+    const langName = { english: 'English', portuguese: 'Portuguese (Brazil)', spanish: 'Spanish' }[context.language] || 'English';
+
     const lines: string[] = [
-      'You are the Game Master for a tabletop RPG. Respond with a JSON object only, no markdown, no explanation.',
+      `You are the Game Master for a tabletop RPG. Write all narrations in ${langName}. Respond with a JSON object only, no markdown, no explanation.`,
       '',
       `Campaign: ${context.campaignName}`,
       `Setting: ${context.campaignSetting}`,
+      `Language: ${langName}`,
       '',
       'Players:',
       ...context.players.map(p => `- ${p.name}`),

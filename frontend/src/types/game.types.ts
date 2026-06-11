@@ -1,3 +1,5 @@
+export type NarrativeLanguage = 'english' | 'portuguese' | 'spanish';
+
 export interface Player {
   id: string;
   name: string;
@@ -41,6 +43,7 @@ export interface GameNarration {
 export interface GameState {
   campaignId: string;
   campaignName: string;
+  language: NarrativeLanguage;
   players: Player[];
   currentTurn: string | null;
   turnType: TurnType | null;
