@@ -31,6 +31,9 @@ export function GameRoom() {
       ? 'AI is processing...'
       : undefined;
 
+  const isInputDisabled = !!disabledReason || isRollRequest;
+  const isRollDisabled = !!disabledReason;
+
   const handleSend = (message: string) => {
     sendAction(message);
   };
@@ -116,13 +119,13 @@ export function GameRoom() {
           </div>
 
           {/* Input Area */}
-          <div className="flex items-end gap-2 px-3 pb-3 pt-1">
+          <div className="flex items-center gap-2 px-3 pb-3 pt-1">
             <div className="flex-1">
               <MessageInput
                 onSend={handleSend}
                 onTyping={emitTyping}
                 onTypingStop={emitTypingStop}
-                disabled={!!disabledReason}
+                disabled={isInputDisabled}
                 disabledReason={disabledReason}
                 playerName={gameState?.players.find(p => p.id === player.playerId)?.name || 'Aventureiro'}
                 turnType={turnUpdate?.type || null}
@@ -130,8 +133,8 @@ export function GameRoom() {
             </div>
             <DiceRollButton
               onRoll={handleRoll}
-              disabled={!!disabledReason}
-              show={isRollRequest || turnUpdate?.type === 'group_action'}
+              disabled={isRollDisabled}
+              show={isRollRequest}
             />
           </div>
         </div>

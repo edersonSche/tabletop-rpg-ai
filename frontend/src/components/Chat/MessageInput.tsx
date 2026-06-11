@@ -49,10 +49,10 @@ export function MessageInput({ onSend, onTyping, onTypingStop, disabled, disable
     };
   }, []);
 
-  const placeholder = disabled
-    ? disabledReason || 'Waiting...'
-    : turnType === 'call_roll'
-      ? 'Click the dice to roll...'
+  const placeholder = turnType === 'call_roll'
+    ? 'Click the dice to roll...'
+    : disabled
+      ? disabledReason || 'Waiting...'
       : 'Type your action...';
 
   return (
