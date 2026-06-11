@@ -1,0 +1,50 @@
+import { Injectable } from '@nestjs/common';
+import { v4 as uuid } from 'uuid';
+import { GameState } from '../game/game.state';
+
+export interface RoomData {
+  id: string;
+  name: string;
+  players: Array<{ id: string; name: string }>;
+}
+
+@Injectable()
+export class RoomService {
+  private rooms: Map<string, RoomData> = new Map();
+
+  constructor(private gameState: GameState) {}
+
+  create(name: string): RoomData {
+    const id = uuid().slice(0, 8);
+    const room: RoomData = { id, name, players: [] };
+    this.rooms.set(id, room);
+    this.gameState.createRoom(id, name);
+    return room;
+  }
+
+  join(roomId: string, playerId: string, playerName: string): RoomData | null {
+    const room = this.rooms.get(roomId);
+    if (!room) return null;
+    if (!room.players.find(p => p.id === playerId)) {
+      room.players.push({ id: playerId, name: playerName });
+    }
+    return room;
+  }
+
+  leave(roomId: string, playerId: string): void {
+    const room = this.rooms.get(roomId);
+    if (!room) return;
+    room.players = room.players.filter(p => p.id !== playerId);
+  }
+
+  list(): RoomData[] {
+    return Array.from(this.rooms.values()).map(r => ({
+      ...r,
+      players: r.players,
+    }));
+  }
+
+  get(roomId: string): RoomData | undefined {
+    return this.rooms.get(roomId);
+  }
+}

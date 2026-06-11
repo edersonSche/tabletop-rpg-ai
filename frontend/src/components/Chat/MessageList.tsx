@@ -1,0 +1,79 @@
+import { useEffect, useRef } from 'react';
+import { Sword, Star, MessageText } from 'pixelarticons/react';
+
+interface Message {
+  type: 'system' | 'action' | 'narration';
+  content: string;
+  playerName?: string;
+  timestamp: number;
+}
+
+interface MessageListProps {
+  messages: Message[];
+  isProcessing?: boolean;
+}
+
+export function MessageList({ messages, isProcessing }: MessageListProps) {
+  const bottomRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages, isProcessing]);
+
+  return (
+    <div className="flex-1 overflow-y-auto p-4 space-y-3 scrollbar-pixel">
+      {messages.length === 0 && (
+        <div className="flex flex-col items-center justify-center h-full text-parchment-500 dark:text-dungeon-400 text-mono text-lg">
+          <Sword width={40} height={40} className="mb-4" />
+          <p>The adventure hasn't started yet...</p>
+          <p className="text-sm">Start the campaign to begin playing</p>
+        </div>
+      )}
+
+      {messages.map((msg, i) => {
+        if (msg.type === 'narration') {
+          return (
+            <div key={i} className="text-mono text-parchment-800 dark:text-dungeon-100 leading-relaxed">
+              <p className="text-gold text-xs mb-1 inline-flex items-center gap-1"><Star width={12} height={12} /> Game Master</p>
+              <p className="italic">{msg.content}</p>
+              <div className="border-t border-parchment-400 dark:border-dungeon-600 my-3"></div>
+            </div>
+          );
+        }
+
+        if (msg.type === 'action') {
+          return (
+            <div key={i} className="flex items-start gap-2">
+              <span className="text-magic text-sm mt-0.5"><MessageText width={16} height={16} /></span>
+              <div>
+                <span className="text-mono text-sm text-gold font-bold">{msg.playerName}</span>
+                <p className="text-mono text-parchment-800 dark:text-dungeon-100">{msg.content}</p>
+              </div>
+            </div>
+          );
+        }
+
+        if (msg.type === 'system') {
+          return (
+            <div key={i} className="text-center">
+              <span className="text-mono text-xs text-parchment-500 dark:text-dungeon-400 italic">{msg.content}</span>
+            </div>
+          );
+        }
+
+        return null;
+      })}
+
+      {isProcessing && (
+        <div className="flex items-center gap-2 text-mono text-parchment-500 dark:text-dungeon-400">
+          <span className="text-gold text-xs inline-flex items-center gap-1"><Star width={12} height={12} /> Game Master is thinking</span>
+          <span className="typing-dot" />
+          <span className="typing-dot" style={{ animationDelay: '0.3s' }} />
+          <span className="typing-dot" style={{ animationDelay: '0.6s' }} />
+        </div>
+      )}
+
+      <div ref={bottomRef} />
+    </div>
+  );
+}

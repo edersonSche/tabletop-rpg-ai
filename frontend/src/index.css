@@ -1,0 +1,68 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply font-mono antialiased bg-parchment-200 text-parchment-800;
+  }
+
+  .dark body {
+    @apply bg-dungeon-800 text-dungeon-50;
+  }
+}
+
+@layer components {
+  .pixel-border {
+    box-shadow:
+      inset -2px -2px 0 0 rgba(0, 0, 0, 0.3),
+      inset 2px 2px 0 0 rgba(255, 255, 255, 0.1);
+  }
+
+  .pixel-border-light {
+    box-shadow:
+      inset -2px -2px 0 0 rgba(0, 0, 0, 0.1),
+      inset 2px 2px 0 0 rgba(255, 255, 255, 0.3);
+  }
+
+  .typing-dot {
+    @apply inline-block w-2 h-2 rounded-full bg-gold animate-pulse;
+  }
+
+  .scrollbar-pixel {
+    scrollbar-width: thin;
+    scrollbar-color: #d4a017 transparent;
+  }
+
+  .scrollbar-pixel::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .scrollbar-pixel::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .scrollbar-pixel::-webkit-scrollbar-thumb {
+    background-color: #d4a017;
+    border-radius: 0;
+  }
+}
+
+@layer utilities {
+  .text-pixel {
+    font-family: 'Press Start 2P', monospace;
+    letter-spacing: 0.05em;
+  }
+
+  .text-mono {
+    font-family: 'VT323', 'Space Mono', 'Courier New', monospace;
+    letter-spacing: 0.02em;
+  }
+}
+
+/* Background texture */
+.bg-noise {
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+  background-size: 256px 256px;
+}
