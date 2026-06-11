@@ -53,7 +53,6 @@ export class RoomGateway implements OnGatewayDisconnect {
           turnType: room.turnType,
           turnTarget: room.turnTarget,
           scene: room.scene,
-          playerStates: room.playerStates,
         });
         this.server.to(roomId).emit('game:message', {
           type: 'system',
@@ -139,7 +138,6 @@ export class RoomGateway implements OnGatewayDisconnect {
         turnType: state.turnType,
         turnTarget: state.turnTarget,
         scene: state.scene,
-        playerStates: state.playerStates,
       });
     }
 

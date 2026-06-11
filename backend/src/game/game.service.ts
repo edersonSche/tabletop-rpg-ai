@@ -153,12 +153,19 @@ export class GameService {
   }
 
   private validateAiResponseTarget(response: AIResponse, players: Player[]): void {
-    if (response.next?.target && (response.next.type === 'call_player' || response.next.type === 'call_roll')) {
-      const playerExists = players.some(p => p.id === response.next.target);
-      if (!playerExists) {
-        console.warn(`AI returned invalid target "${response.next.target}" — no player with that ID in room. Coercing to group_action.`);
+    if (response.next?.type === 'call_player' || response.next?.type === 'call_roll') {
+      if (!response.next.target) {
+        console.warn(`AI returned ${response.next.type} with no target. Coercing to group_action.`);
         response.next.type = 'group_action';
         response.next.target = undefined;
+      } else {
+        const playerExists = players.some(p => p.id === response.next.target);
+        if (!playerExists) {
+          const availableIds = players.map(p => `${p.name}:${p.id}`).join(', ');
+          console.warn(`AI returned invalid target "${response.next.target}" — no player with that ID in room. Available: [${availableIds}]. Coercing to group_action.`);
+          response.next.type = 'group_action';
+          response.next.target = undefined;
+        }
       }
     }
   }
@@ -175,7 +182,6 @@ export class GameService {
       turnType: room.turnType,
       turnTarget: room.turnTarget,
       scene: room.scene,
-      playerStates: room.playerStates,
     };
   }
 }

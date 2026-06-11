@@ -14,11 +14,6 @@ export interface AIContext {
   players: Array<{
     id: string;
     name: string;
-    hp: number;
-    maxHp: number;
-    attack: number;
-    defense: number;
-    magic: number;
   }>;
   scene: string;
   history: Array<{

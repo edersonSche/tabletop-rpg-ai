@@ -1,11 +1,6 @@
 export interface Player {
   id: string;
   name: string;
-  hp: number;
-  maxHp: number;
-  attack: number;
-  defense: number;
-  magic: number;
   attributes: {
     strength: number;
     dexterity: number;
@@ -54,13 +49,6 @@ export interface GameState {
     role: 'player' | 'assistant' | 'system';
     playerId?: string;
     content: string;
-  }>;
-  playerStates: Record<string, {
-    hp: number;
-    maxHp: number;
-    attack: number;
-    defense: number;
-    magic: number;
   }>;
 }
 

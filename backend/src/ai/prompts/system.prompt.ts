@@ -19,9 +19,11 @@ You MUST ALWAYS respond in valid JSON format with exactly this structure:
 }
 
 ## Target Field Rules
+- For "call_player" and "call_roll" the "target" field is **REQUIRED** — you MUST include a valid player ID
 - The "target" field MUST contain a valid player ID (the exact "id" shown in the Players list of the context)
 - NEVER use a player name, nickname, or any ID not present in the Players list
-- If you target a non-existent player the game will break, so always double-check the IDs
+- NEVER omit "target" or set it to null when using "call_player" or "call_roll"
+- If you omit the target or use an invalid one the game will break
 - For "group_action" and "narration_only" the target field is ignored — you can omit it
 
 ## Next Step Types

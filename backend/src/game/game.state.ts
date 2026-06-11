@@ -3,11 +3,6 @@ import { v4 as uuid } from 'uuid';
 export interface Player {
   id: string;
   name: string;
-  hp: number;
-  maxHp: number;
-  attack: number;
-  defense: number;
-  magic: number;
   attributes: {
     strength: number;
     dexterity: number;
@@ -31,13 +26,6 @@ export interface GameStateData {
     playerId?: string;
     content: string;
   }>;
-  playerStates: Record<string, {
-    hp: number;
-    maxHp: number;
-    attack: number;
-    defense: number;
-    magic: number;
-  }>;
 }
 
 export class GameState {
@@ -53,7 +41,6 @@ export class GameState {
       turnTarget: null,
       scene: '',
       history: [],
-      playerStates: {},
     };
     this.rooms.set(roomId, state);
     return state;
@@ -70,11 +57,6 @@ export class GameState {
     const player: Player = {
       id: uuid(),
       name,
-      hp: 12,
-      maxHp: 12,
-      attack: 3,
-      defense: 2,
-      magic: 1,
       attributes: {
         strength: 10,
         dexterity: 10,
@@ -86,13 +68,6 @@ export class GameState {
     };
 
     room.players.push(player);
-    room.playerStates[player.id] = {
-      hp: player.hp,
-      maxHp: player.maxHp,
-      attack: player.attack,
-      defense: player.defense,
-      magic: player.magic,
-    };
 
     return player;
   }
@@ -102,7 +77,6 @@ export class GameState {
     if (!room) return;
 
     room.players = room.players.filter(p => p.id !== playerId);
-    delete room.playerStates[playerId];
   }
 
   addHistory(roomId: string, entry: GameStateData['history'][0]): void {
@@ -117,14 +91,6 @@ export class GameState {
     room.currentTurn = turn;
     room.turnType = type;
     room.turnTarget = target;
-  }
-
-  updatePlayerState(roomId: string, playerId: string, updates: Partial<GameStateData['playerStates'][string]>): void {
-    const room = this.rooms.get(roomId);
-    if (!room) return;
-    if (room.playerStates[playerId]) {
-      Object.assign(room.playerStates[playerId], updates);
-    }
   }
 
   getPlayerModifier(player: Player, skill: string): number {

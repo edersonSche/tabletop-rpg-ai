@@ -24,7 +24,7 @@ export class OpenRouterProvider implements AIProvider {
 Setting: ${context.campaignSetting}
 
 Players:
-${context.players.map(p => `- ${p.name}: HP ${p.hp}/${p.maxHp}`).join('\n')}
+${context.players.map(p => `- ${p.name}`).join('\n')}
 
 Current scene: ${context.scene}`,
       },

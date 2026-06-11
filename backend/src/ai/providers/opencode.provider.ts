@@ -123,7 +123,7 @@ export class OpencodeProvider implements AIProvider {
       `Setting: ${context.campaignSetting}`,
       '',
       'Players:',
-      ...context.players.map(p => `- ${p.name}: HP ${p.hp}/${p.maxHp}`),
+      ...context.players.map(p => `- ${p.name}`),
       '',
       `Current scene: ${context.scene}`,
       '',
