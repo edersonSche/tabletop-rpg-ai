@@ -2,7 +2,7 @@
 
 ## Project overview
 
-Two-package monorepo: `backend/` (NestJS 11, Socket.IO), `frontend/` (React 19, Vite 6, Tailwind 3.4). No tests, no lint, no formatter, no CI, no git. All state is in-memory — restarting the backend wipes everything.
+Two-package monorepo: `backend/` (NestJS 11, Socket.IO), `frontend/` (React 19, Vite 6, Tailwind 3.4). No tests, no lint, no formatter, no CI. All state is in-memory — restarting the backend wipes everything.
 
 ## Entrypoints
 
@@ -37,8 +37,8 @@ Browser -> Vite (port 5173, dev proxy /socket.io) -> NestJS (port 3000)
 
 **Backend modules** (all in `backend/src/`):
 - `game/game.gateway.ts` — WebSocket events: `game:action`, `game:roll`, `game:start`, `game:typing`, `game:get_state`, `room:join`
-- `game/game.state.ts` — In-memory room state (Maps), creates default player stats (HP 12, ATK 3, DEF 2, MAG 1, all attributes at 10)
-- `game/game.service.ts` — Orchestrates AI turns, manages narration
+- `game/game.state.ts` — In-memory room state (Maps), creates players with 6 attributes at 10
+- `game/game.service.ts` — Orchestrates AI turns; validates AI responses via `validateAiResponseTarget()` (coerces `call_player`/`call_roll` with missing/invalid target to `group_action`)
 - `game/turn.manager.ts` — Lock-per-room turn gate; 4 turn types: `group_action`, `call_player`, `call_roll`, `narration_only`
 - `room/room.gateway.ts` — `lobby:create`, `lobby:list`, `lobby:join`
 - `room/room.service.ts` — In-memory room registry (8-char UUID IDs)
@@ -54,7 +54,7 @@ Browser -> Vite (port 5173, dev proxy /socket.io) -> NestJS (port 3000)
 
 Config via env vars (defaults in `app.module.ts`):
 - `AI_API_KEY` — (required for real AI, fallback if empty)
-- `AI_PROVIDER` — `openrouter` (default)
+- `AI_PROVIDER` — `openrouter` (default) or `opencode`
 - `AI_MODEL` — `deepseek/deepseek-chat` (default)
 - `AI_BASE_URL` — `https://openrouter.ai/api/v1` (default)
 
@@ -69,3 +69,6 @@ Without `AI_API_KEY`, the backend returns a fallback narration and never calls a
 - **Dark mode** uses Tailwind `class` strategy — toggle the `dark` class on `<html>`.
 - **Custom Tailwind colors**: `parchment`, `dungeon`, `gold`, `blood`, `magic`.
 - **Custom font classes**: `text-pixel` (Press Start 2P), `text-mono` (VT323 / Space Mono).
+- **Player model has no HP/stats** — only `id`, `name`, and `attributes` (strength, dexterity, constitution, intelligence, wisdom, charisma — all defaulting to 10). No `playerStates` record.
+- **AI target validation** is in `GameService.validateAiResponseTarget()`, not in `AiService`. If the AI returns `call_player`/`call_roll` with a missing or non-existent player ID, it's coerced to `group_action` with a warning.
+- **`handleAction` always calls `processTurn()`** — including `narration_only` (which nulls out `currentTurn`). No redundant lock/unlock.
