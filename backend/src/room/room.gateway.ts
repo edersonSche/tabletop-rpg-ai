@@ -37,6 +37,7 @@ export class RoomGateway implements OnGatewayDisconnect {
       const { roomId, playerId, username } = entry[1];
 
       this.gameState.removePlayer(roomId, playerId);
+      this.roomService.leave(roomId, playerId);
       this.playerSockets.delete(key);
 
       const room = this.gameState.getRoom(roomId);
@@ -48,6 +49,7 @@ export class RoomGateway implements OnGatewayDisconnect {
         this.server.to(roomId).emit('game:state', {
           campaignId: room.campaignId,
           campaignName: room.campaignName,
+          creatorId: room.creatorId,
           players: room.players,
           currentTurn: room.currentTurn,
           turnType: room.turnType,
@@ -59,6 +61,8 @@ export class RoomGateway implements OnGatewayDisconnect {
           content: `${username} left the campaign.`,
         });
       }
+
+      this.server.emit('lobby:update', this.roomService.list());
     }
   }
 
@@ -69,6 +73,10 @@ export class RoomGateway implements OnGatewayDisconnect {
   ) {
     const room = this.roomService.create(data.name, data.language as NarrativeLanguage);
     const player = this.gameState.addPlayer(room.id, data.playerName);
+    room.creatorId = player.id;
+    const gameRoom = this.gameState.getRoom(room.id);
+    if (gameRoom) gameRoom.creatorId = player.id;
+    this.roomService.join(room.id, player.id, data.playerName);
 
     await this.aiProvider.onRoomReady?.(room.id);
 
@@ -83,6 +91,22 @@ export class RoomGateway implements OnGatewayDisconnect {
     });
 
     client.emit('player:registered', { playerId: player.id });
+
+    const state = this.gameState.getRoom(room.id);
+    if (state) {
+      client.emit('game:state', {
+        campaignId: state.campaignId,
+        campaignName: state.campaignName,
+        creatorId: state.creatorId,
+        players: state.players,
+        currentTurn: state.currentTurn,
+        turnType: state.turnType,
+        turnTarget: state.turnTarget,
+        scene: state.scene,
+      });
+    }
+
+    this.server.emit('lobby:update', this.roomService.list());
 
     return {
       success: true,
@@ -133,6 +157,7 @@ export class RoomGateway implements OnGatewayDisconnect {
       this.server.to(data.roomId).emit('game:state', {
         campaignId: state.campaignId,
         campaignName: state.campaignName,
+        creatorId: state.creatorId,
         players: state.players,
         currentTurn: state.currentTurn,
         turnType: state.turnType,
@@ -141,7 +166,9 @@ export class RoomGateway implements OnGatewayDisconnect {
       });
     }
 
-    client.emit('player:registered', { playerId: player.id });
+      client.emit('player:registered', { playerId: player.id });
+
+    this.server.emit('lobby:update', this.roomService.list());
 
     return {
       success: true,
@@ -152,5 +179,55 @@ export class RoomGateway implements OnGatewayDisconnect {
       },
       playerId: player.id,
     };
+  }
+
+  @SubscribeMessage('room:leave')
+  async handleLeaveRoom(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { roomId: string; playerId: string },
+  ) {
+    const roomData = this.roomService.get(data.roomId);
+    if (!roomData) return { success: false, error: 'Room not found' };
+
+    const isCreator = data.playerId === roomData.creatorId;
+
+    if (isCreator) {
+      this.server.to(data.roomId).emit('game:disband', { reason: 'Campaign ended.' });
+
+      this.gameState.removeRoom(data.roomId);
+      this.roomService.remove(data.roomId);
+
+      for (const [key, val] of this.playerSockets) {
+        if (val.roomId === data.roomId) {
+          this.playerSockets.delete(key);
+        }
+      }
+
+      this.server.socketsLeave(data.roomId);
+    } else {
+      this.gameState.removePlayer(data.roomId, data.playerId);
+      this.roomService.leave(data.roomId, data.playerId);
+
+      const key = `${data.roomId}:${data.playerId}`;
+      this.playerSockets.delete(key);
+      client.leave(data.roomId);
+
+      const state = this.gameState.getRoom(data.roomId);
+      if (state) {
+        this.server.to(data.roomId).emit('game:state', {
+          campaignId: state.campaignId,
+          campaignName: state.campaignName,
+          creatorId: state.creatorId,
+          players: state.players,
+          currentTurn: state.currentTurn,
+          turnType: state.turnType,
+          turnTarget: state.turnTarget,
+          scene: state.scene,
+        });
+      }
+    }
+
+    this.server.emit('lobby:update', this.roomService.list());
+    return { success: true };
   }
 }

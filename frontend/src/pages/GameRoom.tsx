@@ -67,15 +67,6 @@ export function GameRoom() {
               />
             </>
           )}
-
-          {!gameState?.campaignName && (
-            <button
-              onClick={startCampaign}
-              className="bg-gold text-dungeon-900 py-2 px-3 text-mono text-sm pixel-border hover:brightness-110 transition-all mt-auto"
-            >
-              START CAMPAIGN
-            </button>
-          )}
         </aside>
 
         {/* Main Chat Area */}
@@ -105,25 +96,14 @@ export function GameRoom() {
                 </div>
               </>
             )}
-            {!gameState?.campaignName && (
-              <button
-                onClick={startCampaign}
-                className="bg-gold text-dungeon-900 px-2 py-1 text-mono text-xs pixel-border"
-              >
-                START
-              </button>
-            )}
           </div>
 
-          {/* Messages */}
           <MessageList messages={messages} isProcessing={isAiProcessing} />
 
-          {/* Typing Indicator */}
           <div className="px-4">
             <TypingIndicator typingPlayers={typingPlayers} playerId={player.playerId} />
           </div>
 
-          {/* Input Area */}
           <div className="flex items-center gap-2 px-3 pb-3 pt-1">
             <div className="flex-1">
               <MessageInput

@@ -27,15 +27,19 @@ interface SocketContextValue {
   emitTyping: (username: string) => void;
   emitTypingStop: () => void;
   listRooms: () => Promise<any[]>;
+  leaveRoom: () => void;
 }
 
 const SocketContext = createContext<SocketContextValue | null>(null);
 
 export function SocketProvider({ children }: { children: ReactNode }) {
   const socketRef = useRef<Socket | null>(null);
+  const disconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [socket, setSocket] = useState<Socket | null>(null);
   const [connected, setConnected] = useState(false);
   const [player, setPlayer] = useState<PlayerInfo>({ playerId: '', roomId: null });
+  const playerRef = useRef(player);
+  playerRef.current = player;
   const [gameState, setGameState] = useState<GameState | null>(null);
   const [narrations, setNarrations] = useState<Array<{ narration: string; timestamp: number }>>([]);
   const [turnUpdate, setTurnUpdate] = useState<{ currentTurn: string | null; type: string | null; target: string | null } | null>(null);
@@ -52,8 +56,38 @@ export function SocketProvider({ children }: { children: ReactNode }) {
       reconnectionDelay: 1000,
     });
 
-    s.on('connect', () => setConnected(true));
-    s.on('disconnect', () => setConnected(false));
+    s.on('connect', () => {
+      if (disconnectTimerRef.current) {
+        clearTimeout(disconnectTimerRef.current);
+        disconnectTimerRef.current = null;
+      }
+      setConnected(true);
+      const currentRoomId = playerRef.current.roomId;
+      if (currentRoomId) {
+        s.emit('game:get_state', { roomId: currentRoomId }, (response: any) => {
+          if (response?.error === 'Room not found') {
+            setPlayer({ playerId: '', roomId: null });
+            setGameState(null);
+            setNarrations([]);
+            setTurnUpdate(null);
+            setMessages([{ type: 'system', content: 'Campanha não está mais disponível. Voltando ao lobby.', timestamp: Date.now() }]);
+          }
+        });
+      }
+    });
+    s.on('disconnect', () => {
+      setConnected(false);
+      if (playerRef.current.roomId) {
+        disconnectTimerRef.current = setTimeout(() => {
+          setPlayer({ playerId: '', roomId: null });
+          setGameState(null);
+          setNarrations([]);
+          setTurnUpdate(null);
+          setMessages([{ type: 'system', content: 'Conexão perdida. Voltando ao lobby.', timestamp: Date.now() }]);
+          disconnectTimerRef.current = null;
+        }, 10000);
+      }
+    });
 
     s.on('player:registered', (data: { playerId: string }) => {
       setPlayer(prev => ({ ...prev, playerId: data.playerId }));
@@ -98,10 +132,22 @@ export function SocketProvider({ children }: { children: ReactNode }) {
       setIsAiProcessing(data.processing);
     });
 
+    s.on('game:disband', (data: { reason: string }) => {
+      setPlayer({ playerId: '', roomId: null });
+      setGameState(null);
+      setNarrations([]);
+      setMessages([]);
+      setTurnUpdate(null);
+      setError(data.reason);
+    });
+
     socketRef.current = s;
     setSocket(s);
 
-    return () => { s.disconnect(); };
+    return () => {
+      if (disconnectTimerRef.current) clearTimeout(disconnectTimerRef.current);
+      s.disconnect();
+    };
   }, []);
 
   const createRoom = useCallback((name: string, playerName: string, language?: string) => {
@@ -161,6 +207,19 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     socketRef.current.emit('game:typing_stop', { roomId: player.roomId, playerId: player.playerId });
   }, [player]);
 
+  const leaveRoom = useCallback(() => {
+    if (!socketRef.current || !player.roomId || !player.playerId) return;
+    socketRef.current.emit('room:leave', { roomId: player.roomId, playerId: player.playerId }, (response: any) => {
+      if (response.success) {
+        setPlayer({ playerId: '', roomId: null });
+        setGameState(null);
+        setNarrations([]);
+        setMessages([]);
+        setTurnUpdate(null);
+      }
+    });
+  }, [player]);
+
   const listRooms = useCallback((): Promise<any[]> => {
     return new Promise((resolve) => {
       if (!socketRef.current) return resolve([]);
@@ -174,7 +233,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
         socket, connected, player, gameState, narrations, messages,
         turnUpdate, error, typingPlayers, isAiProcessing,
         createRoom, joinRoom, joinGameRoom, sendAction, sendRoll,
-        startCampaign, emitTyping, emitTypingStop, listRooms,
+        startCampaign, emitTyping, emitTypingStop, listRooms, leaveRoom,
       }}
     >
       {children}

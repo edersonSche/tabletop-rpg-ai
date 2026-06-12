@@ -18,6 +18,7 @@ export interface Player {
 export interface GameStateData {
   campaignId: string;
   campaignName: string;
+  creatorId: string;
   language: NarrativeLanguage;
   players: Player[];
   currentTurn: string | null;
@@ -39,6 +40,7 @@ export class GameState {
     const state: GameStateData = {
       campaignId: roomId,
       campaignName: name,
+      creatorId: '',
       language,
       players: [],
       currentTurn: null,
@@ -83,6 +85,10 @@ export class GameState {
     if (!room) return;
 
     room.players = room.players.filter(p => p.id !== playerId);
+  }
+
+  removeRoom(roomId: string): void {
+    this.rooms.delete(roomId);
   }
 
   addHistory(roomId: string, entry: GameStateData['history'][0]): void {

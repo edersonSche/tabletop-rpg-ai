@@ -43,6 +43,7 @@ export interface GameNarration {
 export interface GameState {
   campaignId: string;
   campaignName: string;
+  creatorId: string;
   language: NarrativeLanguage;
   players: Player[];
   currentTurn: string | null;

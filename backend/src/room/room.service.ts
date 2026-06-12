@@ -6,6 +6,7 @@ export interface RoomData {
   id: string;
   name: string;
   players: Array<{ id: string; name: string }>;
+  creatorId: string;
 }
 
 @Injectable()
@@ -16,7 +17,7 @@ export class RoomService {
 
   create(name: string, language: NarrativeLanguage = 'english'): RoomData {
     const id = uuid().slice(0, 8);
-    const room: RoomData = { id, name, players: [] };
+    const room: RoomData = { id, name, players: [], creatorId: '' };
     this.rooms.set(id, room);
     this.gameState.createRoom(id, name, language);
     return room;
@@ -46,5 +47,9 @@ export class RoomService {
 
   get(roomId: string): RoomData | undefined {
     return this.rooms.get(roomId);
+  }
+
+  remove(roomId: string): void {
+    this.rooms.delete(roomId);
   }
 }

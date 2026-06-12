@@ -5,20 +5,10 @@ import { RoomList } from '../components/Lobby/RoomList';
 import { ThemeToggle } from '../components/Layout/ThemeToggle';
 import { useSocket } from '../hooks/useSocket';
 
-interface LobbyProps {
-  onEnterRoom: () => void;
-}
-
-export function Lobby({ onEnterRoom }: LobbyProps) {
-  const { createRoom, joinRoom, listRooms, player } = useSocket();
+export function Lobby() {
+  const { socket, createRoom, joinRoom, listRooms, player, error } = useSocket();
   const [rooms, setRooms] = useState<any[]>([]);
   const [mode, setMode] = useState<'create' | 'join'>('join');
-
-  useEffect(() => {
-    if (player.roomId) {
-      onEnterRoom();
-    }
-  }, [player.roomId, onEnterRoom]);
 
   const refreshRooms = async () => {
     const result = await listRooms();
@@ -30,6 +20,13 @@ export function Lobby({ onEnterRoom }: LobbyProps) {
     const interval = setInterval(refreshRooms, 5000);
     return () => clearInterval(interval);
   }, []);
+
+  useEffect(() => {
+    if (!socket) return;
+    const handler = (updatedRooms: any[]) => setRooms(updatedRooms);
+    socket.on('lobby:update', handler);
+    return () => { socket.off('lobby:update', handler); };
+  }, [socket]);
 
   const handleCreate = (name: string, playerName: string, language: string) => {
     createRoom(name, playerName, language);
@@ -53,6 +50,12 @@ export function Lobby({ onEnterRoom }: LobbyProps) {
           </h1>
           <p className="text-mono text-parchment-500 dark:text-dungeon-300 text-lg">AI Game Master · Endless adventures</p>
         </div>
+
+        {error && (
+          <div className="text-mono text-sm text-blood bg-blood/10 border border-blood/30 p-3 pixel-border text-center mb-4">
+            {error}
+          </div>
+        )}
 
         <div className="flex gap-4 justify-center mb-6">
           <button
