@@ -24,25 +24,25 @@ export function CreateRoom({ onCreate }: CreateRoomProps) {
   };
 
   return (
-    <div className="pixel-border bg-parchment-100 dark:bg-dungeon-500 p-6 rounded-none">
+    <div className="pixel-border bg-dungeon-500 p-6 rounded-none">
         <h2 className="text-pixel text-gold text-lg mb-4 text-center">NEW CAMPAIGN</h2>
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label className="text-mono text-sm text-parchment-700 dark:text-dungeon-200 block mb-1">Campaign Name</label>
+          <label className="text-mono text-sm text-dungeon-200 block mb-1">Campaign Name</label>
           <input
             type="text"
             value={roomName}
             onChange={e => setRoomName(e.target.value)}
-            className="w-full bg-parchment-50 dark:bg-dungeon-700 text-parchment-900 dark:text-dungeon-100 p-3 text-mono text-lg pixel-border outline-none focus:border-gold transition-colors"
+            className="w-full bg-dungeon-700 text-dungeon-100 p-3 text-mono text-lg pixel-border outline-none focus:border-gold transition-colors"
             placeholder="e.g. The Dark Forest"
           />
         </div>
         <div>
-          <label className="text-mono text-sm text-parchment-700 dark:text-dungeon-200 block mb-1">Narration Language</label>
+          <label className="text-mono text-sm text-dungeon-200 block mb-1">Narration Language</label>
           <select
             value={language}
             onChange={e => setLanguage(e.target.value as NarrativeLanguage)}
-            className="w-full bg-parchment-50 dark:bg-dungeon-700 text-parchment-900 dark:text-dungeon-100 p-3 text-mono text-lg pixel-border outline-none focus:border-gold transition-colors cursor-pointer"
+            className="w-full bg-dungeon-700 text-dungeon-100 p-3 text-mono text-lg pixel-border outline-none focus:border-gold transition-colors cursor-pointer"
           >
             {LANGUAGES.map(l => (
               <option key={l.value} value={l.value}>{l.label}</option>
@@ -50,12 +50,12 @@ export function CreateRoom({ onCreate }: CreateRoomProps) {
           </select>
         </div>
         <div>
-          <label className="text-mono text-sm text-parchment-700 dark:text-dungeon-200 block mb-1">Your Name</label>
+          <label className="text-mono text-sm text-dungeon-200 block mb-1">Your Name</label>
           <input
             type="text"
             value={playerName}
             onChange={e => setPlayerName(e.target.value)}
-            className="w-full bg-parchment-50 dark:bg-dungeon-700 text-parchment-900 dark:text-dungeon-100 p-3 text-mono text-lg pixel-border outline-none focus:border-gold transition-colors"
+            className="w-full bg-dungeon-700 text-dungeon-100 p-3 text-mono text-lg pixel-border outline-none focus:border-gold transition-colors"
             placeholder="e.g. Aragorn"
           />
         </div>

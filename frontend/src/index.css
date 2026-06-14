@@ -4,11 +4,7 @@
 
 @layer base {
   body {
-    @apply font-mono antialiased bg-parchment-200 text-parchment-800;
-  }
-
-  .dark body {
-    @apply bg-dungeon-800 text-dungeon-50;
+    @apply font-mono antialiased bg-dungeon-800 text-dungeon-50;
   }
 }
 

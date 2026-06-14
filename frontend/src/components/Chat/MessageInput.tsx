@@ -12,6 +12,7 @@ interface MessageInputProps {
 
 export function MessageInput({ onSend, onTyping, onTypingStop, disabled, disabledReason, playerName, turnType }: MessageInputProps) {
   const [text, setText] = useState('');
+  const inputRef = useRef<HTMLInputElement>(null);
   const typingRef = useRef(false);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -39,6 +40,7 @@ export function MessageInput({ onSend, onTyping, onTypingStop, disabled, disable
     onTypingStop();
     onSend(text.trim());
     setText('');
+    inputRef.current?.focus();
   };
 
   useEffect(() => {
@@ -56,9 +58,10 @@ export function MessageInput({ onSend, onTyping, onTypingStop, disabled, disable
       : 'Type your action...';
 
   return (
-    <form onSubmit={handleSubmit} className="border-t-2 border-parchment-400 dark:border-dungeon-600 p-3">
+    <form onSubmit={handleSubmit} className="border-t-2 border-dungeon-600 p-3">
       <div className="flex gap-2">
         <input
+          ref={inputRef}
           type="text"
           value={text}
           onChange={e => {
@@ -67,7 +70,7 @@ export function MessageInput({ onSend, onTyping, onTypingStop, disabled, disable
           }}
           disabled={disabled}
           placeholder={placeholder}
-          className="flex-1 bg-parchment-100 dark:bg-dungeon-700 text-parchment-800 dark:text-dungeon-100 p-3 text-mono text-lg pixel-border outline-none focus:border-gold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="flex-1 bg-dungeon-700 text-dungeon-100 p-3 text-mono text-lg pixel-border outline-none focus:border-gold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         />
       </div>
       {disabled && disabledReason && (

@@ -89,7 +89,16 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
       client.emit('player:registered', { playerId: player.id });
 
-      this.server.to(data.roomId).emit('game:state', this.gameService.getState(data.roomId));
+      const joinedRoom = this.gameState.getRoom(data.roomId);
+      if (joinedRoom) {
+        client.emit('game:state', {
+          ...this.gameService.getState(data.roomId),
+          creatorId: joinedRoom.creatorId,
+          history: joinedRoom.history,
+        });
+      }
+
+      client.to(data.roomId).emit('game:state', this.gameService.getState(data.roomId));
       this.server.to(data.roomId).emit('game:message', {
         type: 'system',
         content: `${data.playerName} joined the campaign.`,
@@ -242,6 +251,12 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @ConnectedSocket() client: Socket,
     @MessageBody() data: { roomId: string },
   ) {
-    return this.gameService.getState(data.roomId) || { error: 'Room not found' };
+    const room = this.gameState.getRoom(data.roomId);
+    if (!room) return { error: 'Room not found' };
+    return {
+      ...this.gameService.getState(data.roomId),
+      creatorId: room.creatorId,
+      history: room.history,
+    };
   }
 }

@@ -95,6 +95,40 @@ export function SocketProvider({ children }: { children: ReactNode }) {
 
     s.on('game:state', (data: GameState) => {
       setGameState(data);
+      if (data.history) {
+        const playerMap = new Map((data.players || []).map(p => [p.id, p.name]));
+        const newMessages: Array<{ type: 'system' | 'action' | 'narration'; content: string; playerName?: string; timestamp: number }> = [];
+        const newNarrations: Array<{ narration: string; timestamp: number }> = [];
+
+        for (const entry of data.history) {
+          if (entry.role === 'player') {
+            newMessages.push({
+              type: 'action',
+              content: entry.content,
+              playerName: playerMap.get(entry.playerId || '') || 'Unknown',
+              timestamp: Date.now(),
+            });
+          } else if (entry.role === 'assistant') {
+            try {
+              const aiResponse = JSON.parse(entry.content);
+              if (aiResponse.narration) {
+                newMessages.push({ type: 'narration', content: aiResponse.narration, timestamp: Date.now() });
+                newNarrations.push({ narration: aiResponse.narration, timestamp: Date.now() });
+              }
+            } catch {}
+          } else if (entry.role === 'system') {
+            newMessages.push({ type: 'system', content: entry.content, timestamp: Date.now() });
+          }
+        }
+
+        setMessages(newMessages);
+        setNarrations(newNarrations);
+        setTurnUpdate({
+          currentTurn: data.currentTurn,
+          type: data.turnType,
+          target: data.turnTarget,
+        });
+      }
     });
 
     s.on('game:narration', (data: { narration: string; next: { type: string; target?: string }; state: GameState }) => {

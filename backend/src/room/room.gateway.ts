@@ -43,26 +43,34 @@ export class RoomGateway implements OnGatewayDisconnect {
       const room = this.gameState.getRoom(roomId);
       if (room) {
         if (room.players.length === 0) {
-          await this.aiProvider.onRoomEmpty?.(roomId);
-        }
+          this.gameState.removeRoom(roomId);
+          this.roomService.remove(roomId);
 
-        this.server.to(roomId).emit('game:state', {
-          campaignId: room.campaignId,
-          campaignName: room.campaignName,
-          creatorId: room.creatorId,
-          players: room.players,
-          currentTurn: room.currentTurn,
-          turnType: room.turnType,
-          turnTarget: room.turnTarget,
-          scene: room.scene,
-        });
-        this.server.to(roomId).emit('game:message', {
-          type: 'system',
-          content: `${username} left the campaign.`,
-        });
+          for (const [k, val] of this.playerSockets) {
+            if (val.roomId === roomId) {
+              this.playerSockets.delete(k);
+            }
+          }
+
+          await this.aiProvider.onRoomEmpty?.(roomId);
+        } else {
+          this.server.to(roomId).emit('game:state', {
+            campaignId: room.campaignId,
+            campaignName: room.campaignName,
+            creatorId: room.creatorId,
+            players: room.players,
+            currentTurn: room.currentTurn,
+            turnType: room.turnType,
+            turnTarget: room.turnTarget,
+            scene: room.scene,
+          });
+          this.server.to(roomId).emit('game:message', {
+            type: 'system',
+            content: `${username} left the campaign.`,
+          });
+        }
       }
 
-      this.server.emit('lobby:update', this.roomService.list());
     }
   }
 
@@ -105,8 +113,6 @@ export class RoomGateway implements OnGatewayDisconnect {
         scene: state.scene,
       });
     }
-
-    this.server.emit('lobby:update', this.roomService.list());
 
     return {
       success: true,
@@ -154,7 +160,7 @@ export class RoomGateway implements OnGatewayDisconnect {
     });
 
     if (state) {
-      this.server.to(data.roomId).emit('game:state', {
+      client.to(data.roomId).emit('game:state', {
         campaignId: state.campaignId,
         campaignName: state.campaignName,
         creatorId: state.creatorId,
@@ -164,11 +170,23 @@ export class RoomGateway implements OnGatewayDisconnect {
         turnTarget: state.turnTarget,
         scene: state.scene,
       });
+
+      client.emit('game:state', {
+        campaignId: state.campaignId,
+        campaignName: state.campaignName,
+        creatorId: state.creatorId,
+        language: state.language,
+        players: state.players,
+        currentTurn: state.currentTurn,
+        turnType: state.turnType,
+        turnTarget: state.turnTarget,
+        currentLocation: state.currentLocation,
+        scene: state.scene,
+        history: state.history,
+      });
     }
 
       client.emit('player:registered', { playerId: player.id });
-
-    this.server.emit('lobby:update', this.roomService.list());
 
     return {
       success: true,
@@ -214,20 +232,24 @@ export class RoomGateway implements OnGatewayDisconnect {
 
       const state = this.gameState.getRoom(data.roomId);
       if (state) {
-        this.server.to(data.roomId).emit('game:state', {
-          campaignId: state.campaignId,
-          campaignName: state.campaignName,
-          creatorId: state.creatorId,
-          players: state.players,
-          currentTurn: state.currentTurn,
-          turnType: state.turnType,
-          turnTarget: state.turnTarget,
-          scene: state.scene,
-        });
+        if (state.players.length === 0) {
+          this.gameState.removeRoom(data.roomId);
+          this.roomService.remove(data.roomId);
+        } else {
+          this.server.to(data.roomId).emit('game:state', {
+            campaignId: state.campaignId,
+            campaignName: state.campaignName,
+            creatorId: state.creatorId,
+            players: state.players,
+            currentTurn: state.currentTurn,
+            turnType: state.turnType,
+            turnTarget: state.turnTarget,
+            scene: state.scene,
+          });
+        }
       }
     }
 
-    this.server.emit('lobby:update', this.roomService.list());
     return { success: true };
   }
 }
