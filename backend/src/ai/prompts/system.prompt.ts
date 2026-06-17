@@ -59,6 +59,15 @@ You MUST ALWAYS respond in valid JSON format with exactly this structure:
 - **call_roll**: Request a skill check from a specific player. Include "skill" (e.g., "forca", "destreza", "percepcao", "inteligencia") and "dc" (difficulty class, 5-30).
 - **narration_only**: Pure narration, no player action needed. The game will immediately ask you for the next step.
 
+## Context Format
+The "Current scene" field in your instructions contains:
+- **Scene**: A summary of the current situation (complete sentences)
+- **Location**: Where the characters are
+- **Next**: What is expected to happen next (whose turn, what action)
+
+Use this structured context to maintain narrative continuity. The full history
+of previous narrations is also available — use both to avoid contradictions.
+
 ## Rules
 - ${lang.write}
 - Player attributes range from 1-20, with modifier = (value - 10) / 2

@@ -2,7 +2,7 @@
 
 ## Project overview
 
-Two-package monorepo: `backend/` (NestJS 11, Socket.IO), `frontend/` (React 19, Vite 6, Tailwind 3.4). No tests, no lint, no formatter, no CI. All state is in-memory — restarting the backend wipes everything. No root `package.json` — each package is independent.
+Two-package monorepo: `backend/` (NestJS 11, Socket.IO), `frontend/` (React 19, Vite 6, Tailwind 3.4). No root `package.json` — each package is independent. No tests, no lint, no formatter, no CI. All state is in-memory — restarting the backend wipes everything.
 
 ## Entrypoints
 
@@ -70,13 +70,14 @@ AI target validation is in `GameService.validateAiResponseTarget()`, not in `AiS
 - **`npm run build` in frontend is the only typecheck gate** (tsc + vite build). No test, lint, or formatter scripts exist.
 - **No database** — restarting NestJS wipes everything.
 - **No auth** — any client can join any room. CORS origin: `*`.
-- **UI is pt-BR** (`<html lang="pt-BR">`), AI narration is English, code is English.
+- **UI is pt-BR** (`<html lang="pt-BR">`), AI narration is English (configurable), code is English.
 - **Always-dark design**: custom color tokens (`parchment`, `dungeon`, `gold`, `blood`, `magic`) and `text-pixel`/`text-mono` font utilities defined in `@layer components`/`utilities` in `index.css`. No `dark:` variants or class toggle.
 - **Player model has no HP/stats** — only `id`, `name`, 6 attributes all at 10.
 - **`joinGameRoom`** (emits `room:join`) exists in `SocketContext.tsx` but is never called from UI — `Lobby` uses `joinRoom` (emits `lobby:join`) which also adds the player on the server.
 - **Three state slices** track overlapping data: `narrations`, `messages`, `turnUpdate`.
 - **`handleAction` always calls `processTurn()`** — including `narration_only` (which nulls `currentTurn`).
-- **Scene truncation**: only first 200 chars of `response.narration` stored as `room.scene`.
+- **Scene context** (replaces raw truncation): `game.service.ts` builds a structured scene from complete sentences + location + next-action via `buildSceneContext()`. Stored as `room.scene` and sent to AI on every turn.
+- **History stores only narration text** (no JSON overhead) — saves ~40% tokens vs. storing full `AIResponse`.
 - **Hardcoded roll**: `handleRoll()` defaults skill to `'destreza'` and DC to 10 regardless of AI response values.
-- **Hardcoded campaign setting**: `'A medieval fantasy world...'` in 3 places in `game.service.ts` — not configurable.
+- **Hardcoded campaign setting**: `'A medieval fantasy world...'` in 3 places in `game.service.ts:36,94,142` — not configurable.
 - **`.env` files are in `.gitignore`** for both packages.

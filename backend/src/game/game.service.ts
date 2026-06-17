@@ -55,10 +55,10 @@ export class GameService {
       this.turnManager.processTurn(roomId, room, response);
 
       if (response.narration) {
-        room.scene = response.narration.slice(0, 200);
+        room.scene = this.buildSceneContext(response, room.currentLocation);
         this.gameState.addHistory(roomId, {
           role: 'assistant',
-          content: JSON.stringify(response),
+          content: response.narration,
         });
       }
 
@@ -116,10 +116,10 @@ export class GameService {
       this.turnManager.processTurn(roomId, room, response);
 
       if (response.narration) {
-        room.scene = response.narration.slice(0, 200);
+        room.scene = this.buildSceneContext(response, room.currentLocation);
         this.gameState.addHistory(roomId, {
           role: 'assistant',
-          content: JSON.stringify(response),
+          content: response.narration,
         });
       }
 
@@ -157,10 +157,10 @@ export class GameService {
       this.turnManager.processTurn(roomId, room, response);
 
       if (response.narration) {
-        room.scene = response.narration.slice(0, 200);
+        room.scene = this.buildSceneContext(response, room.currentLocation);
         this.gameState.addHistory(roomId, {
           role: 'assistant',
-          content: JSON.stringify(response),
+          content: response.narration,
         });
       }
 
@@ -168,6 +168,38 @@ export class GameService {
     } finally {
       this.turnManager.unlock(roomId);
     }
+  }
+
+  private extractSummary(narration: string, maxChars: number = 300): string {
+    const sentences = narration.match(/[^.!?\n]+[.!?\n]+/g) || [narration];
+    let summary = '';
+    for (const s of sentences) {
+      if ((summary + s).length > maxChars) break;
+      summary += s;
+    }
+    return summary.trim();
+  }
+
+  private buildSceneContext(response: AIResponse, currentLocation: string | null): string {
+    const summary = this.extractSummary(response.narration);
+    const location = response.location || currentLocation || 'unknown';
+
+    let nextDesc = 'The group awaits the next move.';
+    if (response.next) {
+      switch (response.next.type) {
+        case 'call_player':
+          nextDesc = `Waiting for ${response.next.target || 'a player'}.`;
+          break;
+        case 'call_roll':
+          nextDesc = `Waiting for ${response.next.target || 'a player'} to roll ${response.next.skill || 'a skill'} (DC ${response.next.dc || 10}).`;
+          break;
+        case 'narration_only':
+          nextDesc = 'The GM will narrate next.';
+          break;
+      }
+    }
+
+    return `Scene: ${summary}\nLocation: ${location}\n${nextDesc}`;
   }
 
   private validateAiResponseTarget(response: AIResponse, players: Player[]): void {
