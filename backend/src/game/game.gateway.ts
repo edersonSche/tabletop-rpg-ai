@@ -115,6 +115,16 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @ConnectedSocket() client: Socket,
     @MessageBody() data: { roomId: string; playerId: string; message: string },
   ) {
+    const actionRoom = this.gameState.getRoom(data.roomId);
+    const actionPlayer = actionRoom?.players.find(p => p.id === data.playerId);
+    if (actionPlayer) {
+      client.to(data.roomId).emit('game:player_action', {
+        type: 'action',
+        playerId: data.playerId,
+        playerName: actionPlayer.name,
+        message: data.message,
+      });
+    }
     this.server.to(data.roomId).emit('game:processing', { processing: true });
     try {
       const response = await this.gameService.handleAction(data.roomId, data.playerId, data.message);
@@ -148,9 +158,24 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @ConnectedSocket() client: Socket,
     @MessageBody() data: { roomId: string; playerId: string },
   ) {
+    const rollRoom = this.gameState.getRoom(data.roomId);
+    const rollPlayer = rollRoom?.players.find(p => p.id === data.playerId);
+    const skill = 'destreza';
+    const dc = 10;
+    const modifier = rollPlayer ? this.gameState.getPlayerModifier(rollPlayer, skill) : 0;
+    const roll = this.gameState.rollDice(20);
+    const total = roll + modifier;
+
+    this.server.to(data.roomId).emit('game:player_action', {
+      type: 'roll',
+      playerId: data.playerId,
+      playerName: rollPlayer?.name || 'Unknown',
+      message: `Rolou ${roll} + modificador(${modifier}) = ${total} (DC ${dc})`,
+    });
+
     this.server.to(data.roomId).emit('game:processing', { processing: true });
     try {
-      const response = await this.gameService.handleRoll(data.roomId, data.playerId);
+      const response = await this.gameService.handleRoll(data.roomId, data.playerId, { roll, modifier, total, skill, dc });
       const room = this.gameState.getRoom(data.roomId);
 
       this.server.to(data.roomId).emit('game:narration', {

@@ -1,9 +1,9 @@
 import { useEffect, useRef } from 'react';
-import { Sword, Star, MessageText } from 'pixelarticons/react';
+import { Sword, Star, AvatarCircle } from 'pixelarticons/react';
 import { TypewriterText } from './TypewriterText';
 
 interface Message {
-  type: 'system' | 'action' | 'narration';
+  type: 'system' | 'action' | 'narration' | 'roll';
   content: string;
   playerName?: string;
   timestamp: number;
@@ -42,7 +42,7 @@ export function MessageList({ messages, isProcessing }: MessageListProps) {
         if (msg.type === 'narration') {
           return (
             <div key={i} className="text-mono text-dungeon-100 leading-relaxed">
-              <p className="text-gold text-xs mb-1 inline-flex items-center gap-1"><Star width={12} height={12} /> Game Master</p>
+              <p className="text-gold text-xs mb-1 inline-flex items-center gap-1">Game Master</p>
               <p className="italic">{i === latestNarrationIndex ? <TypewriterText text={msg.content} /> : msg.content}</p>
               <div className="border-t border-dungeon-600 my-3"></div>
             </div>
@@ -51,8 +51,30 @@ export function MessageList({ messages, isProcessing }: MessageListProps) {
 
         if (msg.type === 'action') {
           return (
+            <div key={i} className="flex gap-2">
+              <span className="text-magic text-sm"><AvatarCircle width={16} height={16} /></span>
+              
+              <div className='flex flex-col justify-start'>
+                <span className="text-mono text-sm text-gold font-bold">{msg.playerName}</span>
+                <p className="text-mono text-dungeon-100">{msg.content}</p>
+              </div>
+            </div>
+          );
+        }
+
+        if (msg.type === 'roll') {
+          return (
             <div key={i} className="flex items-start gap-2">
-              <span className="text-magic text-sm mt-0.5"><MessageText width={16} height={16} /></span>
+              <span className="text-gold text-sm mt-0.5">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <rect x="3" y="3" width="18" height="18" rx="2" />
+                  <circle cx="8" cy="8" r="1.5" fill="currentColor" />
+                  <circle cx="16" cy="8" r="1.5" fill="currentColor" />
+                  <circle cx="12" cy="12" r="1.5" fill="currentColor" />
+                  <circle cx="8" cy="16" r="1.5" fill="currentColor" />
+                  <circle cx="16" cy="16" r="1.5" fill="currentColor" />
+                </svg>
+              </span>
               <div>
                 <span className="text-mono text-sm text-gold font-bold">{msg.playerName}</span>
                 <p className="text-mono text-dungeon-100">{msg.content}</p>

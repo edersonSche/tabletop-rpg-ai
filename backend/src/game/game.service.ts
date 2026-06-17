@@ -68,7 +68,7 @@ export class GameService {
     }
   }
 
-  async handleRoll(roomId: string, playerId: string): Promise<AIResponse> {
+  async handleRoll(roomId: string, playerId: string, rollData?: { roll: number; modifier: number; total: number; skill: string; dc: number }): Promise<AIResponse> {
     const room = this.gameState.getRoom(roomId);
     if (!room) throw new Error('Room not found');
 
@@ -80,12 +80,12 @@ export class GameService {
     const player = room.players.find(p => p.id === playerId);
     if (!player) throw new Error('Player not found');
 
-    const skill = room.turnTarget === playerId ? (room.turnType === 'call_roll' ? 'destreza' : 'destreza') : 'destreza';
-    const dc = 10;
+    const skill = rollData?.skill ?? (room.turnTarget === playerId ? (room.turnType === 'call_roll' ? 'destreza' : 'destreza') : 'destreza');
+    const dc = rollData?.dc ?? 10;
 
-    const modifier = this.gameState.getPlayerModifier(player, skill);
-    const roll = this.gameState.rollDice(20);
-    const total = roll + modifier;
+    const modifier = rollData?.modifier ?? this.gameState.getPlayerModifier(player, skill);
+    const roll = rollData?.roll ?? this.gameState.rollDice(20);
+    const total = rollData?.total ?? roll + modifier;
 
     try {
       const response = await this.aiService.generate({

@@ -15,7 +15,7 @@ interface SocketContextValue {
   player: PlayerInfo;
   gameState: GameState | null;
   narrations: Array<{ narration: string; timestamp: number }>;
-  messages: Array<{ type: 'system' | 'action' | 'narration'; content: string; playerName?: string; timestamp: number }>;
+  messages: Array<{ type: 'system' | 'action' | 'narration' | 'roll'; content: string; playerName?: string; timestamp: number }>;
   turnUpdate: TurnUpdate | null;
   error: string | null;
   typingPlayers: Map<string, string>;
@@ -48,7 +48,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
   const [turnUpdate, setTurnUpdate] = useState<TurnUpdate | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [typingPlayers, setTypingPlayers] = useState<Map<string, string>>(new Map());
-  const [messages, setMessages] = useState<Array<{ type: 'system' | 'action' | 'narration'; content: string; playerName?: string; timestamp: number }>>([]);
+  const [messages, setMessages] = useState<Array<{ type: 'system' | 'action' | 'narration' | 'roll'; content: string; playerName?: string; timestamp: number }>>([]);
   const [isAiProcessing, setIsAiProcessing] = useState(false);
 
   useEffect(() => {
@@ -103,7 +103,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
       if (data.scene) dispatch({ type: 'CAMPAIGN_STARTED' });
       if (data.history) {
         const playerMap = new Map((data.players || []).map(p => [p.id, p.name]));
-        const newMessages: Array<{ type: 'system' | 'action' | 'narration'; content: string; playerName?: string; timestamp: number }> = [];
+        const newMessages: Array<{ type: 'system' | 'action' | 'narration' | 'roll'; content: string; playerName?: string; timestamp: number }> = [];
         const newNarrations: Array<{ narration: string; timestamp: number }> = [];
 
         for (const entry of data.history) {
@@ -152,6 +152,11 @@ export function SocketProvider({ children }: { children: ReactNode }) {
 
     s.on('game:message', (data: { type: 'system' | 'action'; content: string; playerName?: string }) => {
       setMessages(prev => [...prev, { ...data, timestamp: Date.now() }]);
+    });
+
+    s.on('game:player_action', (data: { type: 'action' | 'roll'; playerId: string; playerName: string; message: string }) => {
+      const name = data.playerId === playerRef.current.playerId ? 'You' : data.playerName;
+      setMessages(prev => [...prev, { type: data.type, content: data.message, playerName: name, timestamp: Date.now() }]);
     });
 
     s.on('game:error', (data: { message: string }) => {
