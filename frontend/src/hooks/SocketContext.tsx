@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback, useRef, useReducer, ReactNode } from 'react';
 import { io, Socket } from 'socket.io-client';
-import { GameState } from '../types/game.types';
+import { GameState, TurnUpdate } from '../types/game.types';
 import { Page, pageReducer } from '../routing/pageRouter';
 
 interface PlayerInfo {
@@ -16,7 +16,7 @@ interface SocketContextValue {
   gameState: GameState | null;
   narrations: Array<{ narration: string; timestamp: number }>;
   messages: Array<{ type: 'system' | 'action' | 'narration'; content: string; playerName?: string; timestamp: number }>;
-  turnUpdate: { currentTurn: string | null; type: string | null; target: string | null } | null;
+  turnUpdate: TurnUpdate | null;
   error: string | null;
   typingPlayers: Map<string, string>;
   isAiProcessing: boolean;
@@ -45,7 +45,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
   const [gameState, setGameState] = useState<GameState | null>(null);
   const [page, dispatch] = useReducer(pageReducer, 'lobby');
   const [narrations, setNarrations] = useState<Array<{ narration: string; timestamp: number }>>([]);
-  const [turnUpdate, setTurnUpdate] = useState<{ currentTurn: string | null; type: string | null; target: string | null } | null>(null);
+  const [turnUpdate, setTurnUpdate] = useState<TurnUpdate | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [typingPlayers, setTypingPlayers] = useState<Map<string, string>>(new Map());
   const [messages, setMessages] = useState<Array<{ type: 'system' | 'action' | 'narration'; content: string; playerName?: string; timestamp: number }>>([]);
@@ -146,7 +146,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
       }
     });
 
-    s.on('game:turn', (data: { currentTurn: string | null; type: string | null; target: string | null }) => {
+    s.on('game:turn', (data: TurnUpdate) => {
       setTurnUpdate(data);
     });
 

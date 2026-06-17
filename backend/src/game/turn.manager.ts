@@ -4,7 +4,6 @@ import { GameState, GameStateData } from './game.state';
 @Injectable()
 export class TurnManager {
   private locks: Map<string, boolean> = new Map();
-  private queues: Map<string, { playerId: string; message: string }[]> = new Map();
 
   constructor(private gameState: GameState) {}
 

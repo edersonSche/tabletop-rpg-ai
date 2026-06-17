@@ -39,7 +39,7 @@ No workspace root scripts — always `cd` into the package.
 **Frontend modules** (`frontend/src/`):
 - `hooks/SocketContext.tsx` — Socket.IO context provider; event subscriptions for all `game:*` events
 - `hooks/useSocket.ts` — Thin re-export of `useSocketContext`
-- `hooks/useGameState.ts` — Stub; always returns `canAct: true` (real turn logic is in `GameRoom.tsx`)
+- `hooks/useGameTurn.ts` — Derives turn state (`isMyTurn`, `isRollRequest`, `isInputDisabled`, etc.) from `gameState`, `turnUpdate`, `playerId`, and `isAiProcessing`
 - `types/game.types.ts` — Shared TS interfaces (mirrors backend DTOs)
 - `routing/pageRouter.ts` — Page type, actions, and reducer for state machine router
 - `pages/` — `Lobby.tsx`, `WaitingRoom.tsx`, `GameRoom.tsx`

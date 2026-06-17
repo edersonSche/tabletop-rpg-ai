@@ -1,5 +1,6 @@
 import { Logout } from 'pixelarticons/react';
 import { useSocket } from '../hooks/useSocket';
+import { useGameTurn } from '../hooks/useGameTurn';
 import { Header } from '../components/Layout/Header';
 import { MessageList } from '../components/Chat/MessageList';
 import { MessageInput } from '../components/Chat/MessageInput';
@@ -26,17 +27,11 @@ export function GameRoom() {
   } = useSocket();
 
   const isCreator = player.playerId === gameState?.creatorId;
-  const isMyTurn = turnUpdate?.target === player.playerId || turnUpdate?.type === 'group_action' || !turnUpdate?.type;
-  const isRollRequest = turnUpdate?.type === 'call_roll' && turnUpdate?.target === player.playerId;
 
-  const disabledReason = !isMyTurn
-    ? 'Not your turn'
-    : isAiProcessing
-      ? 'AI is processing...'
-      : undefined;
-
-  const isInputDisabled = !!disabledReason || isRollRequest;
-  const isRollDisabled = !!disabledReason;
+  const {
+    isMyTurn, isRollRequest, isInputDisabled,
+    isRollDisabled, disabledReason,
+  } = useGameTurn({ gameState, turnUpdate, playerId: player.playerId, isAiProcessing });
 
   const handleSend = (message: string) => {
     sendAction(message);
