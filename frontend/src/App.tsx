@@ -5,11 +5,16 @@ import { WaitingRoom } from './pages/WaitingRoom';
 import { GameRoom } from './pages/GameRoom';
 
 function RoomRouter() {
-  const { player, gameState } = useSocket();
+  const { page } = useSocket();
 
-  if (!player.roomId) return <Lobby />;
-  if (!gameState?.scene) return <WaitingRoom />;
-  return <GameRoom />;
+  switch (page) {
+    case 'lobby':
+      return <Lobby />;
+    case 'waiting_room':
+      return <WaitingRoom />;
+    case 'game_room':
+      return <GameRoom />;
+  }
 }
 
 export default function App() {

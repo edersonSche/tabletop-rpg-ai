@@ -1,6 +1,7 @@
-import { createContext, useContext, useState, useEffect, useCallback, useRef, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, useRef, useReducer, ReactNode } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { GameState } from '../types/game.types';
+import { Page, pageReducer } from '../routing/pageRouter';
 
 interface PlayerInfo {
   playerId: string;
@@ -10,6 +11,7 @@ interface PlayerInfo {
 interface SocketContextValue {
   socket: Socket | null;
   connected: boolean;
+  page: Page;
   player: PlayerInfo;
   gameState: GameState | null;
   narrations: Array<{ narration: string; timestamp: number }>;
@@ -41,6 +43,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
   const playerRef = useRef(player);
   playerRef.current = player;
   const [gameState, setGameState] = useState<GameState | null>(null);
+  const [page, dispatch] = useReducer(pageReducer, 'lobby');
   const [narrations, setNarrations] = useState<Array<{ narration: string; timestamp: number }>>([]);
   const [turnUpdate, setTurnUpdate] = useState<{ currentTurn: string | null; type: string | null; target: string | null } | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -71,6 +74,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
             setNarrations([]);
             setTurnUpdate(null);
             setMessages([{ type: 'system', content: 'Campanha não está mais disponível. Voltando ao lobby.', timestamp: Date.now() }]);
+            dispatch({ type: 'LEFT_ROOM' });
           }
         });
       }
@@ -84,6 +88,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
           setNarrations([]);
           setTurnUpdate(null);
           setMessages([{ type: 'system', content: 'Conexão perdida. Voltando ao lobby.', timestamp: Date.now() }]);
+          dispatch({ type: 'DISBANDED' });
           disconnectTimerRef.current = null;
         }, 10000);
       }
@@ -95,6 +100,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
 
     s.on('game:state', (data: GameState) => {
       setGameState(data);
+      if (data.scene) dispatch({ type: 'CAMPAIGN_STARTED' });
       if (data.history) {
         const playerMap = new Map((data.players || []).map(p => [p.id, p.name]));
         const newMessages: Array<{ type: 'system' | 'action' | 'narration'; content: string; playerName?: string; timestamp: number }> = [];
@@ -134,7 +140,10 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     s.on('game:narration', (data: { narration: string; next: { type: string; target?: string }; state: GameState }) => {
       setNarrations(prev => [...prev, { narration: data.narration, timestamp: Date.now() }]);
       setMessages(prev => [...prev, { type: 'narration', content: data.narration, timestamp: Date.now() }]);
-      if (data.state) setGameState(data.state);
+      if (data.state) {
+        setGameState(data.state);
+        if (data.state.scene) dispatch({ type: 'CAMPAIGN_STARTED' });
+      }
     });
 
     s.on('game:turn', (data: { currentTurn: string | null; type: string | null; target: string | null }) => {
@@ -173,6 +182,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
       setMessages([]);
       setTurnUpdate(null);
       setError(data.reason);
+      dispatch({ type: 'DISBANDED' });
     });
 
     socketRef.current = s;
@@ -189,6 +199,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     socketRef.current.emit('lobby:create', { name, playerName, language }, (response: any) => {
       if (response.success) {
         setPlayer(prev => ({ ...prev, roomId: response.room.id, playerId: response.playerId }));
+        dispatch({ type: 'JOINED_ROOM' });
       }
     });
   }, []);
@@ -198,6 +209,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     socketRef.current.emit('lobby:join', { roomId, playerName }, (response: any) => {
       if (response.success) {
         setPlayer(prev => ({ ...prev, roomId: response.room.id, playerId: response.playerId }));
+        dispatch({ type: 'JOINED_ROOM' });
       } else {
         setError(response.error);
       }
@@ -209,6 +221,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     socketRef.current.emit('room:join', { roomId, playerName }, (response: any) => {
       if (response.success) {
         setPlayer(prev => ({ ...prev, roomId, playerId: response.playerId }));
+        dispatch({ type: 'JOINED_ROOM' });
       } else {
         setError(response.error);
       }
@@ -250,6 +263,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
         setNarrations([]);
         setMessages([]);
         setTurnUpdate(null);
+        dispatch({ type: 'LEFT_ROOM' });
       }
     });
   }, [player]);
@@ -264,7 +278,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
   return (
     <SocketContext.Provider
       value={{
-        socket, connected, player, gameState, narrations, messages,
+        socket, connected, page, player, gameState, narrations, messages,
         turnUpdate, error, typingPlayers, isAiProcessing,
         createRoom, joinRoom, joinGameRoom, sendAction, sendRoll,
         startCampaign, emitTyping, emitTypingStop, listRooms, leaveRoom,

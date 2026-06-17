@@ -162,11 +162,13 @@ backend/src/
 
 frontend/src/
 ├── main.tsx                 # React entry point
-├── App.tsx                  # Conditional page router (no react-router)
+├── App.tsx                  # Page router (state machine via useReducer)
 ├── hooks/
 │   ├── SocketContext.tsx    # Socket.IO context provider + state
 │   ├── useSocket.ts         # Context re-export
 │   └── useGameState.ts      # Stub hook (always returns canAct: true)
+├── routing/
+│   └── pageRouter.ts        # Page state machine (reducer + types)
 ├── pages/
 │   ├── Lobby.tsx            # Create / join campaign
 │   ├── WaitingRoom.tsx      # Pre-game lobby
@@ -193,4 +195,3 @@ frontend/src/
 - **Scene truncation** — only the first 200 characters of AI narration are stored as the room scene.
 - **Turn queue** — declared in `TurnManager` but never populated.
 - **`useGameState` is a stub** — always returns `canAct: true`; real turn logic is in `GameRoom.tsx`.
-- **No routing library** — conditional rendering in `App.tsx` serves as the router.

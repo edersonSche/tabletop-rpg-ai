@@ -9,7 +9,7 @@ Two-package monorepo: `backend/` (NestJS 11, Socket.IO), `frontend/` (React 19, 
 - **Backend**: `backend/src/main.ts` — NestJS on port 3000.
 - **Frontend**: `frontend/src/main.tsx` — React app in Vite on port 5173.
 
-Both must run simultaneously. Vite proxies `/socket.io` to `localhost:3000` (override via `VITE_SOCKET_HOST`). No routing library — App.tsx uses conditional rendering (`if (!player.roomId)` etc.).
+Both must run simultaneously. Vite proxies `/socket.io` to `localhost:3000` (override via `VITE_SOCKET_HOST`). Lightweight state machine router in `routing/pageRouter.ts` — App.tsx uses `switch(page)` to render Lobby/WaitingRoom/GameRoom.
 
 ## Commands
 
@@ -41,7 +41,8 @@ No workspace root scripts — always `cd` into the package.
 - `hooks/useSocket.ts` — Thin re-export of `useSocketContext`
 - `hooks/useGameState.ts` — Stub; always returns `canAct: true` (real turn logic is in `GameRoom.tsx`)
 - `types/game.types.ts` — Shared TS interfaces (mirrors backend DTOs)
-- `pages/` — `Lobby.tsx`, `WaitingRoom.tsx`, `GameRoom.tsx` (no router, conditional render in App.tsx)
+- `routing/pageRouter.ts` — Page type, actions, and reducer for state machine router
+- `pages/` — `Lobby.tsx`, `WaitingRoom.tsx`, `GameRoom.tsx`
 
 ## WebSocket events
 
