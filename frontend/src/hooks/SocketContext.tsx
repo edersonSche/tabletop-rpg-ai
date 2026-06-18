@@ -8,21 +8,32 @@ interface PlayerInfo {
   roomId: string | null;
 }
 
+interface MessageEntry {
+  type: 'system' | 'action' | 'narration' | 'roll';
+  content: string;
+  characterName?: string;
+  timestamp: number;
+}
+
 interface SocketContextValue {
   socket: Socket | null;
   connected: boolean;
   page: Page;
+  userId: string | null;
   player: PlayerInfo;
   gameState: GameState | null;
   narrations: Array<{ narration: string; timestamp: number }>;
-  messages: Array<{ type: 'system' | 'action' | 'narration' | 'roll'; content: string; playerName?: string; timestamp: number }>;
+  messages: MessageEntry[];
   turnUpdate: TurnUpdate | null;
   error: string | null;
   typingPlayers: Map<string, string>;
   isAiProcessing: boolean;
-  createRoom: (name: string, playerName: string, language?: string) => void;
-  joinRoom: (roomId: string, playerName: string) => void;
-  joinGameRoom: (roomId: string, playerName: string) => void;
+  login: (userId: string) => Promise<boolean>;
+  createRoom: (name: string, language?: string) => void;
+  createCharacter: (roomId: string, name: string) => void;
+  createCharacterOnJoin: (roomId: string, name: string) => void;
+  joinRoom: (roomId: string) => void;
+  joinGameRoom: (roomId: string) => void;
   sendAction: (message: string) => void;
   sendRoll: () => void;
   startCampaign: () => void;
@@ -39,16 +50,19 @@ export function SocketProvider({ children }: { children: ReactNode }) {
   const disconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [socket, setSocket] = useState<Socket | null>(null);
   const [connected, setConnected] = useState(false);
+  const [userId, setUserId] = useState<string | null>(null);
+  const userIdRef = useRef(userId);
+  userIdRef.current = userId;
   const [player, setPlayer] = useState<PlayerInfo>({ playerId: '', roomId: null });
   const playerRef = useRef(player);
   playerRef.current = player;
   const [gameState, setGameState] = useState<GameState | null>(null);
-  const [page, dispatch] = useReducer(pageReducer, 'lobby');
+  const [page, dispatch] = useReducer(pageReducer, 'login');
   const [narrations, setNarrations] = useState<Array<{ narration: string; timestamp: number }>>([]);
   const [turnUpdate, setTurnUpdate] = useState<TurnUpdate | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [typingPlayers, setTypingPlayers] = useState<Map<string, string>>(new Map());
-  const [messages, setMessages] = useState<Array<{ type: 'system' | 'action' | 'narration' | 'roll'; content: string; playerName?: string; timestamp: number }>>([]);
+  const [messages, setMessages] = useState<MessageEntry[]>([]);
   const [isAiProcessing, setIsAiProcessing] = useState(false);
 
   useEffect(() => {
@@ -65,6 +79,17 @@ export function SocketProvider({ children }: { children: ReactNode }) {
         disconnectTimerRef.current = null;
       }
       setConnected(true);
+
+      const currentUserId = userIdRef.current;
+      if (currentUserId) {
+        s.emit('auth:login', { userId: currentUserId }, (response: any) => {
+          if (!response.success) {
+            setUserId(null);
+            dispatch({ type: 'LOGGED_OUT' });
+          }
+        });
+      }
+
       const currentRoomId = playerRef.current.roomId;
       if (currentRoomId) {
         s.emit('game:get_state', { roomId: currentRoomId }, (response: any) => {
@@ -83,6 +108,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
       setConnected(false);
       if (playerRef.current.roomId) {
         disconnectTimerRef.current = setTimeout(() => {
+          setUserId(null);
           setPlayer({ playerId: '', roomId: null });
           setGameState(null);
           setNarrations([]);
@@ -103,7 +129,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
       if (data.scene) dispatch({ type: 'CAMPAIGN_STARTED' });
       if (data.history) {
         const playerMap = new Map((data.players || []).map(p => [p.id, p.name]));
-        const newMessages: Array<{ type: 'system' | 'action' | 'narration' | 'roll'; content: string; playerName?: string; timestamp: number }> = [];
+        const newMessages: MessageEntry[] = [];
         const newNarrations: Array<{ narration: string; timestamp: number }> = [];
 
         for (const entry of data.history) {
@@ -111,17 +137,19 @@ export function SocketProvider({ children }: { children: ReactNode }) {
             newMessages.push({
               type: 'action',
               content: entry.content,
-              playerName: playerMap.get(entry.playerId || '') || 'Unknown',
+              characterName: playerMap.get(entry.playerId || '') || 'Unknown',
               timestamp: Date.now(),
             });
           } else if (entry.role === 'assistant') {
+            let narration = entry.content;
             try {
-              const aiResponse = JSON.parse(entry.content);
-              if (aiResponse.narration) {
-                newMessages.push({ type: 'narration', content: aiResponse.narration, timestamp: Date.now() });
-                newNarrations.push({ narration: aiResponse.narration, timestamp: Date.now() });
-              }
+              const parsed = JSON.parse(entry.content);
+              if (parsed.narration) narration = parsed.narration;
             } catch {}
+            if (narration) {
+              newMessages.push({ type: 'narration', content: narration, timestamp: Date.now() });
+              newNarrations.push({ narration, timestamp: Date.now() });
+            }
           } else if (entry.role === 'system') {
             newMessages.push({ type: 'system', content: entry.content, timestamp: Date.now() });
           }
@@ -150,16 +178,21 @@ export function SocketProvider({ children }: { children: ReactNode }) {
       setTurnUpdate(data);
     });
 
-    s.on('game:message', (data: { type: 'system' | 'action'; content: string; playerName?: string }) => {
+    s.on('game:message', (data: { type: 'system' | 'action'; content: string; characterName?: string }) => {
       setMessages(prev => [...prev, { ...data, timestamp: Date.now() }]);
     });
 
-    s.on('game:player_action', (data: { type: 'action' | 'roll'; playerId: string; playerName: string; message: string }) => {
-      const name = data.playerId === playerRef.current.playerId ? 'You' : data.playerName;
-      setMessages(prev => [...prev, { type: data.type, content: data.message, playerName: name, timestamp: Date.now() }]);
+    s.on('game:player_action', (data: { type: 'action' | 'roll'; playerId: string; characterName: string; message: string }) => {
+      const name = data.playerId === playerRef.current.playerId ? 'You' : data.characterName;
+      setMessages(prev => [...prev, { type: data.type, content: data.message, characterName: name, timestamp: Date.now() }]);
     });
 
     s.on('game:error', (data: { message: string }) => {
+      if (data.message === 'Authentication required' && userIdRef.current) {
+        setUserId(null);
+        dispatch({ type: 'LOGGED_OUT' });
+        return;
+      }
       setError(data.message);
       setTimeout(() => setError(null), 3000);
     });
@@ -199,31 +232,60 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  const createRoom = useCallback((name: string, playerName: string, language?: string) => {
+  const createRoom = useCallback((name: string, language?: string) => {
     if (!socketRef.current) return;
-    socketRef.current.emit('lobby:create', { name, playerName, language }, (response: any) => {
+    socketRef.current.emit('lobby:create', { name, language }, (response: any) => {
       if (response.success) {
-        setPlayer(prev => ({ ...prev, roomId: response.room.id, playerId: response.playerId }));
-        dispatch({ type: 'JOINED_ROOM' });
+        setPlayer(prev => ({ ...prev, roomId: response.room.id }));
+        dispatch({ type: 'CREATED_ROOM' });
       }
     });
   }, []);
 
-  const joinRoom = useCallback((roomId: string, playerName: string) => {
+  const createCharacter = useCallback((roomId: string, name: string) => {
     if (!socketRef.current) return;
-    socketRef.current.emit('lobby:join', { roomId, playerName }, (response: any) => {
+    socketRef.current.emit('lobby:create_character', { roomId, name }, (response: any) => {
       if (response.success) {
-        setPlayer(prev => ({ ...prev, roomId: response.room.id, playerId: response.playerId }));
-        dispatch({ type: 'JOINED_ROOM' });
+        setPlayer(prev => ({ ...prev, playerId: response.playerId }));
+        if (response.campaignStarted) {
+          dispatch({ type: 'CHARACTER_CREATED_AND_STARTED' });
+        } else {
+          dispatch({ type: 'CHARACTER_CREATED' });
+        }
       } else {
         setError(response.error);
       }
     });
   }, []);
 
-  const joinGameRoom = useCallback((roomId: string, playerName: string) => {
+  const createCharacterOnJoin = useCallback((roomId: string, name: string) => {
+    createCharacter(roomId, name);
+  }, [createCharacter]);
+
+  const joinRoom = useCallback((roomId: string) => {
     if (!socketRef.current) return;
-    socketRef.current.emit('room:join', { roomId, playerName }, (response: any) => {
+    socketRef.current.emit('lobby:join', { roomId }, (response: any) => {
+      if (response.success) {
+        if (response.needsCharacter) {
+          setPlayer(prev => ({ ...prev, roomId }));
+          dispatch({ type: 'JOIN_NEEDS_CHARACTER' });
+        } else {
+          setPlayer(prev => ({ ...prev, roomId: response.room.id, playerId: response.playerId }));
+          if (response.campaignStarted) {
+            dispatch({ type: 'CHARACTER_CREATED_AND_STARTED' });
+          } else {
+            dispatch({ type: 'JOINED_ROOM' });
+          }
+        }
+      } else {
+        setError(response.error);
+      }
+    });
+  }, []);
+
+  const joinGameRoom = useCallback((roomId: string) => {
+    if (!socketRef.current) return;
+    socketRef.current.emit('room:join', { roomId }, (response: any) => {
       if (response.success) {
         setPlayer(prev => ({ ...prev, roomId, playerId: response.playerId }));
         dispatch({ type: 'JOINED_ROOM' });
@@ -236,7 +298,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
   const sendAction = useCallback((message: string) => {
     if (!socketRef.current || !player.roomId || !player.playerId) return;
     socketRef.current.emit('game:action', { roomId: player.roomId, playerId: player.playerId, message });
-    setMessages(prev => [...prev, { type: 'action', content: message, playerName: 'You', timestamp: Date.now() }]);
+    setMessages(prev => [...prev, { type: 'action', content: message, characterName: 'You', timestamp: Date.now() }]);
   }, [player]);
 
   const sendRoll = useCallback(() => {
@@ -273,6 +335,22 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     });
   }, [player]);
 
+  const login = useCallback((userId: string): Promise<boolean> => {
+    return new Promise((resolve) => {
+      if (!socketRef.current) return resolve(false);
+      socketRef.current.emit('auth:login', { userId }, (response: any) => {
+        if (response.success) {
+          setUserId(userId);
+          dispatch({ type: 'LOGGED_IN' });
+          resolve(true);
+        } else {
+          setError(response.error);
+          resolve(false);
+        }
+      });
+    });
+  }, []);
+
   const listRooms = useCallback((): Promise<any[]> => {
     return new Promise((resolve) => {
       if (!socketRef.current) return resolve([]);
@@ -283,9 +361,10 @@ export function SocketProvider({ children }: { children: ReactNode }) {
   return (
     <SocketContext.Provider
       value={{
-        socket, connected, page, player, gameState, narrations, messages,
+        socket, connected, page, userId, player, gameState, narrations, messages,
         turnUpdate, error, typingPlayers, isAiProcessing,
-        createRoom, joinRoom, joinGameRoom, sendAction, sendRoll,
+        login, createRoom, createCharacter, createCharacterOnJoin,
+        joinRoom, joinGameRoom, sendAction, sendRoll,
         startCampaign, emitTyping, emitTypingStop, listRooms, leaveRoom,
       }}
     >

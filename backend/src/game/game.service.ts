@@ -41,7 +41,7 @@ export class GameService {
         history: room.history,
         currentAction: {
           playerId,
-          playerName: player?.name,
+          characterName: player?.name,
           action: message,
         },
       });
@@ -99,7 +99,7 @@ export class GameService {
         history: room.history,
         currentAction: {
           playerId,
-          playerName: player.name,
+          characterName: player.name,
           action: `Rolou ${roll} + modificador(${modifier}) = ${total} (DC ${dc})`,
           rollResult: total,
           skill,
@@ -228,7 +228,7 @@ export class GameService {
       campaignId: room.campaignId,
       campaignName: room.campaignName,
       language: room.language,
-      players: room.players,
+      players: room.players.filter(p => p.active),
       currentTurn: room.currentTurn,
       turnType: room.turnType,
       turnTarget: room.turnTarget,

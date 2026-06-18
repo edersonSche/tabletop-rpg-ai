@@ -6,11 +6,11 @@ interface MessageInputProps {
   onTypingStop: () => void;
   disabled: boolean;
   disabledReason?: string;
-  playerName: string;
+  characterName: string;
   turnType: string | null;
 }
 
-export function MessageInput({ onSend, onTyping, onTypingStop, disabled, disabledReason, playerName, turnType }: MessageInputProps) {
+export function MessageInput({ onSend, onTyping, onTypingStop, disabled, disabledReason, characterName, turnType }: MessageInputProps) {
   const [text, setText] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
   const typingRef = useRef(false);
@@ -19,7 +19,7 @@ export function MessageInput({ onSend, onTyping, onTypingStop, disabled, disable
   const handleTyping = useCallback((value: string) => {
     if (!typingRef.current && value.length > 0) {
       typingRef.current = true;
-      onTyping(playerName);
+      onTyping(characterName);
     }
 
     if (typingTimeoutRef.current) {
@@ -30,7 +30,7 @@ export function MessageInput({ onSend, onTyping, onTypingStop, disabled, disable
       typingRef.current = false;
       onTypingStop();
     }, 2500);
-  }, [onTyping, onTypingStop, playerName]);
+  }, [onTyping, onTypingStop, characterName]);
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();

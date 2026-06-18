@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { AuthModule } from './auth/auth.module';
 import { GameGateway } from './game/game.gateway';
 import { GameService } from './game/game.service';
 import { TurnManager } from './game/turn.manager';
@@ -12,7 +13,7 @@ import { OpencodeProvider } from './ai/providers/opencode.provider';
 import { AIConfig } from './ai/ai.interface';
 
 @Module({
-  imports: [ConfigModule.forRoot()],
+  imports: [ConfigModule.forRoot(), AuthModule],
   providers: [
     GameGateway,
     GameService,

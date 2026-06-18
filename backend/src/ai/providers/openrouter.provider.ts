@@ -47,8 +47,8 @@ Current scene: ${context.scene}`,
 
     if (context.currentAction) {
       const actionParts: string[] = [];
-      if (context.currentAction.playerName) {
-        actionParts.push(`Player: ${context.currentAction.playerName}`);
+      if (context.currentAction.characterName) {
+        actionParts.push(`Player: ${context.currentAction.characterName}`);
       }
       if (context.currentAction.action) {
         actionParts.push(`Action: ${context.currentAction.action}`);

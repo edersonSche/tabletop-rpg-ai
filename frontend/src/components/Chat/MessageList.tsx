@@ -5,7 +5,7 @@ import { TypewriterText } from './TypewriterText';
 interface Message {
   type: 'system' | 'action' | 'narration' | 'roll';
   content: string;
-  playerName?: string;
+  characterName?: string;
   timestamp: number;
 }
 
@@ -55,7 +55,7 @@ export function MessageList({ messages, isProcessing }: MessageListProps) {
               <span className="text-magic text-sm"><AvatarCircle width={16} height={16} /></span>
               
               <div className='flex flex-col justify-start'>
-                <span className="text-mono text-sm text-gold font-bold">{msg.playerName}</span>
+                <span className="text-mono text-sm text-gold font-bold">{msg.characterName}</span>
                 <p className="text-mono text-dungeon-100">{msg.content}</p>
               </div>
             </div>
@@ -76,7 +76,7 @@ export function MessageList({ messages, isProcessing }: MessageListProps) {
                 </svg>
               </span>
               <div>
-                <span className="text-mono text-sm text-gold font-bold">{msg.playerName}</span>
+                <span className="text-mono text-sm text-gold font-bold">{msg.characterName}</span>
                 <p className="text-mono text-dungeon-100">{msg.content}</p>
               </div>
             </div>
@@ -86,7 +86,7 @@ export function MessageList({ messages, isProcessing }: MessageListProps) {
         if (msg.type === 'system') {
           return (
             <div key={i} className="text-center">
-              <span className="text-mono text-xs text-dungeon-400 italic">{msg.content}</span>
+              <span className="text-mono text-xs text-dungeon-300 italic">{msg.content}</span>
             </div>
           );
         }

@@ -4,12 +4,16 @@ export class GameActionDto {
 
 export class RollDto {}
 
-export class CreateRoomDto {
+export class CreateCampaignDto {
   name: string;
-  playerName: string;
+  language: string;
 }
 
 export class JoinRoomDto {
   roomId: string;
-  playerName: string;
+}
+
+export class CreateCharacterDto {
+  roomId: string;
+  name: string;
 }

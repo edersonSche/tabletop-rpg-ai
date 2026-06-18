@@ -3,17 +3,18 @@ import { Sword } from 'pixelarticons/react';
 import { CreateRoom } from '../components/Lobby/CreateRoom';
 import { RoomList } from '../components/Lobby/RoomList';
 import { useSocket } from '../hooks/useSocket';
+import type { NarrativeLanguage } from '../types/game.types';
 
 export function Lobby() {
-  const { createRoom, joinRoom, player, error } = useSocket();
+  const { createRoom, joinRoom, error } = useSocket();
   const [mode, setMode] = useState<'create' | 'join'>('join');
 
-  const handleCreate = (name: string, playerName: string, language: string) => {
-    createRoom(name, playerName, language);
+  const handleCreate = (name: string, language: NarrativeLanguage) => {
+    createRoom(name, language);
   };
 
-  const handleJoin = (roomId: string, playerName: string) => {
-    joinRoom(roomId, playerName);
+  const handleJoin = (roomId: string) => {
+    joinRoom(roomId);
   };
 
   return (

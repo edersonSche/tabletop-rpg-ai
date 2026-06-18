@@ -1,8 +1,8 @@
+import { UseGuards } from '@nestjs/common';
 import {
   WebSocketGateway,
   WebSocketServer,
   SubscribeMessage,
-  OnGatewayDisconnect,
   ConnectedSocket,
   MessageBody,
 } from '@nestjs/websockets';
@@ -11,6 +11,8 @@ import { Inject } from '@nestjs/common';
 import { RoomService } from './room.service';
 import { GameState, NarrativeLanguage } from '../game/game.state';
 import { AIProvider } from '../ai/ai.interface';
+import { AuthService } from '../auth/auth.service';
+import { AuthWsGuard } from '../auth/auth.guard';
 
 @WebSocketGateway({
   cors: {
@@ -18,111 +20,94 @@ import { AIProvider } from '../ai/ai.interface';
     credentials: true,
   },
 })
-export class RoomGateway implements OnGatewayDisconnect {
+@UseGuards(AuthWsGuard)
+export class RoomGateway {
   @WebSocketServer()
   server: Server;
-
-  private playerSockets: Map<string, { socketId: string; playerId: string; roomId: string; username: string }> = new Map();
 
   constructor(
     private roomService: RoomService,
     private gameState: GameState,
+    private authService: AuthService,
     @Inject('AI_PROVIDER') private aiProvider: AIProvider,
   ) {}
-
-  async handleDisconnect(client: Socket) {
-    const entry = Array.from(this.playerSockets.entries()).find(([, v]) => v.socketId === client.id);
-    if (entry) {
-      const [key] = entry;
-      const { roomId, playerId, username } = entry[1];
-
-      this.gameState.removePlayer(roomId, playerId);
-      this.roomService.leave(roomId, playerId);
-      this.playerSockets.delete(key);
-
-      const room = this.gameState.getRoom(roomId);
-      if (room) {
-        if (room.players.length === 0) {
-          this.gameState.removeRoom(roomId);
-          this.roomService.remove(roomId);
-
-          for (const [k, val] of this.playerSockets) {
-            if (val.roomId === roomId) {
-              this.playerSockets.delete(k);
-            }
-          }
-
-          await this.aiProvider.onRoomEmpty?.(roomId);
-        } else {
-          this.server.to(roomId).emit('game:state', {
-            campaignId: room.campaignId,
-            campaignName: room.campaignName,
-            creatorId: room.creatorId,
-            players: room.players,
-            currentTurn: room.currentTurn,
-            turnType: room.turnType,
-            turnTarget: room.turnTarget,
-            scene: room.scene,
-          });
-          this.server.to(roomId).emit('game:message', {
-            type: 'system',
-            content: `${username} left the campaign.`,
-          });
-        }
-      }
-
-    }
-  }
 
   @SubscribeMessage('lobby:create')
   async handleCreateRoom(
     @ConnectedSocket() client: Socket,
-    @MessageBody() data: { name: string; playerName: string; language?: string },
+    @MessageBody() data: { name: string; language?: string },
   ) {
     const room = this.roomService.create(data.name, data.language as NarrativeLanguage);
-    const player = this.gameState.addPlayer(room.id, data.playerName);
-    room.creatorId = player.id;
-    const gameRoom = this.gameState.getRoom(room.id);
-    if (gameRoom) gameRoom.creatorId = player.id;
-    this.roomService.join(room.id, player.id, data.playerName);
-
-    await this.aiProvider.onRoomReady?.(room.id);
-
-    client.join(room.id);
-
-    const key = `${room.id}:${player.id}`;
-    this.playerSockets.set(key, {
-      socketId: client.id,
-      playerId: player.id,
-      roomId: room.id,
-      username: data.playerName,
-    });
-
-    client.emit('player:registered', { playerId: player.id });
-
-    const state = this.gameState.getRoom(room.id);
-    if (state) {
-      client.emit('game:state', {
-        campaignId: state.campaignId,
-        campaignName: state.campaignName,
-        creatorId: state.creatorId,
-        players: state.players,
-        currentTurn: state.currentTurn,
-        turnType: state.turnType,
-        turnTarget: state.turnTarget,
-        scene: state.scene,
-      });
-    }
 
     return {
       success: true,
       room: {
         id: room.id,
         name: room.name,
-        players: room.players,
       },
-      playerId: player.id,
     };
+  }
+
+  @SubscribeMessage('lobby:create_character')
+  async handleCreateCharacter(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { roomId: string; name: string },
+  ) {
+    const userId = this.authService.getUserId(client.id);
+    if (!userId) return { success: false, error: 'Not authenticated' };
+
+    const player = this.gameState.addPlayer(data.roomId, userId, data.name);
+    const roomData = this.roomService.get(data.roomId);
+    if (roomData && !roomData.creatorId) {
+      roomData.creatorId = player.id;
+    }
+    const gameRoom = this.gameState.getRoom(data.roomId);
+    if (gameRoom && !gameRoom.creatorId) {
+      gameRoom.creatorId = player.id;
+    }
+    this.roomService.join(data.roomId, player.id, data.name);
+
+    await this.aiProvider.onRoomReady?.(data.roomId);
+
+    client.join(data.roomId);
+
+    this.authService.registerPlayer(client.id, player.id, data.name, data.roomId);
+
+    client.emit('player:registered', { playerId: player.id });
+
+    const state = this.gameState.getRoom(data.roomId);
+    if (state) {
+      client.emit('game:state', {
+        campaignId: state.campaignId,
+        campaignName: state.campaignName,
+        creatorId: state.creatorId,
+        players: state.players.filter(p => p.active),
+        currentTurn: state.currentTurn,
+        turnType: state.turnType,
+        turnTarget: state.turnTarget,
+        currentLocation: state.currentLocation,
+        scene: state.scene,
+        history: state.history,
+      });
+
+      this.server.to(data.roomId).emit('game:state', {
+        campaignId: state.campaignId,
+        campaignName: state.campaignName,
+        creatorId: state.creatorId,
+        players: state.players.filter(p => p.active),
+        currentTurn: state.currentTurn,
+        turnType: state.turnType,
+        turnTarget: state.turnTarget,
+        scene: state.scene,
+      });
+
+      this.server.to(data.roomId).emit('game:message', {
+        type: 'system',
+        content: `${data.name} joined the campaign.`,
+      });
+    }
+
+    return { success: true, playerId: player.id, campaignStarted: !!(state && state.scene) };
   }
 
   @SubscribeMessage('lobby:list')
@@ -133,69 +118,73 @@ export class RoomGateway implements OnGatewayDisconnect {
   @SubscribeMessage('lobby:join')
   async handleJoinRoom(
     @ConnectedSocket() client: Socket,
-    @MessageBody() data: { roomId: string; playerName: string },
+    @MessageBody() data: { roomId: string },
   ) {
     const roomData = this.roomService.get(data.roomId);
     if (!roomData) {
       return { success: false, error: 'Room not found' };
     }
 
-    const player = this.gameState.addPlayer(data.roomId, data.playerName);
+    const userId = this.authService.getUserId(client.id);
+    if (!userId) return { success: false, error: 'Not authenticated' };
+
+    const existing = this.gameState.findPlayerByUserId(data.roomId, userId);
     const state = this.gameState.getRoom(data.roomId);
+    const campaignStarted = !!(state && state.scene);
 
-    if (state && state.players.length === 1) {
-      await this.aiProvider.onRoomReady?.(data.roomId);
+    if (existing) {
+      this.gameState.reactivatePlayer(data.roomId, existing.id);
+      this.authService.registerPlayer(client.id, existing.id, existing.name, data.roomId);
+      client.join(data.roomId);
+      client.emit('player:registered', { playerId: existing.id });
+
+      if (state) {
+        client.to(data.roomId).emit('game:state', {
+          campaignId: state.campaignId,
+          campaignName: state.campaignName,
+          creatorId: state.creatorId,
+          players: state.players.filter(p => p.active),
+          currentTurn: state.currentTurn,
+          turnType: state.turnType,
+          turnTarget: state.turnTarget,
+          scene: state.scene,
+        });
+
+        client.emit('game:state', {
+          campaignId: state.campaignId,
+          campaignName: state.campaignName,
+          creatorId: state.creatorId,
+          language: state.language,
+          players: state.players.filter(p => p.active),
+          currentTurn: state.currentTurn,
+          turnType: state.turnType,
+          turnTarget: state.turnTarget,
+          currentLocation: state.currentLocation,
+          scene: state.scene,
+          history: state.history,
+        });
+      }
+
+      return {
+        success: true,
+        needsCharacter: false,
+        playerId: existing.id,
+        name: existing.name,
+        room: {
+          id: roomData.id,
+          name: roomData.name,
+          players: roomData.players,
+        },
+        campaignStarted,
+      };
     }
-
-    client.join(data.roomId);
-
-    this.roomService.join(data.roomId, player.id, data.playerName);
-
-    const key = `${data.roomId}:${player.id}`;
-    this.playerSockets.set(key, {
-      socketId: client.id,
-      playerId: player.id,
-      roomId: data.roomId,
-      username: data.playerName,
-    });
-
-    if (state) {
-      client.to(data.roomId).emit('game:state', {
-        campaignId: state.campaignId,
-        campaignName: state.campaignName,
-        creatorId: state.creatorId,
-        players: state.players,
-        currentTurn: state.currentTurn,
-        turnType: state.turnType,
-        turnTarget: state.turnTarget,
-        scene: state.scene,
-      });
-
-      client.emit('game:state', {
-        campaignId: state.campaignId,
-        campaignName: state.campaignName,
-        creatorId: state.creatorId,
-        language: state.language,
-        players: state.players,
-        currentTurn: state.currentTurn,
-        turnType: state.turnType,
-        turnTarget: state.turnTarget,
-        currentLocation: state.currentLocation,
-        scene: state.scene,
-        history: state.history,
-      });
-    }
-
-      client.emit('player:registered', { playerId: player.id });
 
     return {
       success: true,
-      room: {
-        id: roomData.id,
-        name: roomData.name,
-        players: roomData.players,
-      },
-      playerId: player.id,
+      needsCharacter: true,
+      roomId: data.roomId,
+      campaignName: roomData.name,
+      campaignStarted,
     };
   }
 
@@ -212,22 +201,19 @@ export class RoomGateway implements OnGatewayDisconnect {
     if (isCreator) {
       this.server.to(data.roomId).emit('game:disband', { reason: 'Campaign ended.' });
 
-      this.gameState.removeRoom(data.roomId);
-      this.roomService.remove(data.roomId);
-
-      for (const [key, val] of this.playerSockets) {
-        if (val.roomId === data.roomId) {
-          this.playerSockets.delete(key);
-        }
+      const roomSockets = this.authService.getSocketsByRoomId(data.roomId);
+      for (const sid of roomSockets) {
+        this.authService.unregisterPlayer(sid);
       }
 
+      this.gameState.removeRoom(data.roomId);
+      this.roomService.remove(data.roomId);
       this.server.socketsLeave(data.roomId);
     } else {
       this.gameState.removePlayer(data.roomId, data.playerId);
       this.roomService.leave(data.roomId, data.playerId);
 
-      const key = `${data.roomId}:${data.playerId}`;
-      this.playerSockets.delete(key);
+      this.authService.unregisterPlayer(client.id);
       client.leave(data.roomId);
 
       const state = this.gameState.getRoom(data.roomId);
@@ -240,7 +226,7 @@ export class RoomGateway implements OnGatewayDisconnect {
             campaignId: state.campaignId,
             campaignName: state.campaignName,
             creatorId: state.creatorId,
-            players: state.players,
+            players: state.players.filter(p => p.active),
             currentTurn: state.currentTurn,
             turnType: state.turnType,
             turnTarget: state.turnTarget,

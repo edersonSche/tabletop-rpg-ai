@@ -23,11 +23,11 @@ export class RoomService {
     return room;
   }
 
-  join(roomId: string, playerId: string, playerName: string): RoomData | null {
+  join(roomId: string, playerId: string, characterName: string): RoomData | null {
     const room = this.rooms.get(roomId);
     if (!room) return null;
     if (!room.players.find(p => p.id === playerId)) {
-      room.players.push({ id: playerId, name: playerName });
+      room.players.push({ id: playerId, name: characterName });
     }
     return room;
   }

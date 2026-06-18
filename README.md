@@ -188,8 +188,5 @@ frontend/src/
 ## Limitations
 
 - **No persistence** — all state is in-memory; restarting the backend wipes everything.
-- **No auth** — any client can join any room. CORS origin: `*`.
-- **No tests, linter, or formatter** — `npm run build` on the frontend is the only validation gate.
 - **No HP or stats** — players have only `id`, `name`, and 6 attributes (all at 10).
 - **Hardcoded campaign setting** — `"A medieval fantasy world..."` appears in 3 places and is not configurable.
-- **`useGameTurn`** — Hook that consumes `gameState`, `turnUpdate`, `playerId`, and `isAiProcessing` to derive turn state (`isMyTurn`, `isRollRequest`, `isInputDisabled`, `disabledReason`, etc.).

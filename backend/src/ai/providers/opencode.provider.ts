@@ -146,8 +146,8 @@ export class OpencodeProvider implements AIProvider {
     }
 
     if (context.currentAction) {
-      if (context.currentAction.playerName) {
-        lines.push(`Player acting: ${context.currentAction.playerName}`);
+      if (context.currentAction.characterName) {
+        lines.push(`Player acting: ${context.currentAction.characterName}`);
       }
       if (context.currentAction.action) {
         lines.push(`Action: ${context.currentAction.action}`);

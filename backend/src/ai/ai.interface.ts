@@ -25,7 +25,7 @@ export interface AIContext {
   }>;
   currentAction: {
     playerId?: string;
-    playerName?: string;
+    characterName?: string;
     action?: string;
     rollResult?: number;
     skill?: string;

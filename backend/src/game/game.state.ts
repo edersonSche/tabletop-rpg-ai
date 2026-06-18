@@ -4,7 +4,9 @@ export type NarrativeLanguage = 'english' | 'portuguese' | 'spanish';
 
 export interface Player {
   id: string;
+  userId: string;
   name: string;
+  active: boolean;
   attributes: {
     strength: number;
     dexterity: number;
@@ -58,13 +60,17 @@ export class GameState {
     return this.rooms.get(roomId);
   }
 
-  addPlayer(roomId: string, name: string): Player {
+  private playerByUserId: Map<string, Map<string, string>> = new Map();
+
+  addPlayer(roomId: string, userId: string, name: string): Player {
     const room = this.rooms.get(roomId);
     if (!room) throw new Error('Room not found');
 
     const player: Player = {
       id: uuid(),
+      userId,
       name,
+      active: true,
       attributes: {
         strength: 10,
         dexterity: 10,
@@ -77,18 +83,59 @@ export class GameState {
 
     room.players.push(player);
 
+    const roomUserMap = this.playerByUserId.get(roomId) || new Map();
+    roomUserMap.set(userId, player.id);
+    this.playerByUserId.set(roomId, roomUserMap);
+
     return player;
+  }
+
+  findPlayerByUserId(roomId: string, userId: string): Player | undefined {
+    const roomUserMap = this.playerByUserId.get(roomId);
+    if (!roomUserMap) return undefined;
+    const playerId = roomUserMap.get(userId);
+    if (!playerId) return undefined;
+    const room = this.rooms.get(roomId);
+    if (!room) return undefined;
+    return room.players.find(p => p.id === playerId);
+  }
+
+  disconnectPlayer(roomId: string, playerId: string): void {
+    const room = this.rooms.get(roomId);
+    if (!room) return;
+    const player = room.players.find(p => p.id === playerId);
+    if (player) {
+      player.active = false;
+    }
+  }
+
+  reactivatePlayer(roomId: string, playerId: string): void {
+    const room = this.rooms.get(roomId);
+    if (!room) return;
+    const player = room.players.find(p => p.id === playerId);
+    if (player) {
+      player.active = true;
+    }
   }
 
   removePlayer(roomId: string, playerId: string): void {
     const room = this.rooms.get(roomId);
     if (!room) return;
 
+    const removed = room.players.find(p => p.id === playerId);
     room.players = room.players.filter(p => p.id !== playerId);
+
+    if (removed) {
+      const roomUserMap = this.playerByUserId.get(roomId);
+      if (roomUserMap) {
+        roomUserMap.delete(removed.userId);
+      }
+    }
   }
 
   removeRoom(roomId: string): void {
     this.rooms.delete(roomId);
+    this.playerByUserId.delete(roomId);
   }
 
   addHistory(roomId: string, entry: GameStateData['history'][0]): void {

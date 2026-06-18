@@ -1,3 +1,4 @@
+import { UseGuards } from '@nestjs/common';
 import {
   WebSocketGateway,
   WebSocketServer,
@@ -14,6 +15,8 @@ import { GameState } from './game.state';
 import { TurnManager } from './turn.manager';
 import { GameActionDto } from '../dto/game-action.dto';
 import { AIProvider } from '../ai/ai.interface';
+import { AuthService } from '../auth/auth.service';
+import { AuthWsGuard } from '../auth/auth.guard';
 
 @WebSocketGateway({
   cors: {
@@ -21,17 +24,18 @@ import { AIProvider } from '../ai/ai.interface';
     credentials: true,
   },
 })
+@UseGuards(AuthWsGuard)
 export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()
   server: Server;
 
-  private playerSockets: Map<string, { socketId: string; playerId: string; roomId: string; username: string }> = new Map();
   private typingTimers: Map<string, NodeJS.Timeout> = new Map();
 
   constructor(
     private gameService: GameService,
     private gameState: GameState,
     private turnManager: TurnManager,
+    private authService: AuthService,
     @Inject('AI_PROVIDER') private aiProvider: AIProvider,
   ) {}
 
@@ -40,54 +44,42 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   async handleDisconnect(client: Socket) {
-    const entry = Array.from(this.playerSockets.entries()).find(([, v]) => v.socketId === client.id);
-    if (entry) {
-      const [key] = entry;
-      const { roomId, playerId, username } = entry[1];
+    const playerConn = this.authService.unregisterPlayer(client.id);
+    if (!playerConn) return;
 
-      this.gameState.removePlayer(roomId, playerId);
-      this.playerSockets.delete(key);
+    const { roomId, playerId, characterName } = playerConn;
 
-      const room = this.gameState.getRoom(roomId);
-      if (room) {
-        if (room.players.length === 0) {
-          await this.aiProvider.onRoomEmpty?.(roomId);
-        }
+    this.gameState.disconnectPlayer(roomId, playerId);
 
-        this.server.to(roomId).emit('game:state', this.gameService.getState(roomId));
-        this.server.to(roomId).emit('game:message', {
-          type: 'system',
-          content: `${username} left the campaign.`,
-        });
-      }
+    const room = this.gameState.getRoom(roomId);
+    if (room) {
+      this.server.to(roomId).emit('game:state', this.gameService.getState(roomId));
+      this.server.to(roomId).emit('game:message', {
+        type: 'system',
+        content: `${characterName} disconnected.`,
+      });
     }
+
     console.log(`Client disconnected: ${client.id}`);
   }
 
   @SubscribeMessage('room:join')
   async handleJoinRoom(
     @ConnectedSocket() client: Socket,
-    @MessageBody() data: { roomId: string; playerName: string },
+    @MessageBody() data: { roomId: string },
   ) {
     try {
-      const player = this.gameState.addPlayer(data.roomId, data.playerName);
-      const room = this.gameState.getRoom(data.roomId);
+      const userId = this.authService.getUserId(client.id);
+      if (!userId) return { success: false, error: 'Not authenticated' };
 
-      if (room && room.players.length === 1) {
-        await this.aiProvider.onRoomReady?.(data.roomId);
+      const existing = this.gameState.findPlayerByUserId(data.roomId, userId);
+      if (!existing) {
+        return { success: false, error: 'No character found. Create one first.' };
       }
 
+      this.authService.registerPlayer(client.id, existing.id, existing.name, data.roomId);
       client.join(data.roomId);
-
-      const key = `${data.roomId}:${player.id}`;
-      this.playerSockets.set(key, {
-        socketId: client.id,
-        playerId: player.id,
-        roomId: data.roomId,
-        username: data.playerName,
-      });
-
-      client.emit('player:registered', { playerId: player.id });
+      client.emit('player:registered', { playerId: existing.id });
 
       const joinedRoom = this.gameState.getRoom(data.roomId);
       if (joinedRoom) {
@@ -101,10 +93,10 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       client.to(data.roomId).emit('game:state', this.gameService.getState(data.roomId));
       this.server.to(data.roomId).emit('game:message', {
         type: 'system',
-        content: `${data.playerName} joined the campaign.`,
+        content: `${existing.name} joined the campaign.`,
       });
 
-      return { success: true, playerId: player.id };
+      return { success: true, playerId: existing.id };
     } catch (error) {
       return { success: false, error: error.message };
     }
@@ -121,7 +113,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       client.to(data.roomId).emit('game:player_action', {
         type: 'action',
         playerId: data.playerId,
-        playerName: actionPlayer.name,
+        characterName: actionPlayer.name,
         message: data.message,
       });
     }
@@ -169,7 +161,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     this.server.to(data.roomId).emit('game:player_action', {
       type: 'roll',
       playerId: data.playerId,
-      playerName: rollPlayer?.name || 'Unknown',
+      characterName: rollPlayer?.name || 'Unknown',
       message: `Rolou ${roll} + modificador(${modifier}) = ${total} (DC ${dc})`,
     });
 

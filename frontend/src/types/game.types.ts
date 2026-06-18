@@ -3,6 +3,7 @@ export type NarrativeLanguage = 'english' | 'portuguese' | 'spanish';
 export interface Player {
   id: string;
   name: string;
+  active: boolean;
   attributes: {
     strength: number;
     dexterity: number;

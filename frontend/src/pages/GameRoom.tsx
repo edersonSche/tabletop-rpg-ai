@@ -127,7 +127,7 @@ export function GameRoom() {
                 onTypingStop={emitTypingStop}
                 disabled={isInputDisabled}
                 disabledReason={disabledReason}
-                playerName={gameState?.players.find(p => p.id === player.playerId)?.name || 'Aventureiro'}
+                characterName={gameState?.players.find(p => p.id === player.playerId)?.name || 'Aventureiro'}
                 turnType={turnUpdate?.type || null}
               />
             </div>
