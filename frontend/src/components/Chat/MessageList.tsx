@@ -1,7 +1,7 @@
 import { useEffect, useRef, ReactNode } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { Sword, Star, AvatarCircle } from 'pixelarticons/react';
+import { Sword, Star, Crown, AvatarCircle } from 'pixelarticons/react';
 
 interface Message {
   type: 'system' | 'action' | 'narration' | 'roll';
@@ -35,8 +35,8 @@ export function MessageList({ messages, isProcessing }: MessageListProps) {
       {messages.map((msg, i) => {
         if (msg.type === 'narration') {
           return (
-            <div key={i} className="text-mono text-dungeon-100 leading-relaxed">
-              <p className="text-gold text-xs mb-1 inline-flex items-center gap-1">Game Master</p>
+            <div key={i} className="border-l-2 border-gold pl-4 py-2 bg-dungeon-900/30 rounded-sm text-mono text-dungeon-100 leading-relaxed">
+              <p className="text-gold text-xs mb-1 inline-flex items-center gap-1"><Crown width={14} height={14} /> Game Master</p>
               <ReactMarkdown
                 remarkPlugins={[remarkGfm]}
                 components={{
@@ -59,7 +59,6 @@ export function MessageList({ messages, isProcessing }: MessageListProps) {
               >
                 {msg.content}
               </ReactMarkdown>
-              <div className="border-t border-dungeon-600 my-3"></div>
             </div>
           );
         }
@@ -70,7 +69,7 @@ export function MessageList({ messages, isProcessing }: MessageListProps) {
               <span className="text-magic text-sm"><AvatarCircle width={16} height={16} /></span>
               
               <div className='flex flex-col justify-start'>
-                <span className="text-mono text-sm text-gold font-bold">{msg.characterName}</span>
+                <span className="text-mono text-sm text-magic font-bold">{msg.characterName}</span>
                 <p className="text-mono text-dungeon-100">{msg.content}</p>
               </div>
             </div>
@@ -91,7 +90,7 @@ export function MessageList({ messages, isProcessing }: MessageListProps) {
                 </svg>
               </span>
               <div>
-                <span className="text-mono text-sm text-gold font-bold">{msg.characterName}</span>
+                <span className="text-mono text-sm text-magic font-bold">{msg.characterName}</span>
                 <p className="text-mono text-dungeon-100">{msg.content}</p>
               </div>
             </div>
