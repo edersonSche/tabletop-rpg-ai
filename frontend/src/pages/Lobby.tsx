@@ -54,7 +54,7 @@ export function Lobby() {
                 : 'bg-dungeon-600 text-dungeon-200 hover:text-gold'
             }`}
           >
-            [JOIN]
+            [JOIN CAMPAIGN]
           </button>
         </div>
 

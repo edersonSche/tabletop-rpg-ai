@@ -22,7 +22,6 @@ interface SocketContextValue {
   userId: string | null;
   player: PlayerInfo;
   gameState: GameState | null;
-  narrations: Array<{ narration: string; timestamp: number }>;
   messages: MessageEntry[];
   turnUpdate: TurnUpdate | null;
   error: string | null;
@@ -58,7 +57,6 @@ export function SocketProvider({ children }: { children: ReactNode }) {
   playerRef.current = player;
   const [gameState, setGameState] = useState<GameState | null>(null);
   const [page, dispatch] = useReducer(pageReducer, 'login');
-  const [narrations, setNarrations] = useState<Array<{ narration: string; timestamp: number }>>([]);
   const [turnUpdate, setTurnUpdate] = useState<TurnUpdate | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [typingPlayers, setTypingPlayers] = useState<Map<string, string>>(new Map());
@@ -96,7 +94,6 @@ export function SocketProvider({ children }: { children: ReactNode }) {
           if (response?.error === 'Room not found') {
             setPlayer({ playerId: '', roomId: null });
             setGameState(null);
-            setNarrations([]);
             setTurnUpdate(null);
             setMessages([{ type: 'system', content: 'Campanha não está mais disponível. Voltando ao lobby.', timestamp: Date.now() }]);
             dispatch({ type: 'LEFT_ROOM' });
@@ -111,7 +108,6 @@ export function SocketProvider({ children }: { children: ReactNode }) {
           setUserId(null);
           setPlayer({ playerId: '', roomId: null });
           setGameState(null);
-          setNarrations([]);
           setTurnUpdate(null);
           setMessages([{ type: 'system', content: 'Conexão perdida. Voltando ao lobby.', timestamp: Date.now() }]);
           dispatch({ type: 'DISBANDED' });
@@ -130,7 +126,6 @@ export function SocketProvider({ children }: { children: ReactNode }) {
       if (data.history) {
         const playerMap = new Map((data.players || []).map(p => [p.id, p.name]));
         const newMessages: MessageEntry[] = [];
-        const newNarrations: Array<{ narration: string; timestamp: number }> = [];
 
         for (const entry of data.history) {
           if (entry.role === 'player') {
@@ -148,7 +143,6 @@ export function SocketProvider({ children }: { children: ReactNode }) {
             } catch {}
             if (narration) {
               newMessages.push({ type: 'narration', content: narration, timestamp: Date.now() });
-              newNarrations.push({ narration, timestamp: Date.now() });
             }
           } else if (entry.role === 'system') {
             newMessages.push({ type: 'system', content: entry.content, timestamp: Date.now() });
@@ -156,7 +150,6 @@ export function SocketProvider({ children }: { children: ReactNode }) {
         }
 
         setMessages(newMessages);
-        setNarrations(newNarrations);
         setTurnUpdate({
           currentTurn: data.currentTurn,
           type: data.turnType,
@@ -166,7 +159,6 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     });
 
     s.on('game:narration', (data: { narration: string; next: { type: string; target?: string }; state: GameState }) => {
-      setNarrations(prev => [...prev, { narration: data.narration, timestamp: Date.now() }]);
       setMessages(prev => [...prev, { type: 'narration', content: data.narration, timestamp: Date.now() }]);
       if (data.state) {
         setGameState(data.state);
@@ -216,7 +208,6 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     s.on('game:disband', (data: { reason: string }) => {
       setPlayer({ playerId: '', roomId: null });
       setGameState(null);
-      setNarrations([]);
       setMessages([]);
       setTurnUpdate(null);
       setError(data.reason);
@@ -327,7 +318,6 @@ export function SocketProvider({ children }: { children: ReactNode }) {
       if (response.success) {
         setPlayer({ playerId: '', roomId: null });
         setGameState(null);
-        setNarrations([]);
         setMessages([]);
         setTurnUpdate(null);
         dispatch({ type: 'LEFT_ROOM' });
@@ -361,7 +351,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
   return (
     <SocketContext.Provider
       value={{
-        socket, connected, page, userId, player, gameState, narrations, messages,
+        socket, connected, page, userId, player, gameState, messages,
         turnUpdate, error, typingPlayers, isAiProcessing,
         login, createRoom, createCharacter, createCharacterOnJoin,
         joinRoom, joinGameRoom, sendAction, sendRoll,

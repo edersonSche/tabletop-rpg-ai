@@ -33,7 +33,7 @@ export function CharacterCreation() {
         )}
 
         <div className="pixel-border bg-dungeon-500 p-6 rounded-none">
-          <h2 className="text-pixel text-gold text-lg mb-4 text-center">CHARACTER CREATION</h2>
+          <h2 className="text-pixel text-gold text-lg mb-4 text-center">NEW CHARACTER</h2>
 
           <div className="space-y-4">
             <div>

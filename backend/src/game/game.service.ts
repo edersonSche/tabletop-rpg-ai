@@ -184,6 +184,8 @@ export class GameService {
     const summary = this.extractSummary(response.narration);
     const location = response.location || currentLocation || 'unknown';
 
+    console.log(response)
+
     let nextDesc = 'The group awaits the next move.';
     if (response.next) {
       switch (response.next.type) {

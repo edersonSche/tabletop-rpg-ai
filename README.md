@@ -34,7 +34,7 @@ Two-package monorepo with no root `package.json` — each package is independent
 
 | Layer | Technology |
 |-------|-----------|
-| **Backend** | NestJS 11, Socket.IO 4.8, OpenAI SDK, TypeScript 5.7 |
+| **Backend** | NestJS 11, Socket.IO 4.8, TypeScript 5.7 |
 | **Frontend** | React 19, Vite 6, Tailwind CSS 3.4, Socket.IO Client, pixelarticons, TypeScript 5.7 |
 | **Fonts** | Press Start 2P (UI), VT323 + Space Mono (narrative) |
 
@@ -77,12 +77,11 @@ cd frontend && npm run preview     # vite preview
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `AI_PROVIDER` | `openrouter` | `openrouter` or `opencode` |
 | `AI_API_KEY` | `(empty)` | API key; empty → fallback narration (no LLM call) |
-| `AI_MODEL` | `deepseek/deepseek-chat` | Model identifier for the provider |
-| `AI_BASE_URL` | `https://openrouter.ai/api/v1` | Base URL for the AI API |
+| `AI_MODEL` | `(empty)` | Model identifier for the provider |
+| `AI_BASE_URL` | `http://localhost:4096` | Base URL for the AI API |
 
-**Repo default** points to local Opencode (`AI_PROVIDER=opencode`, `AI_API_KEY=none`, `AI_BASE_URL=http://localhost:4096`). For real AI, set `AI_PROVIDER=openrouter` with a valid key.
+**Repo default** points to local Opencode (`AI_API_KEY=none`, `AI_BASE_URL=http://localhost:4096`).
 
 ### Frontend (`frontend/.env`)
 
@@ -127,8 +126,7 @@ cd frontend && npm run preview     # vite preview
 
 The backend uses a **provider pattern**:
 
-- **`AiService`** dispatches to the configured `AIProvider` based on `AI_PROVIDER`.
-- **`OpenRouterProvider`** (default) — uses the OpenAI SDK with `response_format: { type: "json_object" }` and full conversation context (last 30 entries).
+- **`AiService`** dispatches to `OpencodeProvider`.
 - **`OpencodeProvider`** — raw HTTP fetch to a local Opencode session; manages sessions per room.
 - **Fallback** — if `AI_API_KEY` is empty, `AiService.generate()` returns a static narration without calling any provider.
 
@@ -148,7 +146,6 @@ backend/src/
 │   ├── prompts/
 │   │   └── system.prompt.ts # Multilingual system prompt builder
 │   └── providers/
-│       ├── openrouter.provider.ts
 │       └── opencode.provider.ts
 ├── game/
 │   ├── game.gateway.ts      # Game WebSocket handlers

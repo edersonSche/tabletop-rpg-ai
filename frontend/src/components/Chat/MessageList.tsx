@@ -1,6 +1,7 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, ReactNode } from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { Sword, Star, AvatarCircle } from 'pixelarticons/react';
-import { TypewriterText } from './TypewriterText';
 
 interface Message {
   type: 'system' | 'action' | 'narration' | 'roll';
@@ -21,13 +22,6 @@ export function MessageList({ messages, isProcessing }: MessageListProps) {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isProcessing]);
 
-  const latestNarrationIndex = (() => {
-    for (let i = messages.length - 1; i >= 0; i--) {
-      if (messages[i].type === 'narration') return i;
-    }
-    return -1;
-  })();
-
   return (
     <div className="flex-1 overflow-y-auto p-4 space-y-3 scrollbar-pixel">
       {messages.length === 0 && (
@@ -43,7 +37,28 @@ export function MessageList({ messages, isProcessing }: MessageListProps) {
           return (
             <div key={i} className="text-mono text-dungeon-100 leading-relaxed">
               <p className="text-gold text-xs mb-1 inline-flex items-center gap-1">Game Master</p>
-              <p className="italic">{i === latestNarrationIndex ? <TypewriterText text={msg.content} /> : msg.content}</p>
+              <ReactMarkdown
+                remarkPlugins={[remarkGfm]}
+                components={{
+                  p: ({ children }) => <p className="leading-relaxed">{children}</p>,
+                  strong: ({ children }) => <strong className="text-gold">{children}</strong>,
+                  em: ({ children }) => <em>{children}</em>,
+                  ul: ({ children }) => <ul className="list-disc list-inside space-y-1">{children}</ul>,
+                  ol: ({ children }) => <ol className="list-decimal list-inside space-y-1">{children}</ol>,
+                  blockquote: ({ children }) => (
+                    <blockquote className="border-l-2 border-dungeon-600 pl-3  text-dungeon-200 my-2">{children}</blockquote>
+                  ),
+                  code: ({ children }) => (
+                    <code className="bg-dungeon-700 px-1 rounded text-sm text-dungeon-100">{children as ReactNode}</code>
+                  ),
+                  pre: ({ children }) => (
+                    <pre className="bg-dungeon-700 p-3 rounded overflow-x-auto my-2">{children as ReactNode}</pre>
+                  ),
+                  hr: () => <div className="border-t border-dungeon-600 my-3" />,
+                }}
+              >
+                {msg.content}
+              </ReactMarkdown>
               <div className="border-t border-dungeon-600 my-3"></div>
             </div>
           );

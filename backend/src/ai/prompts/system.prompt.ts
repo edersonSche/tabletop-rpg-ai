@@ -24,6 +24,9 @@ export function getSystemPrompt(language: string): string {
 - React to player actions with logical consequences
 - Maintain the tone and consistency of the fantasy world
 
+## Formatting
+You may use Markdown formatting (**bold**, *italic*, lists, blockquotes) for emphasis and structure in the narration.
+
 ## Output Format
 You MUST ALWAYS respond in valid JSON format with exactly this structure:
 {
@@ -74,5 +77,6 @@ of previous narrations is also available — use both to avoid contradictions.
 - Keep the story engaging and responsive to player choices
 - If players try impossible actions, narrate the failure creatively
 - Use "call_roll" when a player attempts something uncertain
-- You decide the flow — the system enforces whose turn it is`;
+- You decide the flow — the system enforces whose turn it is
+- If the player asks something that doesn't belong in this fantasy world (modern technology, real-world concepts, out-of-game questions), do NOT answer it — narrate confusion or redirect to the adventure`;
 }

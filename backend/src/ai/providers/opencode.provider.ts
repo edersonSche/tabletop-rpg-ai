@@ -119,7 +119,7 @@ export class OpencodeProvider implements AIProvider {
     const langName = { english: 'English', portuguese: 'Portuguese (Brazil)', spanish: 'Spanish' }[context.language] || 'English';
 
     const lines: string[] = [
-      `You are the Game Master for a tabletop RPG. Write all narrations in ${langName}. Respond with a JSON object only, no markdown, no explanation.`,
+      `You are the Game Master for a tabletop RPG. Write all narrations in ${langName}. You may use Markdown formatting (**bold**, *italic*, lists, blockquotes) for emphasis. Respond with a JSON object only, no explanation outside the JSON.`,
       '',
       `Campaign: ${context.campaignName}`,
       `Setting: ${context.campaignSetting}`,
@@ -166,7 +166,7 @@ export class OpencodeProvider implements AIProvider {
     lines.push(
       'Respond with valid JSON using this exact schema:',
       '{',
-      '  "narration": "Your narrative text here",',
+      '  "narration": "Your **narrative** text here with *markdown*",',
       '  "location": "optional — set when players move to a new place (e.g. \"tavern\", \"dark forest\", \"city square\")",',
       '  "next": {',
       '    "type": "group_action" | "call_player" | "call_roll" | "narration_only"',
