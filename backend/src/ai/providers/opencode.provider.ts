@@ -1,5 +1,6 @@
 import { AIProvider, AIConfig, AIContext } from '../ai.interface';
 import { AIResponse } from '../../dto/ai-response.dto';
+import { getSystemPrompt } from '../prompts/system.prompt';
 
 interface MessagePart {
   type: string;
@@ -116,20 +117,8 @@ export class OpencodeProvider implements AIProvider {
   }
 
   private buildPrompt(context: AIContext): string {
-    const langName = { english: 'English', portuguese: 'Portuguese (Brazil)', spanish: 'Spanish' }[context.language] || 'English';
-
     const lines: string[] = [
-      `You are the Game Master for a tabletop RPG. Write all narrations in ${langName}. You may use Markdown formatting (**bold**, *italic*, lists, blockquotes) for emphasis. Respond with a JSON object only, no explanation outside the JSON.`,
-      '',
-      `Campaign: ${context.campaignName}`,
-      `Setting: ${context.campaignSetting}`,
-      `Language: ${langName}`,
-      '',
-      'Players:',
-      ...context.players.map(p => `- ${p.name}`),
-      '',
-      ...(context.currentLocation ? [`Current location: ${context.currentLocation}`] : []),
-      `Current scene: ${context.scene}`,
+      getSystemPrompt(context),
       '',
     ];
 
@@ -163,19 +152,7 @@ export class OpencodeProvider implements AIProvider {
       lines.push('');
     }
 
-    lines.push(
-      'Respond with valid JSON using this exact schema:',
-      '{',
-      '  "narration": "Your **narrative** text here with *markdown*",',
-      '  "location": "optional — set when players move to a new place (e.g. \"tavern\", \"dark forest\", \"city square\")",',
-      '  "next": {',
-      '    "type": "group_action" | "call_player" | "call_roll" | "narration_only"',
-      '  }',
-      '}',
-    );
-
     if (context.currentAction?.rollResult !== undefined && context.currentAction?.dc !== undefined) {
-      lines.push('');
       lines.push('Note: a roll was made. If the roll meets or exceeds the DC, describe success. Otherwise describe failure.');
     }
 

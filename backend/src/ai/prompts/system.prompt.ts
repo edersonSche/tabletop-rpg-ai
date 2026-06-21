@@ -1,3 +1,5 @@
+import { AIContext } from '../ai.interface';
+
 const LANGUAGE_INSTRUCTIONS: Record<string, { narration: string; write: string }> = {
   english: {
     narration: 'Narrate scenes vividly and descriptively in English',
@@ -13,16 +15,29 @@ const LANGUAGE_INSTRUCTIONS: Record<string, { narration: string; write: string }
   },
 };
 
-export function getSystemPrompt(language: string): string {
-  const lang = LANGUAGE_INSTRUCTIONS[language] || LANGUAGE_INSTRUCTIONS.english;
+export function getSystemPrompt(context: AIContext): string {
+  const lang = LANGUAGE_INSTRUCTIONS[context.language] || LANGUAGE_INSTRUCTIONS.english;
+  const playersList = context.players.map(p => `- ${p.id}: ${p.name}`).join('\n');
+  const locationLine = context.currentLocation ? `Location: ${context.currentLocation}\n` : '';
 
-  return `You are the Game Master of a medieval fantasy RPG tabletop game.
+  return `You are the Game Master of a tabletop RPG.
 
 ## Your Role
 - ${lang.narration}
 - Control all NPCs, monsters, and environmental events
 - React to player actions with logical consequences
 - Maintain the tone and consistency of the fantasy world
+
+## Campaign
+Name: ${context.campaignName}
+Setting: ${context.campaignSetting}
+Language: ${context.language}
+
+## Players
+${playersList}
+
+## Current Context
+${locationLine}Scene: ${context.scene}
 
 ## Formatting
 You may use Markdown formatting (**bold**, *italic*, lists, blockquotes) for emphasis and structure in the narration.
