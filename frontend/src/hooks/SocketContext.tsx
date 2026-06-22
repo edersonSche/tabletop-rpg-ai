@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback, useRef, useReducer, ReactNode } from 'react';
 import { io, Socket } from 'socket.io-client';
-import { GameState, TurnUpdate } from '../types/game.types';
+import { GameState, TurnUpdate, Player } from '../types/game.types';
 import { Page, pageReducer } from '../routing/pageRouter';
 
 interface PlayerInfo {
@@ -29,7 +29,7 @@ interface SocketContextValue {
   isAiProcessing: boolean;
   login: (userId: string) => Promise<boolean>;
   createRoom: (name: string, language?: string) => void;
-  createCharacter: (roomId: string, name: string) => void;
+  createCharacter: (roomId: string, name: string, attributes?: Player['attributes']) => void;
   createCharacterOnJoin: (roomId: string, name: string) => void;
   joinRoom: (roomId: string) => void;
   joinGameRoom: (roomId: string) => void;
@@ -233,9 +233,9 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  const createCharacter = useCallback((roomId: string, name: string) => {
+  const createCharacter = useCallback((roomId: string, name: string, attributes?: Player['attributes']) => {
     if (!socketRef.current) return;
-    socketRef.current.emit('lobby:create_character', { roomId, name }, (response: any) => {
+    socketRef.current.emit('lobby:create_character', { roomId, name, attributes }, (response: any) => {
       if (response.success) {
         setPlayer(prev => ({ ...prev, playerId: response.playerId }));
         if (response.campaignStarted) {

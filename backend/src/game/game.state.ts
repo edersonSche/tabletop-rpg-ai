@@ -62,7 +62,7 @@ export class GameState {
 
   private playerByUserId: Map<string, Map<string, string>> = new Map();
 
-  addPlayer(roomId: string, userId: string, name: string): Player {
+  addPlayer(roomId: string, userId: string, name: string, attributes?: Player['attributes']): Player {
     const room = this.rooms.get(roomId);
     if (!room) throw new Error('Room not found');
 
@@ -71,7 +71,7 @@ export class GameState {
       userId,
       name,
       active: true,
-      attributes: {
+      attributes: attributes ?? {
         strength: 10,
         dexterity: 10,
         constitution: 10,

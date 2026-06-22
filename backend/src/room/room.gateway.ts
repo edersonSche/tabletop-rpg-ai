@@ -9,7 +9,7 @@ import {
 import { Server, Socket } from 'socket.io';
 import { Inject } from '@nestjs/common';
 import { RoomService } from './room.service';
-import { GameState, NarrativeLanguage } from '../game/game.state';
+import { GameState, NarrativeLanguage, Player } from '../game/game.state';
 import { AIProvider } from '../ai/ai.interface';
 import { AuthService } from '../auth/auth.service';
 import { AuthWsGuard } from '../auth/auth.guard';
@@ -51,12 +51,12 @@ export class RoomGateway {
   @SubscribeMessage('lobby:create_character')
   async handleCreateCharacter(
     @ConnectedSocket() client: Socket,
-    @MessageBody() data: { roomId: string; name: string },
+    @MessageBody() data: { roomId: string; name: string; attributes?: Player['attributes'] },
   ) {
     const userId = this.authService.getUserId(client.id);
     if (!userId) return { success: false, error: 'Not authenticated' };
 
-    const player = this.gameState.addPlayer(data.roomId, userId, data.name);
+    const player = this.gameState.addPlayer(data.roomId, userId, data.name, data.attributes);
     const roomData = this.roomService.get(data.roomId);
     if (roomData && !roomData.creatorId) {
       roomData.creatorId = player.id;
