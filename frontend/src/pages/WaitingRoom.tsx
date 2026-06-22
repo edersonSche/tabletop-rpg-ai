@@ -67,10 +67,7 @@ export function WaitingRoom() {
       {isAiProcessing && (
         <div className="fixed inset-0 bg-dungeon-900 flex flex-col items-center justify-center z-50">
           <p className="text-pixel text-xl text-gold">
-            Loading campaign
-            <span className="animate-pulse">.</span>
-            <span className="animate-pulse" style={{ animationDelay: '0.2s' }}>.</span>
-            <span className="animate-pulse" style={{ animationDelay: '0.4s' }}>.</span>
+            Loading campaign...
           </p>
         </div>
       )}

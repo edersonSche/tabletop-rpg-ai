@@ -110,10 +110,7 @@ export function MessageList({ messages, isProcessing }: MessageListProps) {
 
       {isProcessing && (
         <div className="flex items-center gap-2 text-mono text-dungeon-400">
-          <span className="text-gold text-xs inline-flex items-center gap-1"><Star width={12} height={12} /> Game Master is thinking</span>
-          <span className="typing-dot" />
-          <span className="typing-dot" style={{ animationDelay: '0.3s' }} />
-          <span className="typing-dot" style={{ animationDelay: '0.6s' }} />
+          <span className="text-gold text-xs inline-flex items-center gap-1"><Star width={12} height={12} /> Game Master is thinking...</span>
         </div>
       )}
 

@@ -15,11 +15,6 @@ export function TypingIndicator({ typingPlayers, playerId }: TypingIndicatorProp
 
   return (
     <div className="flex items-center gap-2 text-mono text-sm text-gold px-1 py-1">
-      <span className="flex gap-0.5">
-        <span className="typing-dot animation-delay-0"></span>
-        <span className="typing-dot animation-delay-200"></span>
-        <span className="typing-dot animation-delay-400"></span>
-      </span>
       <span className="italic">{text}</span>
     </div>
   );
