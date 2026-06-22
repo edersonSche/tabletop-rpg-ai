@@ -6,7 +6,7 @@ import { useSocket } from '../hooks/useSocket';
 import type { NarrativeLanguage } from '../types/game.types';
 
 export function Lobby() {
-  const { createRoom, joinRoom, error } = useSocket();
+  const { createRoom, joinRoom } = useSocket();
   const [mode, setMode] = useState<'create' | 'join'>('join');
 
   const handleCreate = (name: string, language: NarrativeLanguage) => {
@@ -28,12 +28,6 @@ export function Lobby() {
           </h1>
           <p className="text-mono text-dungeon-300 text-lg">AI Game Master · Endless adventures</p>
         </div>
-
-        {error && (
-          <div className="text-mono text-sm text-blood bg-blood/10 border border-blood/30 p-3 pixel-border text-center mb-4">
-            {error}
-          </div>
-        )}
 
         <div className="flex gap-4 justify-center mb-6">
           <button

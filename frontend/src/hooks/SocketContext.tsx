@@ -25,6 +25,7 @@ interface SocketContextValue {
   messages: MessageEntry[];
   turnUpdate: TurnUpdate | null;
   error: string | null;
+  setError: (error: string | null) => void;
   typingPlayers: Map<string, string>;
   isAiProcessing: boolean;
   login: (userId: string) => Promise<boolean>;
@@ -186,7 +187,6 @@ export function SocketProvider({ children }: { children: ReactNode }) {
         return;
       }
       setError(data.message);
-      setTimeout(() => setError(null), 3000);
     });
 
     s.on('game:typing', (data: { playerId: string; username: string }) => {
@@ -355,7 +355,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     <SocketContext.Provider
       value={{
         socket, connected, page, userId, player, gameState, messages,
-        turnUpdate, error, typingPlayers, isAiProcessing,
+        turnUpdate, error, setError, typingPlayers, isAiProcessing,
         login, createRoom, createCharacter, createCharacterOnJoin,
         joinRoom, joinGameRoom, sendAction, sendRoll,
         startCampaign, emitTyping, emitTypingStop, listRooms, leaveRoom,

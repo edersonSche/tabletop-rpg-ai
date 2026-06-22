@@ -1,4 +1,5 @@
-import { Logout } from 'pixelarticons/react';
+import { Logout, AiUserCircle } from 'pixelarticons/react';
+import { useState } from 'react';
 import { useSocket } from '../hooks/useSocket';
 import { useGameTurn } from '../hooks/useGameTurn';
 import { Header } from '../components/Layout/Header';
@@ -9,8 +10,11 @@ import { PlayerList } from '../components/GameStatus/PlayerList';
 import { TurnIndicator } from '../components/GameStatus/TurnIndicator';
 import { TypingIndicator } from '../components/GameStatus/TypingIndicator';
 import { LocationBadge } from '../components/GameStatus/LocationBadge';
+import { CharacterSheet } from '../components/GameStatus/CharacterSheet';
 
 export function GameRoom() {
+  const [showSheet, setShowSheet] = useState(false);
+
   const {
     player,
     gameState,
@@ -65,6 +69,13 @@ export function GameRoom() {
               />
               <div className="flex-1" />
               <button
+                onClick={() => setShowSheet(true)}
+                className="text-mono text-sm text-magic hover:text-magic/80 transition-colors flex items-center gap-1"
+              >
+                <AiUserCircle width={14} height={14} />
+                Character
+              </button>
+              <button
                 onClick={leaveRoom}
                 disabled={isAiProcessing}
                 className="text-mono text-sm text-blood hover:text-blood/80 transition-colors flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -92,7 +103,14 @@ export function GameRoom() {
                 />
                   <LocationBadge location={gameState.currentLocation} />
                 </div>
-                <div className="flex gap-1">
+                <div className="flex gap-1 items-center">
+                  <button
+                    onClick={() => setShowSheet(true)}
+                    className="text-magic hover:text-magic/80 transition-colors mr-1"
+                    title="Character sheet"
+                  >
+                    <AiUserCircle width={18} height={18} />
+                  </button>
                   {gameState.players.slice(0, 3).map(p => (
                     <span key={p.id} className={`w-6 h-6 flex items-center justify-center text-xs pixel-border ${
                       p.id === turnUpdate?.currentTurn ? 'bg-gold text-dungeon-900' : 'bg-dungeon-600 text-dungeon-300'
@@ -139,6 +157,12 @@ export function GameRoom() {
           </div>
         </div>
       </div>
+
+      <CharacterSheet
+        player={gameState?.players.find(p => p.id === player.playerId)}
+        isOpen={showSheet}
+        onClose={() => setShowSheet(false)}
+      />
     </div>
   );
 }

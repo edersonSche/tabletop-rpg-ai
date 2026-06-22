@@ -5,6 +5,7 @@ import { Lobby } from './pages/Lobby';
 import { CharacterCreation } from './pages/CharacterCreation';
 import { WaitingRoom } from './pages/WaitingRoom';
 import { GameRoom } from './pages/GameRoom';
+import { Toast } from './components/Layout/Toast';
 
 function RoomRouter() {
   const { page } = useSocket();
@@ -27,6 +28,7 @@ export default function App() {
   return (
     <SocketProvider>
       <RoomRouter />
+      <Toast />
     </SocketProvider>
   );
 }

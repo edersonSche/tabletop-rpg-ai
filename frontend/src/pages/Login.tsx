@@ -3,7 +3,7 @@ import { Sword } from 'pixelarticons/react';
 import { useSocket } from '../hooks/useSocket';
 
 export function Login() {
-  const { login, error } = useSocket();
+  const { login } = useSocket();
   const [userId, setUserId] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -25,12 +25,6 @@ export function Login() {
           </h1>
           <p className="text-mono text-dungeon-300 text-lg">AI Game Master · Endless adventures</p>
         </div>
-
-        {error && (
-          <div className="text-mono text-sm text-blood bg-blood/10 border border-blood/30 p-3 pixel-border text-center mb-4">
-            {error}
-          </div>
-        )}
 
         <div className="pixel-border bg-dungeon-500 p-6 rounded-none">
           <h2 className="text-pixel text-gold text-lg mb-4 text-center">LOGIN</h2>

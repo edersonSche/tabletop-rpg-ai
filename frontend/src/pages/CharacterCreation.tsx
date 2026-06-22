@@ -44,7 +44,7 @@ function sum(attrs: Attributes): number {
 }
 
 export function CharacterCreation() {
-  const { createCharacter, player, error } = useSocket();
+  const { createCharacter, player } = useSocket();
   const [name, setName] = useState('');
   const [loading, setLoading] = useState(false);
   const [attributes, setAttributes] = useState<Attributes>(defaultAttributes);
@@ -82,12 +82,6 @@ export function CharacterCreation() {
           </h1>
           <p className="text-mono text-dungeon-300 text-lg">Create your character</p>
         </div>
-
-        {error && (
-          <div className="text-mono text-sm text-blood bg-blood/10 border border-blood/30 p-3 pixel-border text-center mb-4">
-            {error}
-          </div>
-        )}
 
         <div className="pixel-border bg-dungeon-500 p-6 rounded-none">
           <h2 className="text-pixel text-gold text-lg mb-4 text-center">NEW CHARACTER</h2>
