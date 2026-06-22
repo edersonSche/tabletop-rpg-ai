@@ -63,6 +63,8 @@ export interface TurnUpdate {
   currentTurn: string | null;
   type: TurnType | null;
   target: string | null;
+  skill?: string;
+  dc?: number;
 }
 
 export interface Room {

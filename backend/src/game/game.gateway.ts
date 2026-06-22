@@ -148,12 +148,12 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @SubscribeMessage('game:roll')
   async handleRoll(
     @ConnectedSocket() client: Socket,
-    @MessageBody() data: { roomId: string; playerId: string },
+    @MessageBody() data: { roomId: string; playerId: string; skill?: string; dc?: number },
   ) {
     const rollRoom = this.gameState.getRoom(data.roomId);
     const rollPlayer = rollRoom?.players.find(p => p.id === data.playerId);
-    const skill = 'destreza';
-    const dc = 10;
+    const skill = data.skill || (rollRoom?.turnTarget === data.playerId && rollRoom?.turnType === 'call_roll' ? 'destreza' : 'destreza');
+    const dc = data.dc ?? 10;
     const modifier = rollPlayer ? this.gameState.getPlayerModifier(rollPlayer, skill) : 0;
     const roll = this.gameState.rollDice(20);
     const total = roll + modifier;

@@ -11,8 +11,11 @@ interface UseGameTurnOptions {
 export function useGameTurn({ gameState, turnUpdate, playerId, isAiProcessing }: UseGameTurnOptions) {
   const currentPlayer = useMemo(() => {
     if (!gameState) return null;
-    return gameState.players[0] || null;
-  }, [gameState]);
+    const targetId = turnUpdate?.target || gameState.currentTurn;
+    if (!targetId) return null;
+    if (turnUpdate?.type === 'group_action' || turnUpdate?.type === 'narration_only') return null;
+    return gameState.players.find(p => p.id === targetId) || null;
+  }, [gameState, turnUpdate]);
 
   const isMyTurn = useMemo(() => {
     if (!turnUpdate) return true;

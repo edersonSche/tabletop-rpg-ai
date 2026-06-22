@@ -294,8 +294,11 @@ export function SocketProvider({ children }: { children: ReactNode }) {
 
   const sendRoll = useCallback(() => {
     if (!socketRef.current || !player.roomId || !player.playerId) return;
-    socketRef.current.emit('game:roll', { roomId: player.roomId, playerId: player.playerId });
-  }, [player]);
+    const skill = turnUpdate?.type === 'call_roll' ? turnUpdate.skill : undefined;
+    const dc = turnUpdate?.type === 'call_roll' ? turnUpdate.dc : undefined;
+    socketRef.current.emit('game:roll', { roomId: player.roomId, playerId: player.playerId, skill, dc });
+    setMessages(prev => [...prev, { type: 'roll', content: 'Rolando dados...', characterName: 'You', timestamp: Date.now() }]);
+  }, [player, turnUpdate]);
 
   const startCampaign = useCallback(() => {
     if (!socketRef.current || !player.roomId) return;
