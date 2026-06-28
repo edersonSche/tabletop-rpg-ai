@@ -14,16 +14,18 @@ AI-powered tabletop role-playing game platform with a real-time multiplayer expe
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                    Frontend (React 19 + Vite 6)             │
-│  Lobby → WaitingRoom → GameRoom                             │
+│  Login → Lobby → CharacterCreation → WaitingRoom → GameRoom │
 │  SocketContext (Socket.IO client)                           │
 └───────────────────────┬─────────────────────────────────────┘
                         │  WebSocket (Socket.IO)
                         ▼
 ┌─────────────────────────────────────────────────────────────┐
 │                    Backend (NestJS 11)                      │
-│  RoomGateway ─── RoomService                                │
+│  AuthGateway/AuthGuard ─── AuthService                      │
+│  RoomGateway ─────────────── RoomService                    │
 │  GameGateway ─── GameService ─── AiService ─── AI Provider  │
 │  GameState (in-memory)                                      │
+│  CampaignStore (persistence to data/campaigns.json)         │
 │  TurnManager (lock-per-room)                                │
 └─────────────────────────────────────────────────────────────┘
 ```
@@ -77,11 +79,12 @@ cd frontend && npm run preview     # vite preview
 
 | Variable | Default | Description |
 |----------|---------|-------------|
+| `AI_PROVIDER` | `opencode` | AI provider identifier |
 | `AI_API_KEY` | `(empty)` | API key; empty → fallback narration (no LLM call) |
 | `AI_MODEL` | `(empty)` | Model identifier for the provider |
 | `AI_BASE_URL` | `http://localhost:4096` | Base URL for the AI API |
 
-**Repo default** points to local Opencode (`AI_API_KEY=none`, `AI_BASE_URL=http://localhost:4096`).
+**Repo default** points to local Opencode (`AI_PROVIDER=opencode`, `AI_API_KEY=none`, `AI_BASE_URL=http://localhost:4096`).
 
 ### Frontend (`frontend/.env`)
 
@@ -95,13 +98,18 @@ cd frontend && npm run preview     # vite preview
 
 | Event | Handler | Payload |
 |-------|---------|---------|
-| `lobby:create` | `RoomGateway` | `{ name, playerName, language? }` |
+| `auth:login` | `AuthGateway` | `{ userId }` |
+| `lobby:create` | `RoomGateway` | `{ name, language? }` |
+| `lobby:create_character` | `RoomGateway` | `{ roomId, name, attributes? }` |
 | `lobby:list` | `RoomGateway` | — |
-| `lobby:join` | `RoomGateway` | `{ roomId, playerName }` |
+| `lobby:join` | `RoomGateway` | `{ roomId }` |
+| `lobby:list_saved` | `RoomGateway` | — |
+| `lobby:resume` | `RoomGateway` | `{ campaignId }` |
+| `lobby:delete_saved` | `RoomGateway` | `{ campaignId }` |
 | `room:leave` | `RoomGateway` | `{ roomId, playerId }` |
-| `room:join` | `GameGateway` | `{ roomId, playerName }` |
+| `room:join` | `GameGateway` | `{ roomId }` |
 | `game:action` | `GameGateway` | `{ roomId, playerId, message }` |
-| `game:roll` | `GameGateway` | `{ roomId, playerId }` |
+| `game:roll` | `GameGateway` | `{ roomId, playerId, skill?, dc? }` |
 | `game:start` | `GameGateway` | `{ roomId }` |
 | `game:typing` | `GameGateway` | `{ roomId, playerId, username }` |
 | `game:typing_stop` | `GameGateway` | `{ roomId, playerId }` |
@@ -114,8 +122,9 @@ cd frontend && npm run preview     # vite preview
 | `player:registered` | `{ playerId }` |
 | `game:state` | `GameState` (full room state) |
 | `game:narration` | `{ narration, next, state }` |
+| `game:player_action` | `{ type, playerId, characterName, message }` |
 | `game:turn` | `{ currentTurn, type, target }` |
-| `game:message` | `{ type, content, playerName? }` |
+| `game:message` | `{ type, content, characterName? }` |
 | `game:error` | `{ message }` |
 | `game:typing` | `{ playerId, username }` |
 | `game:typing_stop` | `{ playerId }` |
@@ -140,6 +149,11 @@ Invalid AI targets (`call_player`/`call_roll` pointing to missing players) are c
 backend/src/
 ├── main.ts                  # NestJS entry point (port 3000)
 ├── app.module.ts            # Root module with AI provider config
+├── auth/
+│   ├── auth.module.ts       # Auth module
+│   ├── auth.gateway.ts      # auth:login handler
+│   ├── auth.service.ts      # userId/socketId + playerId/socketId mapping
+│   └── auth.guard.ts        # AuthWsGuard
 ├── ai/
 │   ├── ai.interface.ts      # AIConfig / AIProvider interface
 │   ├── ai.service.ts        # Provider dispatcher + response validation
@@ -147,6 +161,9 @@ backend/src/
 │   │   └── system.prompt.ts # Multilingual system prompt builder
 │   └── providers/
 │       └── opencode.provider.ts
+├── campaign/
+│   ├── campaign.store.ts    # Persist/restore to data/campaigns.json
+│   └── campaign.types.ts    # SavedCampaign, SavedCampaignInfo
 ├── game/
 │   ├── game.gateway.ts      # Game WebSocket handlers
 │   ├── game.service.ts      # Turn orchestration + AI response processing
@@ -160,30 +177,44 @@ backend/src/
 frontend/src/
 ├── main.tsx                 # React entry point
 ├── App.tsx                  # Page router (state machine via useReducer)
+├── index.css                # Tailwind + custom layers (pixel fonts, colors)
 ├── hooks/
 │   ├── SocketContext.tsx    # Socket.IO context provider + state
 │   ├── useSocket.ts         # Context re-export
-│   └── useGameTurn.ts        # Turn logic hook (isMyTurn, isRollRequest, etc.)
+│   └── useGameTurn.ts       # Turn logic hook (isMyTurn, isRollRequest, etc.)
 ├── routing/
 │   └── pageRouter.ts        # Page state machine (reducer + types)
 ├── pages/
-│   ├── Lobby.tsx            # Create / join campaign
+│   ├── Login.tsx            # Auth screen
+│   ├── Lobby.tsx            # Create / join / resume campaign
+│   ├── CharacterCreation.tsx # Character creation with point-buy stats
 │   ├── WaitingRoom.tsx      # Pre-game lobby
 │   └── GameRoom.tsx         # Main game interface
 ├── components/
-│   ├── Chat/                # MessageList, MessageInput, DiceRollButton, TypewriterText
-│   ├── GameStatus/          # LocationBadge, TurnIndicator, PlayerList, PlayerCard, TypingIndicator
-│   ├── Layout/              # Header
-│   └── Lobby/               # CreateRoom, RoomList
-├── types/
-│   └── game.types.ts        # Shared TypeScript interfaces
-├── styles/
-│   └── index.css            # Tailwind + custom layers (pixel fonts, colors)
-└── index.css                # Entry CSS
+│   ├── Chat/
+│   │   ├── MessageList.tsx
+│   │   ├── MessageInput.tsx
+│   │   └── DiceRollButton.tsx
+│   ├── GameStatus/
+│   │   ├── LocationBadge.tsx
+│   │   ├── TurnIndicator.tsx
+│   │   ├── PlayerList.tsx
+│   │   ├── PlayerCard.tsx
+│   │   ├── CharacterSheet.tsx
+│   │   └── TypingIndicator.tsx
+│   ├── Layout/
+│   │   ├── Header.tsx
+│   │   └── Toast.tsx
+│   └── Lobby/
+│       ├── CreateRoom.tsx
+│       ├── RoomList.tsx
+│       └── SavedCampaigns.tsx
+└── types/
+    └── game.types.ts        # Shared TypeScript interfaces
 ```
 
 ## Limitations
 
-- **No persistence** — all state is in-memory; restarting the backend wipes everything.
+- **Active rooms are in-memory** — restarting the backend wipes active rooms, but saved campaigns persist in `data/campaigns.json` and can be resumed.
 - **No HP or stats** — players have only `id`, `name`, and 6 attributes (all at 10).
-- **Hardcoded campaign setting** — `"A medieval fantasy world..."` appears in 3 places and is not configurable.
+- **Hardcoded campaign setting** — `"A medieval fantasy world..."` is defined in `game.service.ts` and referenced in 6+ places; not configurable at runtime.

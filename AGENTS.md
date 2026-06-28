@@ -1,6 +1,6 @@
 # AGENTS.md
 
-Two-package monorepo: `backend/` (NestJS 11, Socket.IO 4.8), `frontend/` (React 19, Vite 6, Tailwind 3.4). No root `package.json` — each package is independent. **No tests, no lint, no formatter, no CI.** Game state is in-memory — restarting **wipes active rooms** (but not saved campaigns). **Campaign persistence** writes to `data/campaigns.json` on every action/roll/start/disconnect/create_character — saved campaigns survive restarts and can be resumed via `lobby:resume`. Frontend only validation gate: `npm run build` (runs `tsc && vite build`).
+Two-package monorepo: `backend/` (NestJS 11, Socket.IO 4.8), `frontend/` (React 19, Vite 6, Tailwind 3.4). No root `package.json` — each package is independent. **No tests, no lint, no formatter, no CI.** Game state is in-memory — restarting **wipes active rooms** (but not saved campaigns). **Campaign persistence** writes to `data/campaigns.json` on every action/roll/start/disconnect — `saveFromMemory()` skips saving if `!gameStarted`, so pre-start creates/leaves do not persist. Saved campaigns survive restarts and can be resumed via `lobby:resume`. Frontend only validation gate: `npm run build` (runs `tsc && vite build`).
 
 ## Commands
 
@@ -49,7 +49,7 @@ Actions: `LOGGED_IN`, `LOGGED_OUT`, `CREATED_ROOM`, `JOIN_NEEDS_CHARACTER`, `CHA
 
 **Frontend** (`frontend/src/`):
 - `hooks/SocketContext.tsx` — Socket.IO context provider; subscribes all `game:*` events; owns page dispatches + `messages`, `gameState`, `turnUpdate`, `isAiProcessing`, `typingPlayers` states
-- `hooks/useGameTurn.ts` — Derives `isMyTurn`, `isRollRequest`, `isInputDisabled`, `canAct` from `gameState` + `turnUpdate`
+- `hooks/useGameTurn.ts` — Derives `isMyTurn`, `isRollRequest`, `isInputDisabled`, `canAct`, `isRollDisabled`, `disabledReason` from `gameState` + `turnUpdate`
 - `types/game.types.ts` — TypeScript interfaces mirroring backend DTOs
 - `pages/` — `Login.tsx`, `Lobby.tsx`, `CharacterCreation.tsx`, `WaitingRoom.tsx`, `GameRoom.tsx`
 
@@ -70,11 +70,12 @@ Opencode uses inline JSON prompt + regex extraction. Invalid `call_player`/`call
 - **UI is pt-BR** (`<html lang="pt-BR">`); AI narration supports `english | portuguese | spanish`; all source code is English.
 - **Always-dark design** — custom Tailwind colors (`parchment`, `dungeon`, `gold`, `blood`, `magic`), pixel/mono font utilities (`text-pixel`, `text-mono`). No `dark:` variants.
 - **Backend** uses CommonJS modules (`"module": "commonjs"` in tsconfig). **Frontend** uses `"type": "module"`.
-- **Roll is hardcoded** — `handleRoll()` defaults skill to `'destreza'` and DC to 10. Roll computed in `game.gateway.ts` and emits `game:player_action` *before* AI processing. No optimistic roll update in `SocketContext`. Frontend `sendRoll()` reads `turnUpdate.skill`/`dc` if `turnUpdate.type === 'call_roll'`.
-- **Actions** are optimistically added for the sender (`characterName: 'You'`) and broadcast to others via `game:player_action`. **Rolls** broadcast to all with no local optimism.
-- **Hardcoded campaign setting** — `CAMPAIGN_SETTING` const in `game.service.ts:7`, referenced in `game.service.ts:40,98,157` and `room.gateway.ts:77,305`.
+- **Roll is hardcoded** — `handleRoll()` defaults skill to `'destreza'` and DC to 10. Roll computed in `game.gateway.ts` and emits `game:player_action` *before* AI processing. Frontend `sendRoll()` reads `turnUpdate.skill`/`dc` if `turnUpdate.type === 'call_roll'`.
+- **Actions** are optimistically added for the sender (`characterName: 'You'`) and broadcast to others via `game:player_action`. **Rolls** add a placeholder `"Rolando dados..."` locally then broadcast the final result to all with no local optimism.
+- **Hardcoded campaign setting** — `CAMPAIGN_SETTING` const in `game.service.ts:7`, referenced in `game.service.ts:40,98,157` and `room.gateway.ts:77,310`.
 - **Player model**: `id`, `userId`, `name`, `active` bool, 6 attributes (all at 10). No HP/stats.
 - **History stores only narration text** (no JSON overhead) — saves tokens vs. storing full `AIResponse`.
 - **Scene context** (`buildSceneContext()`) built from complete sentences + location + next-action. Stored as `room.scene`, sent to AI every turn.
 - **Backend uses experimental decorators** (`emitDecoratorMetadata`, `experimentalDecorators` in tsconfig). Frontend uses Vite's esbuild transform (no decorators).
 - **Both packages** independently list dev-only `typescript` — do not assume it's installed at root.
+- **Cold restore** (`lobby:resume` when room not in memory) forces `gameStarted = false` — creator always lands in waiting room and must click START to resume gameplay. Warm restore (room in memory) preserves the actual `gameStarted` state.

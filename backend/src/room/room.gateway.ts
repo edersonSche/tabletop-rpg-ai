@@ -290,6 +290,11 @@ export class RoomGateway {
 
     this.campaignStore.restoreToMemory(data.campaignId);
 
+    const restoredState = this.gameState.getRoom(data.campaignId);
+    if (restoredState) {
+      restoredState.gameStarted = false;
+    }
+
     const savedCampaign = this.campaignStore.load(data.campaignId);
     if (!savedCampaign) return { success: false, error: 'Failed to load campaign' };
     const creatorPlayer = savedCampaign.players.find(p => p.userId === userId);
@@ -334,7 +339,7 @@ export class RoomGateway {
       success: true,
       room: { id: savedCampaign.campaignId, name: savedCampaign.campaignName },
       playerId: creatorPlayer.id,
-      campaignStarted: state?.gameStarted || false,
+      campaignStarted: false,
     };
   }
 
