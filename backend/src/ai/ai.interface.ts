@@ -36,6 +36,6 @@ export interface AIContext {
 export interface AIProvider {
   configure(config: AIConfig): void;
   generate(context: AIContext): Promise<AIResponse>;
-  onRoomReady?(roomId: string): Promise<void>;
+  onRoomReady?(roomId: string, context: AIContext): Promise<void>;
   onRoomEmpty?(roomId: string): Promise<void>;
 }

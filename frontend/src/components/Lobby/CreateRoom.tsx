@@ -8,17 +8,22 @@ const LANGUAGES: { value: NarrativeLanguage; label: string }[] = [
 ];
 
 interface CreateRoomProps {
-  onCreate: (name: string, language: NarrativeLanguage) => void;
+  onCreate: (name: string, language: NarrativeLanguage) => Promise<void>;
 }
 
 export function CreateRoom({ onCreate }: CreateRoomProps) {
   const [roomName, setRoomName] = useState('');
   const [language, setLanguage] = useState<NarrativeLanguage>('english');
+  const [creating, setCreating] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (roomName.trim()) {
-      onCreate(roomName.trim(), language);
+    if (!roomName.trim() || creating) return;
+    setCreating(true);
+    try {
+      await onCreate(roomName.trim(), language);
+    } catch {
+      setCreating(false);
     }
   };
 
@@ -50,10 +55,10 @@ export function CreateRoom({ onCreate }: CreateRoomProps) {
         </div>
         <button
           type="submit"
-          disabled={!roomName.trim()}
+          disabled={!roomName.trim() || creating}
           className="w-full bg-gold text-dungeon-900 font-bold py-3 px-4 text-mono text-lg pixel-border hover:brightness-110 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          CREATE CAMPAIGN
+          {creating ? 'CREATING...' : 'CREATE CAMPAIGN'}
         </button>
       </form>
     </div>

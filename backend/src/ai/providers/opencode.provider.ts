@@ -21,6 +21,7 @@ export class OpencodeProvider implements AIProvider {
   private auth: string | null = null;
   private model: string | null = null;
   private sessions = new Map<string, string>();
+  private sessionContextSent = new Set<string>();
 
   configure(config: AIConfig): void {
     this.baseUrl = config.baseUrl || 'http://localhost:4096';
@@ -33,9 +34,11 @@ export class OpencodeProvider implements AIProvider {
 
   async generate(context: AIContext): Promise<AIResponse> {
     try {
-      await this.onRoomReady(context.roomId);
+      if (!this.sessionContextSent.has(context.roomId)) {
+        await this.onRoomReady(context.roomId, context);
+      }
 
-      const prompt = this.buildPrompt(context);
+      const prompt = this.buildIncrementalPrompt(context);
 
       const message = await this.sendMessage(context.roomId, prompt);
 
@@ -44,25 +47,54 @@ export class OpencodeProvider implements AIProvider {
       return this.parseResponse(text);
     } catch (error) {
       console.error('Opencode provider error:', error.message);
+
+      if (this.isSessionError(error)) {
+        this.sessions.delete(context.roomId);
+        this.sessionContextSent.delete(context.roomId);
+
+        try {
+          await this.onRoomReady(context.roomId, context);
+          const fullPrompt = this.buildPrompt(context);
+          const message = await this.sendMessage(context.roomId, fullPrompt);
+          return this.parseResponse(this.extractText(message));
+        } catch (retryError) {
+          console.error('Opencode provider retry failed:', retryError.message);
+          return this.fallbackResponse(context);
+        }
+      }
+
       return this.fallbackResponse(context);
     }
   }
 
-  async onRoomReady(roomId: string): Promise<void> {
-    if (this.sessions.has(roomId)) return;
+  async onRoomReady(roomId: string, context: AIContext): Promise<void> {
+    if (!this.sessions.has(roomId)) {
+      const res = await fetch(`${this.baseUrl}/session`, {
+        method: 'POST',
+        headers: this.headers(),
+        body: JSON.stringify({}),
+      });
 
-    const res = await fetch(`${this.baseUrl}/session`, {
-      method: 'POST',
-      headers: this.headers(),
-      body: JSON.stringify({}),
-    });
+      if (!res.ok) {
+        throw new Error(`Failed to create session: ${res.status} ${res.statusText}`);
+      }
 
-    if (!res.ok) {
-      throw new Error(`Failed to create session: ${res.status} ${res.statusText}`);
+      const data = (await res.json()) as SessionResponse;
+      this.sessions.set(roomId, data.id);
     }
 
-    const data = (await res.json()) as SessionResponse;
-    this.sessions.set(roomId, data.id);
+    const systemPrompt = getSystemPrompt(context);
+
+    const historyBlock = context.history.length > 0
+      ? '\n\n## Previous Events\n' + context.history.slice(-30).map(h =>
+          h.role === 'player' ? `[${h.playerId || 'unknown'}] ${h.content}`
+          : h.role === 'assistant' ? `GM: ${h.content}`
+          : `[system] ${h.content}`
+        ).join('\n')
+      : '';
+
+    await this.sendMessage(roomId, systemPrompt + historyBlock);
+    this.sessionContextSent.add(roomId);
   }
 
   async onRoomEmpty(roomId: string): Promise<void> {
@@ -75,6 +107,7 @@ export class OpencodeProvider implements AIProvider {
     }).catch(() => {});
 
     this.sessions.delete(roomId);
+    this.sessionContextSent.delete(roomId);
   }
 
   private async sendMessage(roomId: string, content: string): Promise<MessageResponse> {
@@ -98,7 +131,9 @@ export class OpencodeProvider implements AIProvider {
     });
 
     if (!res.ok) {
-      throw new Error(`Failed to send message: ${res.status} ${res.statusText}`);
+      const err = new Error(`Failed to send message: ${res.status} ${res.statusText}`);
+      (err as any).status = res.status;
+      throw err;
     }
 
     return (await res.json()) as MessageResponse;
@@ -114,6 +149,38 @@ export class OpencodeProvider implements AIProvider {
     }
 
     return headers;
+  }
+
+  private buildIncrementalPrompt(context: AIContext): string {
+    const lines: string[] = [];
+
+    if (context.currentAction) {
+      if (context.currentAction.characterName) {
+        lines.push(`Player acting: ${context.currentAction.characterName}`);
+      }
+      if (context.currentAction.action) {
+        lines.push(`Action: ${context.currentAction.action}`);
+      }
+      if (context.currentAction.rollResult !== undefined) {
+        const roll = `Roll: ${context.currentAction.rollResult}`;
+        const dc = context.currentAction.dc ? ` (DC ${context.currentAction.dc})` : '';
+        lines.push(`${roll}${dc}`);
+        if (context.currentAction.skill) {
+          lines.push(`Skill: ${context.currentAction.skill}`);
+        }
+      }
+      lines.push('');
+    }
+
+    if (context.currentAction?.rollResult !== undefined && context.currentAction?.dc !== undefined) {
+      lines.push('Note: a roll was made. If the roll meets or exceeds the DC, describe success. Otherwise describe failure.');
+    }
+
+    if (lines.length === 0) {
+      lines.push('The adventure continues. What happens next?');
+    }
+
+    return lines.join('\n');
   }
 
   private buildPrompt(context: AIContext): string {
@@ -159,6 +226,11 @@ export class OpencodeProvider implements AIProvider {
     return lines.join('\n');
   }
 
+  private isSessionError(error: any): boolean {
+    const status = error?.status;
+    return status === 404 || status === 410 || status === 400;
+  }
+
   private extractText(message: MessageResponse): string {
     for (const part of message.parts) {
       if (part.type === 'text' && part.text) {
@@ -183,8 +255,6 @@ export class OpencodeProvider implements AIProvider {
   }
 
   private fallbackResponse(context: AIContext): AIResponse {
-    const playerNames = context.players.map(p => p.name).join(', ');
-
     return {
       narration: `The adventure continues... ${context.currentAction?.action || 'The group awaits the next move.'}`,
       next: {

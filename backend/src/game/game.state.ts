@@ -28,6 +28,7 @@ export interface GameStateData {
   turnTarget: string | null;
   currentLocation: string | null;
   scene: string;
+  gameStarted: boolean;
   history: Array<{
     role: 'player' | 'assistant' | 'system';
     playerId?: string;
@@ -37,6 +38,34 @@ export interface GameStateData {
 
 export class GameState {
   private rooms: Map<string, GameStateData> = new Map();
+
+  restoreCampaign(data: {
+    campaignId: string;
+    campaignName: string;
+    creatorId: string;
+    language: NarrativeLanguage;
+    players: Player[];
+    currentTurn: string | null;
+    turnType: GameStateData['turnType'];
+    turnTarget: string | null;
+    currentLocation: string | null;
+    scene: string;
+    gameStarted: boolean;
+    history: GameStateData['history'];
+  }): GameStateData {
+    const state: GameStateData = {
+      ...data,
+    };
+    this.rooms.set(data.campaignId, state);
+
+    for (const p of data.players) {
+      const roomUserMap = this.playerByUserId.get(data.campaignId) || new Map();
+      roomUserMap.set(p.userId, p.id);
+      this.playerByUserId.set(data.campaignId, roomUserMap);
+    }
+
+    return state;
+  }
 
   createRoom(roomId: string, name: string, language: NarrativeLanguage = 'english'): GameStateData {
     const state: GameStateData = {
@@ -50,6 +79,7 @@ export class GameState {
       turnTarget: null,
       currentLocation: null,
       scene: '',
+      gameStarted: false,
       history: [],
     };
     this.rooms.set(roomId, state);

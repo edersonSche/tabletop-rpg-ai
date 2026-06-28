@@ -52,11 +52,22 @@ export interface GameState {
   turnTarget: string | null;
   currentLocation: string | null;
   scene: string;
+  gameStarted: boolean;
   history: Array<{
     role: 'player' | 'assistant' | 'system';
     playerId?: string;
     content: string;
   }>;
+}
+
+export interface SavedCampaignInfo {
+  campaignId: string;
+  campaignName: string;
+  playersCount: number;
+  players: Array<{ id: string; name: string }>;
+  lastSavedAt: string;
+  hasStarted: boolean;
+  isCreator: boolean;
 }
 
 export interface TurnUpdate {

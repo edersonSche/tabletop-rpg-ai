@@ -14,6 +14,7 @@ import { CharacterSheet } from '../components/GameStatus/CharacterSheet';
 
 export function GameRoom() {
   const [showSheet, setShowSheet] = useState(false);
+  const [leaving, setLeaving] = useState(false);
 
   const {
     player,
@@ -43,6 +44,15 @@ export function GameRoom() {
 
   const handleRoll = () => {
     sendRoll();
+  };
+
+  const handleLeave = async () => {
+    setLeaving(true);
+    try {
+      await leaveRoom();
+    } catch {
+      setLeaving(false);
+    }
   };
 
   return (
@@ -76,12 +86,12 @@ export function GameRoom() {
                 Character
               </button>
               <button
-                onClick={leaveRoom}
-                disabled={isAiProcessing}
+                onClick={handleLeave}
+                disabled={leaving || isAiProcessing}
                 className="text-mono text-sm text-blood hover:text-blood/80 transition-colors flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Logout width={14} height={14} />
-                {isCreator ? 'Close campaign' : 'Leave campaign'}
+                {leaving ? 'LEAVING...' : (isCreator ? 'Close campaign' : 'Leave campaign')}
               </button>
             </>
           )}
@@ -119,8 +129,8 @@ export function GameRoom() {
                     </span>
                   ))}
                   <button
-                    onClick={leaveRoom}
-                    disabled={isAiProcessing}
+                    onClick={handleLeave}
+                    disabled={leaving || isAiProcessing}
                     className="text-blood hover:text-blood/80 disabled:opacity-50 ml-1"
                     title={isCreator ? 'Close campaign' : 'Leave campaign'}
                   >

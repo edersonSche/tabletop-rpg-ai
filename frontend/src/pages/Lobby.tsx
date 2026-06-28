@@ -2,19 +2,24 @@ import { useState } from 'react';
 import { Sword } from 'pixelarticons/react';
 import { CreateRoom } from '../components/Lobby/CreateRoom';
 import { RoomList } from '../components/Lobby/RoomList';
+import { SavedCampaigns } from '../components/Lobby/SavedCampaigns';
 import { useSocket } from '../hooks/useSocket';
 import type { NarrativeLanguage } from '../types/game.types';
 
 export function Lobby() {
-  const { createRoom, joinRoom } = useSocket();
-  const [mode, setMode] = useState<'create' | 'join'>('join');
+  const { createRoom, joinRoom, resumeCampaign } = useSocket();
+  const [mode, setMode] = useState<'create' | 'join' | 'resume'>('join');
 
-  const handleCreate = (name: string, language: NarrativeLanguage) => {
-    createRoom(name, language);
+  const handleCreate = async (name: string, language: NarrativeLanguage) => {
+    await createRoom(name, language);
   };
 
-  const handleJoin = (roomId: string) => {
-    joinRoom(roomId);
+  const handleJoin = async (roomId: string) => {
+    await joinRoom(roomId);
+  };
+
+  const handleResume = async (campaignId: string) => {
+    await resumeCampaign(campaignId);
   };
 
   return (
@@ -38,7 +43,7 @@ export function Lobby() {
                 : 'bg-dungeon-600 text-dungeon-200 hover:text-gold'
             }`}
           >
-            [CREATE CAMPAIGN]
+            [CREATE]
           </button>
           <button
             onClick={() => setMode('join')}
@@ -48,12 +53,24 @@ export function Lobby() {
                 : 'bg-dungeon-600 text-dungeon-200 hover:text-gold'
             }`}
           >
-            [JOIN CAMPAIGN]
+            [JOIN]
+          </button>
+          <button
+            onClick={() => setMode('resume')}
+            className={`text-mono text-sm px-4 py-2 pixel-border transition-all ${
+              mode === 'resume'
+                ? 'bg-gold text-dungeon-900'
+                : 'bg-dungeon-600 text-dungeon-200 hover:text-gold'
+            }`}
+          >
+            [RESUME]
           </button>
         </div>
 
         {mode === 'create' ? (
           <CreateRoom onCreate={handleCreate} />
+        ) : mode === 'resume' ? (
+          <SavedCampaigns onResume={handleResume} />
         ) : (
           <RoomList onJoin={handleJoin} />
         )}

@@ -64,11 +64,14 @@ export function CharacterCreation() {
     });
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!canSubmit || !player.roomId) return;
     setLoading(true);
-    createCharacter(player.roomId, name.trim(), attributes);
-    setLoading(false);
+    try {
+      await createCharacter(player.roomId, name.trim(), attributes);
+    } catch {
+      setLoading(false);
+    }
   };
 
   return (

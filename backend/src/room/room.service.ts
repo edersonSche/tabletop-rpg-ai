@@ -15,6 +15,12 @@ export class RoomService {
 
   constructor(private gameState: GameState) {}
 
+  createWithId(id: string, name: string, players: Array<{ id: string; name: string }>, creatorId: string): RoomData {
+    const room: RoomData = { id, name, players: [...players], creatorId };
+    this.rooms.set(id, room);
+    return room;
+  }
+
   create(name: string, language: NarrativeLanguage = 'english'): RoomData {
     const id = uuid().slice(0, 8);
     const room: RoomData = { id, name, players: [], creatorId: '' };

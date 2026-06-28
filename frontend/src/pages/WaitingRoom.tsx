@@ -1,11 +1,29 @@
+import { useState } from 'react';
 import { Sword, Play, Logout } from 'pixelarticons/react';
 import { useSocket } from '../hooks/useSocket';
 import { Header } from '../components/Layout/Header';
 
 export function WaitingRoom() {
   const { player, gameState, startCampaign, leaveRoom, isAiProcessing } = useSocket();
+  const [starting, setStarting] = useState(false);
+  const [leaving, setLeaving] = useState(false);
 
   const isCreator = player.playerId === gameState?.creatorId;
+
+  const handleStart = () => {
+    setStarting(true);
+    startCampaign();
+    setTimeout(() => setStarting(false), 10000);
+  };
+
+  const handleLeave = async () => {
+    setLeaving(true);
+    try {
+      await leaveRoom();
+    } catch {
+      setLeaving(false);
+    }
+  };
 
   return (
     <div className="h-screen flex flex-col bg-dungeon-800">
@@ -45,22 +63,22 @@ export function WaitingRoom() {
 
         {isCreator && (
           <button
-            onClick={startCampaign}
-            disabled={isAiProcessing}
+            onClick={handleStart}
+            disabled={starting || isAiProcessing}
             className="bg-gold text-dungeon-900 py-3 px-8 text-mono text-lg pixel-border hover:brightness-110 transition-all mt-6 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Play width={16} height={16} />
-            START CAMPAIGN
+            {starting ? 'STARTING...' : 'START CAMPAIGN'}
           </button>
         )}
 
         <button
-          onClick={leaveRoom}
-          disabled={isAiProcessing}
+          onClick={handleLeave}
+          disabled={leaving || isAiProcessing}
           className="text-mono text-sm text-blood hover:text-blood/80 transition-colors mt-4 flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <Logout width={14} height={14} />
-          {isCreator ? 'Close campaign' : 'Leave campaign'}
+          {leaving ? 'LEAVING...' : (isCreator ? 'Close campaign' : 'Leave campaign')}
         </button>
       </div>
 

@@ -17,6 +17,7 @@ import { GameActionDto } from '../dto/game-action.dto';
 import { AIProvider } from '../ai/ai.interface';
 import { AuthService } from '../auth/auth.service';
 import { AuthWsGuard } from '../auth/auth.guard';
+import { CampaignStore } from '../campaign/campaign.store';
 
 @WebSocketGateway({
   cors: {
@@ -36,6 +37,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     private gameState: GameState,
     private turnManager: TurnManager,
     private authService: AuthService,
+    private campaignStore: CampaignStore,
     @Inject('AI_PROVIDER') private aiProvider: AIProvider,
   ) {}
 
@@ -58,6 +60,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
         type: 'system',
         content: `${characterName} disconnected.`,
       });
+      this.campaignStore.saveFromMemory(roomId);
     }
 
     console.log(`Client disconnected: ${client.id}`);
@@ -122,6 +125,8 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       const response = await this.gameService.handleAction(data.roomId, data.playerId, data.message);
       const room = this.gameState.getRoom(data.roomId);
 
+      this.campaignStore.saveFromMemory(data.roomId);
+
       this.server.to(data.roomId).emit('game:narration', {
         narration: response.narration,
         next: response.next,
@@ -170,6 +175,8 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       const response = await this.gameService.handleRoll(data.roomId, data.playerId, { roll, modifier, total, skill, dc });
       const room = this.gameState.getRoom(data.roomId);
 
+      this.campaignStore.saveFromMemory(data.roomId);
+
       this.server.to(data.roomId).emit('game:narration', {
         narration: response.narration,
         next: response.next,
@@ -203,11 +210,19 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       const response = await this.gameService.startCampaign(data.roomId);
       const room = this.gameState.getRoom(data.roomId);
 
-      this.server.to(data.roomId).emit('game:narration', {
-        narration: response.narration,
-        next: response.next,
-        state: this.gameService.getState(data.roomId),
-      });
+      if (response.narration) {
+        this.server.to(data.roomId).emit('game:narration', {
+          narration: response.narration,
+          next: response.next,
+          state: this.gameService.getState(data.roomId),
+        });
+      } else {
+        this.server.to(data.roomId).emit('game:state', {
+          ...this.gameService.getState(data.roomId),
+          creatorId: room?.creatorId,
+          history: room?.history,
+        });
+      }
 
       if (room) {
         this.server.to(data.roomId).emit('game:turn', {
@@ -216,6 +231,8 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
           target: room.turnTarget,
         });
       }
+
+      this.campaignStore.saveFromMemory(data.roomId);
 
       return { success: true };
     } catch (error) {

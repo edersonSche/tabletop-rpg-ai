@@ -10,6 +10,7 @@ import { RoomService } from './room/room.service';
 import { AiService } from './ai/ai.service';
 import { OpencodeProvider } from './ai/providers/opencode.provider';
 import { AIConfig } from './ai/ai.interface';
+import { CampaignStore } from './campaign/campaign.store';
 
 @Module({
   imports: [ConfigModule.forRoot(), AuthModule],
@@ -21,6 +22,7 @@ import { AIConfig } from './ai/ai.interface';
     RoomGateway,
     RoomService,
     AiService,
+    CampaignStore,
     {
       provide: 'AI_CONFIG',
       useFactory: (configService: ConfigService): AIConfig => ({

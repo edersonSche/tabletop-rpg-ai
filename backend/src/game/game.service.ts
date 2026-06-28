@@ -4,8 +4,12 @@ import { TurnManager } from './turn.manager';
 import { AiService } from '../ai/ai.service';
 import { AIResponse } from '../dto/ai-response.dto';
 
+export const CAMPAIGN_SETTING = 'A medieval fantasy world of dark forests, dangerous dungeons, and warring kingdoms.';
+
 @Injectable()
 export class GameService {
+  readonly campaignSetting = CAMPAIGN_SETTING;
+
   constructor(
     private gameState: GameState,
     private turnManager: TurnManager,
@@ -33,7 +37,7 @@ export class GameService {
       const response = await this.aiService.generate({
         roomId,
         campaignName: room.campaignName,
-        campaignSetting: 'A medieval fantasy world of dark forests, dangerous dungeons, and warring kingdoms.',
+        campaignSetting: this.campaignSetting,
         language: room.language,
         players: room.players,
         scene: room.scene,
@@ -91,7 +95,7 @@ export class GameService {
       const response = await this.aiService.generate({
         roomId,
         campaignName: room.campaignName,
-        campaignSetting: 'A medieval fantasy world of dark forests, dangerous dungeons, and warring kingdoms.',
+        campaignSetting: this.campaignSetting,
         language: room.language,
         players: room.players,
         scene: room.scene,
@@ -133,20 +137,33 @@ export class GameService {
     const room = this.gameState.getRoom(roomId);
     if (!room) throw new Error('Room not found');
 
+    if (room.history.length > 0) {
+      room.gameStarted = true;
+      return {
+        narration: '',
+        next: {
+          type: room.turnType || 'group_action',
+          target: room.turnTarget || undefined,
+        },
+      };
+    }
+
     this.turnManager.lock(roomId);
 
     try {
       const response = await this.aiService.generate({
         roomId,
         campaignName: room.campaignName,
-        campaignSetting: 'A medieval fantasy world of dark forests, dangerous dungeons, and warring kingdoms.',
+        campaignSetting: this.campaignSetting,
         language: room.language,
         players: room.players,
         scene: 'The adventure is about to begin.',
         currentLocation: room.currentLocation,
-        history: [],
+        history: room.history,
         currentAction: null,
       });
+
+      room.gameStarted = true;
 
       this.validateAiResponseTarget(response, room.players);
 
@@ -234,6 +251,7 @@ export class GameService {
       turnTarget: room.turnTarget,
       currentLocation: room.currentLocation,
       scene: room.scene,
+      gameStarted: room.gameStarted,
     };
   }
 }

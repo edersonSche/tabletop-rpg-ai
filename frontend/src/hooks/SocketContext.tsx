@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback, useRef, useReducer, ReactNode } from 'react';
 import { io, Socket } from 'socket.io-client';
-import { GameState, TurnUpdate, Player } from '../types/game.types';
+import { GameState, TurnUpdate, Player, SavedCampaignInfo } from '../types/game.types';
 import { Page, pageReducer } from '../routing/pageRouter';
 
 interface PlayerInfo {
@@ -29,10 +29,10 @@ interface SocketContextValue {
   typingPlayers: Map<string, string>;
   isAiProcessing: boolean;
   login: (userId: string) => Promise<boolean>;
-  createRoom: (name: string, language?: string) => void;
-  createCharacter: (roomId: string, name: string, attributes?: Player['attributes']) => void;
+  createRoom: (name: string, language?: string) => Promise<void>;
+  createCharacter: (roomId: string, name: string, attributes?: Player['attributes']) => Promise<void>;
   createCharacterOnJoin: (roomId: string, name: string) => void;
-  joinRoom: (roomId: string) => void;
+  joinRoom: (roomId: string) => Promise<void>;
   joinGameRoom: (roomId: string) => void;
   sendAction: (message: string) => void;
   sendRoll: () => void;
@@ -40,7 +40,10 @@ interface SocketContextValue {
   emitTyping: (username: string) => void;
   emitTypingStop: () => void;
   listRooms: () => Promise<any[]>;
-  leaveRoom: () => void;
+  listSavedCampaigns: () => Promise<SavedCampaignInfo[]>;
+  resumeCampaign: (campaignId: string) => Promise<void>;
+  deleteSavedCampaign: (campaignId: string) => Promise<boolean>;
+  leaveRoom: () => Promise<void>;
 }
 
 const SocketContext = createContext<SocketContextValue | null>(null);
@@ -123,7 +126,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
 
     s.on('game:state', (data: GameState) => {
       setGameState(data);
-      if (data.scene) dispatch({ type: 'CAMPAIGN_STARTED' });
+      if (data.gameStarted) dispatch({ type: 'CAMPAIGN_STARTED' });
       if (data.history) {
         const playerMap = new Map((data.players || []).map(p => [p.id, p.name]));
         const newMessages: MessageEntry[] = [];
@@ -163,7 +166,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
       setMessages(prev => [...prev, { type: 'narration', content: data.narration, timestamp: Date.now() }]);
       if (data.state) {
         setGameState(data.state);
-        if (data.state.scene) dispatch({ type: 'CAMPAIGN_STARTED' });
+        if (data.state.gameStarted) dispatch({ type: 'CAMPAIGN_STARTED' });
       }
     });
 
@@ -223,29 +226,39 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  const createRoom = useCallback((name: string, language?: string) => {
-    if (!socketRef.current) return;
-    socketRef.current.emit('lobby:create', { name, language }, (response: any) => {
-      if (response.success) {
-        setPlayer(prev => ({ ...prev, roomId: response.room.id }));
-        dispatch({ type: 'CREATED_ROOM' });
-      }
+  const createRoom = useCallback((name: string, language?: string): Promise<void> => {
+    return new Promise((resolve, reject) => {
+      if (!socketRef.current) { reject(new Error('No socket')); return; }
+      socketRef.current.emit('lobby:create', { name, language }, (response: any) => {
+        if (response.success) {
+          setPlayer(prev => ({ ...prev, roomId: response.room.id }));
+          dispatch({ type: 'CREATED_ROOM' });
+          resolve();
+        } else {
+          setError(response.error);
+          reject(new Error(response.error));
+        }
+      });
     });
   }, []);
 
-  const createCharacter = useCallback((roomId: string, name: string, attributes?: Player['attributes']) => {
-    if (!socketRef.current) return;
-    socketRef.current.emit('lobby:create_character', { roomId, name, attributes }, (response: any) => {
-      if (response.success) {
-        setPlayer(prev => ({ ...prev, playerId: response.playerId }));
-        if (response.campaignStarted) {
-          dispatch({ type: 'CHARACTER_CREATED_AND_STARTED' });
+  const createCharacter = useCallback((roomId: string, name: string, attributes?: Player['attributes']): Promise<void> => {
+    return new Promise((resolve, reject) => {
+      if (!socketRef.current) { reject(new Error('No socket')); return; }
+      socketRef.current.emit('lobby:create_character', { roomId, name, attributes }, (response: any) => {
+        if (response.success) {
+          setPlayer(prev => ({ ...prev, playerId: response.playerId }));
+          if (response.campaignStarted) {
+            dispatch({ type: 'CHARACTER_CREATED_AND_STARTED' });
+          } else {
+            dispatch({ type: 'CHARACTER_CREATED' });
+          }
+          resolve();
         } else {
-          dispatch({ type: 'CHARACTER_CREATED' });
+          setError(response.error);
+          reject(new Error(response.error));
         }
-      } else {
-        setError(response.error);
-      }
+      });
     });
   }, []);
 
@@ -253,24 +266,28 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     createCharacter(roomId, name);
   }, [createCharacter]);
 
-  const joinRoom = useCallback((roomId: string) => {
-    if (!socketRef.current) return;
-    socketRef.current.emit('lobby:join', { roomId }, (response: any) => {
-      if (response.success) {
-        if (response.needsCharacter) {
-          setPlayer(prev => ({ ...prev, roomId }));
-          dispatch({ type: 'JOIN_NEEDS_CHARACTER' });
-        } else {
-          setPlayer(prev => ({ ...prev, roomId: response.room.id, playerId: response.playerId }));
-          if (response.campaignStarted) {
-            dispatch({ type: 'CHARACTER_CREATED_AND_STARTED' });
+  const joinRoom = useCallback((roomId: string): Promise<void> => {
+    return new Promise((resolve, reject) => {
+      if (!socketRef.current) { reject(new Error('No socket')); return; }
+      socketRef.current.emit('lobby:join', { roomId }, (response: any) => {
+        if (response.success) {
+          if (response.needsCharacter) {
+            setPlayer(prev => ({ ...prev, roomId }));
+            dispatch({ type: 'JOIN_NEEDS_CHARACTER' });
           } else {
-            dispatch({ type: 'JOINED_ROOM' });
+            setPlayer(prev => ({ ...prev, roomId: response.room.id, playerId: response.playerId }));
+            if (response.campaignStarted) {
+              dispatch({ type: 'CHARACTER_CREATED_AND_STARTED' });
+            } else {
+              dispatch({ type: 'JOINED_ROOM' });
+            }
           }
+          resolve();
+        } else {
+          setError(response.error);
+          reject(new Error(response.error));
         }
-      } else {
-        setError(response.error);
-      }
+      });
     });
   }, []);
 
@@ -315,16 +332,21 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     socketRef.current.emit('game:typing_stop', { roomId: player.roomId, playerId: player.playerId });
   }, [player]);
 
-  const leaveRoom = useCallback(() => {
-    if (!socketRef.current || !player.roomId || !player.playerId) return;
-    socketRef.current.emit('room:leave', { roomId: player.roomId, playerId: player.playerId }, (response: any) => {
-      if (response.success) {
-        setPlayer({ playerId: '', roomId: null });
-        setGameState(null);
-        setMessages([]);
-        setTurnUpdate(null);
-        dispatch({ type: 'LEFT_ROOM' });
-      }
+  const leaveRoom = useCallback((): Promise<void> => {
+    return new Promise((resolve, reject) => {
+      if (!socketRef.current || !player.roomId || !player.playerId) { reject(new Error('Not connected')); return; }
+      socketRef.current.emit('room:leave', { roomId: player.roomId, playerId: player.playerId }, (response: any) => {
+        if (response.success) {
+          setPlayer({ playerId: '', roomId: null });
+          setGameState(null);
+          setMessages([]);
+          setTurnUpdate(null);
+          dispatch({ type: 'LEFT_ROOM' });
+          resolve();
+        } else {
+          reject(new Error(response.error || 'Failed to leave'));
+        }
+      });
     });
   }, [player]);
 
@@ -351,6 +373,51 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
+  const listSavedCampaigns = useCallback((): Promise<SavedCampaignInfo[]> => {
+    return new Promise((resolve) => {
+      if (!socketRef.current) return resolve([]);
+      socketRef.current.emit('lobby:list_saved', (response: any) => resolve(response?.campaigns || []));
+    });
+  }, []);
+
+  const resumeCampaign = useCallback((campaignId: string): Promise<void> => {
+    return new Promise((resolve, reject) => {
+      if (!socketRef.current) { reject(new Error('No socket')); return; }
+      socketRef.current.emit('lobby:resume', { campaignId }, (response: any) => {
+        if (response.success) {
+          setPlayer(prev => ({
+            ...prev,
+            roomId: response.room.id,
+            playerId: response.playerId,
+          }));
+          if (response.campaignStarted) {
+            dispatch({ type: 'CHARACTER_CREATED_AND_STARTED' });
+          } else {
+            dispatch({ type: 'RESUMED_CAMPAIGN' });
+          }
+          resolve();
+        } else {
+          setError(response.error);
+          reject(new Error(response.error));
+        }
+      });
+    });
+  }, []);
+
+  const deleteSavedCampaign = useCallback((campaignId: string): Promise<boolean> => {
+    return new Promise((resolve) => {
+      if (!socketRef.current) return resolve(false);
+      socketRef.current.emit('lobby:delete_saved', { campaignId }, (response: any) => {
+        if (response.success) {
+          resolve(true);
+        } else {
+          setError(response.error);
+          resolve(false);
+        }
+      });
+    });
+  }, []);
+
   return (
     <SocketContext.Provider
       value={{
@@ -358,7 +425,8 @@ export function SocketProvider({ children }: { children: ReactNode }) {
         turnUpdate, error, setError, typingPlayers, isAiProcessing,
         login, createRoom, createCharacter, createCharacterOnJoin,
         joinRoom, joinGameRoom, sendAction, sendRoll,
-        startCampaign, emitTyping, emitTypingStop, listRooms, leaveRoom,
+        startCampaign, emitTyping, emitTypingStop, listRooms,
+        listSavedCampaigns, resumeCampaign, deleteSavedCampaign, leaveRoom,
       }}
     >
       {children}

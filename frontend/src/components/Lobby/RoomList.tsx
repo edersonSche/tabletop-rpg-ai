@@ -1,15 +1,21 @@
 import { useState } from 'react';
 
 interface RoomListProps {
-  onJoin: (roomId: string) => void;
+  onJoin: (roomId: string) => Promise<void>;
 }
 
 export function RoomList({ onJoin }: RoomListProps) {
   const [roomCode, setRoomCode] = useState('');
+  const [joining, setJoining] = useState(false);
 
-  const handleJoin = () => {
-    if (!roomCode.trim()) return;
-    onJoin(roomCode.trim());
+  const handleJoin = async () => {
+    if (!roomCode.trim() || joining) return;
+    setJoining(true);
+    try {
+      await onJoin(roomCode.trim());
+    } catch {
+      setJoining(false);
+    }
   };
 
   return (
@@ -30,10 +36,10 @@ export function RoomList({ onJoin }: RoomListProps) {
 
         <button
           onClick={handleJoin}
-          disabled={!roomCode.trim()}
+          disabled={!roomCode.trim() || joining}
           className="w-full bg-gold text-dungeon-900 py-3 px-4 text-mono text-lg pixel-border hover:brightness-110 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          JOIN
+          {joining ? 'JOINING...' : 'JOIN'}
         </button>
       </div>
     </div>

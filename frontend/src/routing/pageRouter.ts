@@ -9,6 +9,7 @@ export type PageAction =
   | { type: 'CHARACTER_CREATED_AND_STARTED' }
   | { type: 'JOINED_ROOM' }
   | { type: 'CAMPAIGN_STARTED' }
+  | { type: 'RESUMED_CAMPAIGN' }
   | { type: 'LEFT_ROOM' }
   | { type: 'DISBANDED' };
 
@@ -36,6 +37,9 @@ export function pageReducer(state: Page, action: PageAction): Page {
       return state;
     case 'CAMPAIGN_STARTED':
       if (state === 'waiting_room') return 'game_room';
+      return state;
+    case 'RESUMED_CAMPAIGN':
+      if (state === 'lobby') return 'waiting_room';
       return state;
     case 'LEFT_ROOM':
     case 'DISBANDED':
