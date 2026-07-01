@@ -34,6 +34,7 @@ export class CampaignStore {
       creatorUserId: creatorPlayer?.userId || existing?.creatorUserId || '',
       creatorPlayerId: state.creatorId,
       language: state.language,
+      campaignTheme: state.campaignTheme,
       players: state.players.map(p => ({
         id: p.id,
         userId: p.userId,
@@ -110,6 +111,7 @@ export class CampaignStore {
       campaignName: saved.campaignName,
       creatorId: saved.creatorPlayerId,
       language: saved.language,
+      campaignTheme: saved.campaignTheme,
       players: saved.players.map(p => ({
         id: p.id,
         userId: p.userId,

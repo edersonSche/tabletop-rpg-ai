@@ -4,13 +4,11 @@ import { TurnManager } from './turn.manager';
 import { AiService } from '../ai/ai.service';
 import { AIResponse } from '../dto/ai-response.dto';
 
-export const CAMPAIGN_SETTING = 'A medieval fantasy world of dark forests, dangerous dungeons, and warring kingdoms.';
 const MAX_NARRATION_DEPTH = 5;
 const SUMMARY_THRESHOLD = 50;
 
 @Injectable()
 export class GameService {
-  readonly campaignSetting = CAMPAIGN_SETTING;
   private isSummarizing = new Set<string>();
 
   constructor(
@@ -46,7 +44,7 @@ export class GameService {
         response = await this.aiService.generate({
           roomId,
           campaignName: currentRoom.campaignName,
-          campaignSetting: this.campaignSetting,
+          campaignTheme: currentRoom.campaignTheme,
           language: currentRoom.language,
           players: currentRoom.players,
           scene: currentRoom.scene,
@@ -99,7 +97,7 @@ export class GameService {
         response = await this.aiService.generate({
           roomId,
           campaignName: currentRoom.campaignName,
-          campaignSetting: this.campaignSetting,
+          campaignTheme: currentRoom.campaignTheme,
           language: currentRoom.language,
           players: currentRoom.players,
           scene: currentRoom.scene,
@@ -157,7 +155,7 @@ export class GameService {
         response = await this.aiService.generate({
           roomId,
           campaignName: currentRoom.campaignName,
-          campaignSetting: this.campaignSetting,
+          campaignTheme: currentRoom.campaignTheme,
           language: currentRoom.language,
           players: currentRoom.players,
           scene: currentRoom.history.length === 0 ? 'The adventure is about to begin.' : currentRoom.scene,
@@ -294,6 +292,7 @@ export class GameService {
       campaignId: room.campaignId,
       campaignName: room.campaignName,
       language: room.language,
+      campaignTheme: room.campaignTheme,
       players: room.players.filter(p => p.active),
       currentTurn: room.currentTurn,
       turnType: room.turnType,

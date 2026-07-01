@@ -45,6 +45,7 @@ export interface GameState {
   campaignName: string;
   creatorId: string;
   language: NarrativeLanguage;
+  campaignTheme: string;
   players: Player[];
   currentTurn: string | null;
   turnType: TurnType | null;

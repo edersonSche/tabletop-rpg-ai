@@ -14,7 +14,6 @@ import { AIProvider } from '../ai/ai.interface';
 import { AuthService } from '../auth/auth.service';
 import { AuthWsGuard } from '../auth/auth.guard';
 import { CampaignStore } from '../campaign/campaign.store';
-import { CAMPAIGN_SETTING } from '../game/game.service';
 
 @WebSocketGateway({
   cors: {
@@ -38,9 +37,13 @@ export class RoomGateway {
   @SubscribeMessage('lobby:create')
   async handleCreateRoom(
     @ConnectedSocket() client: Socket,
-    @MessageBody() data: { name: string; language?: string },
+    @MessageBody() data: { name: string; language?: string; campaignTheme?: string },
   ) {
-    const room = this.roomService.create(data.name, data.language as NarrativeLanguage);
+    const room = this.roomService.create(
+      data.name,
+      data.language as NarrativeLanguage,
+      data.campaignTheme,
+    );
 
     return {
       success: true,
@@ -74,7 +77,8 @@ export class RoomGateway {
     await this.aiProvider.onRoomReady?.(data.roomId, {
       roomId: data.roomId,
       campaignName: gs?.campaignName || '',
-      campaignSetting: CAMPAIGN_SETTING,
+      campaignTheme: gs?.campaignTheme || '',
+
       language: gs?.language || 'english',
       players: gs?.players || [],
       scene: gs?.scene || '',
@@ -94,6 +98,8 @@ export class RoomGateway {
       client.emit('game:state', {
         campaignId: state.campaignId,
         campaignName: state.campaignName,
+        campaignTheme: state.campaignTheme,
+  
         creatorId: state.creatorId,
         players: state.players.filter(p => p.active),
         currentTurn: state.currentTurn,
@@ -107,6 +113,8 @@ export class RoomGateway {
       this.server.to(data.roomId).emit('game:state', {
         campaignId: state.campaignId,
         campaignName: state.campaignName,
+        campaignTheme: state.campaignTheme,
+  
         creatorId: state.creatorId,
         players: state.players.filter(p => p.active),
         currentTurn: state.currentTurn,
@@ -158,6 +166,8 @@ export class RoomGateway {
         client.to(data.roomId).emit('game:state', {
           campaignId: state.campaignId,
           campaignName: state.campaignName,
+          campaignTheme: state.campaignTheme,
+    
           creatorId: state.creatorId,
           players: state.players.filter(p => p.active),
           currentTurn: state.currentTurn,
@@ -169,6 +179,8 @@ export class RoomGateway {
         client.emit('game:state', {
           campaignId: state.campaignId,
           campaignName: state.campaignName,
+          campaignTheme: state.campaignTheme,
+    
           creatorId: state.creatorId,
           language: state.language,
           players: state.players.filter(p => p.active),
@@ -268,6 +280,8 @@ export class RoomGateway {
         client.emit('game:state', {
           campaignId: state.campaignId,
           campaignName: state.campaignName,
+          campaignTheme: state.campaignTheme,
+    
           creatorId: state.creatorId,
           language: state.language,
           players: state.players.filter(p => p.active),
@@ -305,10 +319,12 @@ export class RoomGateway {
     client.join(savedCampaign.campaignId);
     client.emit('player:registered', { playerId: creatorPlayer.id });
 
+    const restoredStateForAi = this.gameState.getRoom(savedCampaign.campaignId);
     await this.aiProvider.onRoomReady?.(savedCampaign.campaignId, {
       roomId: savedCampaign.campaignId,
       campaignName: savedCampaign.campaignName,
-      campaignSetting: CAMPAIGN_SETTING,
+      campaignTheme: restoredStateForAi?.campaignTheme || savedCampaign.campaignTheme || '',
+
       language: savedCampaign.language,
       players: savedCampaign.players,
       scene: savedCampaign.scene,
@@ -322,6 +338,8 @@ export class RoomGateway {
       const gameStateData = {
         campaignId: state.campaignId,
         campaignName: state.campaignName,
+        campaignTheme: state.campaignTheme,
+  
         creatorId: state.creatorId,
         language: state.language,
         players: state.players.filter(p => p.active),
@@ -384,6 +402,8 @@ export class RoomGateway {
           this.server.to(data.roomId).emit('game:state', {
             campaignId: state.campaignId,
             campaignName: state.campaignName,
+            campaignTheme: state.campaignTheme,
+      
             creatorId: state.creatorId,
             players: state.players.filter(p => p.active),
             currentTurn: state.currentTurn,

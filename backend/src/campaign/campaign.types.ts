@@ -28,6 +28,7 @@ export interface SavedCampaign {
   creatorUserId: string;
   creatorPlayerId: string;
   language: NarrativeLanguage;
+  campaignTheme: string;
   players: SavedPlayer[];
   currentTurn: string | null;
   turnType: SavedTurnType;

@@ -22,6 +22,7 @@ export interface GameStateData {
   campaignName: string;
   creatorId: string;
   language: NarrativeLanguage;
+  campaignTheme: string;
   players: Player[];
   currentTurn: string | null;
   turnType: 'group_action' | 'call_player' | 'call_roll' | 'narration_only' | null;
@@ -48,6 +49,7 @@ export class GameState {
     campaignName: string;
     creatorId: string;
     language: NarrativeLanguage;
+    campaignTheme: string;
     players: Player[];
     currentTurn: string | null;
     turnType: GameStateData['turnType'];
@@ -63,6 +65,7 @@ export class GameState {
   }): GameStateData {
     const state: GameStateData = {
       ...data,
+      campaignTheme: data.campaignTheme || 'A classic medieval fantasy world of magic, ancient ruins, warring kingdoms, and mythical creatures.',
       turnSkill: data.turnSkill,
       turnDc: data.turnDc,
       summary: data.summary || '',
@@ -79,12 +82,13 @@ export class GameState {
     return state;
   }
 
-  createRoom(roomId: string, name: string, language: NarrativeLanguage = 'english'): GameStateData {
+  createRoom(roomId: string, name: string, language: NarrativeLanguage = 'english', campaignTheme = 'A classic medieval fantasy world of magic, ancient ruins, warring kingdoms, and mythical creatures.'): GameStateData {
     const state: GameStateData = {
       campaignId: roomId,
       campaignName: name,
       creatorId: '',
       language,
+      campaignTheme,
       players: [],
       currentTurn: null,
       turnType: null,

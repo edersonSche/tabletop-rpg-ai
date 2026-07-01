@@ -10,7 +10,7 @@ export interface AIConfig {
 export interface AIContext {
   roomId: string;
   campaignName: string;
-  campaignSetting: string;
+  campaignTheme: string;
   language: string;
   players: Array<{
     id: string;

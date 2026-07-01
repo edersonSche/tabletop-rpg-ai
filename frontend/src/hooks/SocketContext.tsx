@@ -29,7 +29,7 @@ interface SocketContextValue {
   typingPlayers: Map<string, string>;
   isAiProcessing: boolean;
   login: (userId: string) => Promise<boolean>;
-  createRoom: (name: string, language?: string) => Promise<void>;
+  createRoom: (name: string, language?: string, campaignTheme?: string) => Promise<void>;
   createCharacter: (roomId: string, name: string, attributes?: Player['attributes']) => Promise<void>;
   createCharacterOnJoin: (roomId: string, name: string) => void;
   joinRoom: (roomId: string) => Promise<void>;
@@ -226,10 +226,10 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  const createRoom = useCallback((name: string, language?: string): Promise<void> => {
+  const createRoom = useCallback((name: string, language?: string, campaignTheme?: string): Promise<void> => {
     return new Promise((resolve, reject) => {
       if (!socketRef.current) { reject(new Error('No socket')); return; }
-      socketRef.current.emit('lobby:create', { name, language }, (response: any) => {
+      socketRef.current.emit('lobby:create', { name, language, campaignTheme }, (response: any) => {
         if (response.success) {
           setPlayer(prev => ({ ...prev, roomId: response.room.id }));
           dispatch({ type: 'CREATED_ROOM' });

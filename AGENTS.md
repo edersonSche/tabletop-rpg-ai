@@ -71,7 +71,7 @@ Opencode provider uses inline JSON prompt + regex extraction. Invalid `call_play
 - **Backend** uses CommonJS (`"module": "commonjs"` in tsconfig + `experimentalDecorators`). **Frontend** uses `"type": "module"`.
 - **Roll fallback** — `handleRoll()` defaults skill to `'destreza'` and DC to 10. Roll computed and emitted as `game:player_action` *before* AI processing. Frontend `sendRoll()` reads `turnUpdate.skill`/`dc` if `turnUpdate.type === 'call_roll'`.
 - **Actions** are optimistically added for the sender (`characterName: 'You'`) and broadcast to others via `game:player_action`. **Rolls** add a placeholder `"Rolando dados..."` locally then broadcast the final result to all.
-- **Hardcoded campaign setting** — `CAMPAIGN_SETTING` const in `game.service.ts:7`, used in 6+ places.
+- **Campaign theme** — `campaignTheme` (free-form setting description) is a per-room param set at creation, persisted in saved campaigns, and injected into the system prompt.
 - **Player model**: `id`, `userId`, `name`, `active` bool, 6 attributes (all at 10). No HP/stats.
 - **History stores only narration text** (no JSON overhead) — saves tokens vs. storing full `AIResponse`.
 - **Scene context** (`buildSceneContext()`) built from complete sentences + location + next-action. Stored as `room.scene`, sent to AI every turn.

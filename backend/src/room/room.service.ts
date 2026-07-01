@@ -21,11 +21,11 @@ export class RoomService {
     return room;
   }
 
-  create(name: string, language: NarrativeLanguage = 'english'): RoomData {
+  create(name: string, language: NarrativeLanguage = 'english', campaignTheme?: string): RoomData {
     const id = uuid().slice(0, 8);
     const room: RoomData = { id, name, players: [], creatorId: '' };
     this.rooms.set(id, room);
-    this.gameState.createRoom(id, name, language);
+    this.gameState.createRoom(id, name, language, campaignTheme);
     return room;
   }
 

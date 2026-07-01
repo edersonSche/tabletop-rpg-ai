@@ -10,8 +10,8 @@ export function Lobby() {
   const { createRoom, joinRoom, resumeCampaign } = useSocket();
   const [mode, setMode] = useState<'create' | 'join' | 'resume'>('join');
 
-  const handleCreate = async (name: string, language: NarrativeLanguage) => {
-    await createRoom(name, language);
+  const handleCreate = async (name: string, language: NarrativeLanguage, campaignTheme?: string) => {
+    await createRoom(name, language, campaignTheme);
   };
 
   const handleJoin = async (roomId: string) => {

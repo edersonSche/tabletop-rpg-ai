@@ -26,11 +26,11 @@ export function getSystemPrompt(context: AIContext): string {
 - ${lang.narration}
 - Control all NPCs, monsters, and environmental events
 - React to player actions with logical consequences
-- Maintain the tone and consistency of the fantasy world
+- Maintain the tone and consistency of the world
 
 ## Campaign
 Name: ${context.campaignName}
-Setting: ${context.campaignSetting}
+Theme: ${context.campaignTheme}
 Language: ${context.language}
 
 ## Players
