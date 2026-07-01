@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef, useEffect, type FormEvent, type ChangeEvent } from 'react';
+import { Send } from 'pixelarticons/react';
 
 interface MessageInputProps {
   onSend: (message: string) => void;
@@ -72,6 +73,13 @@ export function MessageInput({ onSend, onTyping, onTypingStop, disabled, disable
           placeholder={placeholder}
           className="flex-1 bg-dungeon-700 text-dungeon-100 p-3 text-mono text-lg pixel-border outline-none focus:border-gold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         />
+        <button
+          type="submit"
+          disabled={disabled || !text.trim()}
+          className="w-12 h-12 flex items-center justify-center bg-gold text-dungeon-900 pixel-border hover:bg-gold/80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          <Send width={20} height={20} />
+        </button>
       </div>
       {disabled && disabledReason && (
         <p className="text-mono text-xs text-gold mt-1 italic">{disabledReason}</p>

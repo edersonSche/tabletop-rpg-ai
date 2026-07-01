@@ -32,6 +32,8 @@ export interface SavedCampaign {
   currentTurn: string | null;
   turnType: SavedTurnType;
   turnTarget: string | null;
+  turnSkill?: string;
+  turnDc?: number;
   currentLocation: string | null;
   scene: string;
   gameStarted: boolean;

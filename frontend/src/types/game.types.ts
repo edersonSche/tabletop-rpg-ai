@@ -24,7 +24,6 @@ export interface AIResponse {
     target?: string;
     skill?: string;
     dc?: number;
-    options?: string[];
   };
 }
 

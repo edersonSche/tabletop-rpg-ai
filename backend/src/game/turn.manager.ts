@@ -44,5 +44,9 @@ export class TurnManager {
     state.currentTurn = aiResponse.next.type === 'narration_only' ? null : (aiResponse.next.target || state.currentTurn);
     state.turnType = aiResponse.next.type as any;
     state.turnTarget = aiResponse.next.target || null;
+    if (aiResponse.next.type === 'call_roll') {
+      state.turnSkill = aiResponse.next.skill;
+      state.turnDc = aiResponse.next.dc;
+    }
   }
 }

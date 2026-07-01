@@ -5,6 +5,7 @@ import { AiService } from '../ai/ai.service';
 import { AIResponse } from '../dto/ai-response.dto';
 
 export const CAMPAIGN_SETTING = 'A medieval fantasy world of dark forests, dangerous dungeons, and warring kingdoms.';
+const MAX_NARRATION_DEPTH = 5;
 
 @Injectable()
 export class GameService {
@@ -34,36 +35,29 @@ export class GameService {
     });
 
     try {
-      const response = await this.aiService.generate({
-        roomId,
-        campaignName: room.campaignName,
-        campaignSetting: this.campaignSetting,
-        language: room.language,
-        players: room.players,
-        scene: room.scene,
-        currentLocation: room.currentLocation,
-        history: room.history,
-        currentAction: {
-          playerId,
-          characterName: player?.name,
-          action: message,
-        },
-      });
+      let response: AIResponse = { narration: '', next: { type: 'group_action' } };
 
-      this.validateAiResponseTarget(response, room.players);
+      for (let depth = 0; depth <= MAX_NARRATION_DEPTH; depth++) {
+        const currentRoom = this.gameState.getRoom(roomId);
+        if (!currentRoom) throw new Error('Room deleted');
 
-      if (response.location) {
-        room.currentLocation = response.location;
-      }
-
-      this.turnManager.processTurn(roomId, room, response);
-
-      if (response.narration) {
-        room.scene = this.buildSceneContext(response, room.currentLocation);
-        this.gameState.addHistory(roomId, {
-          role: 'assistant',
-          content: response.narration,
+        response = await this.aiService.generate({
+          roomId,
+          campaignName: currentRoom.campaignName,
+          campaignSetting: this.campaignSetting,
+          language: currentRoom.language,
+          players: currentRoom.players,
+          scene: currentRoom.scene,
+          currentLocation: currentRoom.currentLocation,
+          history: currentRoom.history,
+          currentAction: depth === 0
+            ? { playerId, characterName: player?.name, action: message }
+            : null,
         });
+
+        this.processAiResponse(roomId, response);
+
+        if (response.next?.type !== 'narration_only') break;
       }
 
       return response;
@@ -84,47 +78,44 @@ export class GameService {
     const player = room.players.find(p => p.id === playerId);
     if (!player) throw new Error('Player not found');
 
-    const skill = rollData?.skill ?? (room.turnTarget === playerId ? (room.turnType === 'call_roll' ? 'destreza' : 'destreza') : 'destreza');
-    const dc = rollData?.dc ?? 10;
+    const skill = rollData?.skill ?? room.turnSkill ?? 'destreza';
+    const dc = rollData?.dc ?? room.turnDc ?? 10;
 
     const modifier = rollData?.modifier ?? this.gameState.getPlayerModifier(player, skill);
     const roll = rollData?.roll ?? this.gameState.rollDice(20);
     const total = rollData?.total ?? roll + modifier;
 
     try {
-      const response = await this.aiService.generate({
-        roomId,
-        campaignName: room.campaignName,
-        campaignSetting: this.campaignSetting,
-        language: room.language,
-        players: room.players,
-        scene: room.scene,
-        currentLocation: room.currentLocation,
-        history: room.history,
-        currentAction: {
-          playerId,
-          characterName: player.name,
-          action: `Rolou ${roll} + modificador(${modifier}) = ${total} (DC ${dc})`,
-          rollResult: total,
-          skill,
-          dc,
-        },
-      });
+      let response: AIResponse = { narration: '', next: { type: 'group_action' } };
 
-      this.validateAiResponseTarget(response, room.players);
+      for (let depth = 0; depth <= MAX_NARRATION_DEPTH; depth++) {
+        const currentRoom = this.gameState.getRoom(roomId);
+        if (!currentRoom) throw new Error('Room deleted');
 
-      if (response.location) {
-        room.currentLocation = response.location;
-      }
-
-      this.turnManager.processTurn(roomId, room, response);
-
-      if (response.narration) {
-        room.scene = this.buildSceneContext(response, room.currentLocation);
-        this.gameState.addHistory(roomId, {
-          role: 'assistant',
-          content: response.narration,
+        response = await this.aiService.generate({
+          roomId,
+          campaignName: currentRoom.campaignName,
+          campaignSetting: this.campaignSetting,
+          language: currentRoom.language,
+          players: currentRoom.players,
+          scene: currentRoom.scene,
+          currentLocation: currentRoom.currentLocation,
+          history: currentRoom.history,
+          currentAction: depth === 0
+            ? {
+                playerId,
+                characterName: player.name,
+                action: `Rolou ${roll} + modificador(${modifier}) = ${total} (DC ${dc})`,
+                rollResult: total,
+                skill,
+                dc,
+              }
+            : null,
         });
+
+        this.processAiResponse(roomId, response);
+
+        if (response.next?.type !== 'narration_only') break;
       }
 
       return response;
@@ -151,39 +142,55 @@ export class GameService {
     this.turnManager.lock(roomId);
 
     try {
-      const response = await this.aiService.generate({
-        roomId,
-        campaignName: room.campaignName,
-        campaignSetting: this.campaignSetting,
-        language: room.language,
-        players: room.players,
-        scene: 'The adventure is about to begin.',
-        currentLocation: room.currentLocation,
-        history: room.history,
-        currentAction: null,
-      });
+      let response: AIResponse = { narration: '', next: { type: 'group_action' } };
 
-      room.gameStarted = true;
+      for (let depth = 0; depth <= MAX_NARRATION_DEPTH; depth++) {
+        const currentRoom = this.gameState.getRoom(roomId);
+        if (!currentRoom) throw new Error('Room deleted');
 
-      this.validateAiResponseTarget(response, room.players);
-
-      if (response.location) {
-        room.currentLocation = response.location;
-      }
-
-      this.turnManager.processTurn(roomId, room, response);
-
-      if (response.narration) {
-        room.scene = this.buildSceneContext(response, room.currentLocation);
-        this.gameState.addHistory(roomId, {
-          role: 'assistant',
-          content: response.narration,
+        response = await this.aiService.generate({
+          roomId,
+          campaignName: currentRoom.campaignName,
+          campaignSetting: this.campaignSetting,
+          language: currentRoom.language,
+          players: currentRoom.players,
+          scene: currentRoom.history.length === 0 ? 'The adventure is about to begin.' : currentRoom.scene,
+          currentLocation: currentRoom.currentLocation,
+          history: currentRoom.history,
+          currentAction: null,
         });
+
+        currentRoom.gameStarted = true;
+
+        this.processAiResponse(roomId, response);
+
+        if (response.next?.type !== 'narration_only') break;
       }
 
       return response;
     } finally {
       this.turnManager.unlock(roomId);
+    }
+  }
+
+  private processAiResponse(roomId: string, response: AIResponse): void {
+    const room = this.gameState.getRoom(roomId);
+    if (!room) return;
+
+    this.validateAiResponseTarget(response, room.players);
+
+    if (response.location) {
+      room.currentLocation = response.location;
+    }
+
+    this.turnManager.processTurn(roomId, room, response);
+
+    if (response.narration) {
+      room.scene = this.buildSceneContext(response, room.currentLocation);
+      this.gameState.addHistory(roomId, {
+        role: 'assistant',
+        content: response.narration,
+      });
     }
   }
 

@@ -26,6 +26,8 @@ export interface GameStateData {
   currentTurn: string | null;
   turnType: 'group_action' | 'call_player' | 'call_roll' | 'narration_only' | null;
   turnTarget: string | null;
+  turnSkill?: string;
+  turnDc?: number;
   currentLocation: string | null;
   scene: string;
   gameStarted: boolean;
@@ -48,6 +50,8 @@ export class GameState {
     currentTurn: string | null;
     turnType: GameStateData['turnType'];
     turnTarget: string | null;
+    turnSkill?: string;
+    turnDc?: number;
     currentLocation: string | null;
     scene: string;
     gameStarted: boolean;
@@ -55,6 +59,8 @@ export class GameState {
   }): GameStateData {
     const state: GameStateData = {
       ...data,
+      turnSkill: data.turnSkill,
+      turnDc: data.turnDc,
     };
     this.rooms.set(data.campaignId, state);
 
