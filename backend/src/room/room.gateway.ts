@@ -233,6 +233,7 @@ export class RoomGateway {
     }
 
     this.campaignStore.delete(data.campaignId);
+    this.aiProvider.onRoomEmpty?.(data.campaignId);
     return { success: true };
   }
 
@@ -356,6 +357,7 @@ export class RoomGateway {
 
     if (isCreator) {
       this.server.to(data.roomId).emit('game:disband', { reason: 'Campaign ended.' });
+      this.aiProvider.onRoomEmpty?.(data.roomId);
 
       const roomSockets = this.authService.getSocketsByRoomId(data.roomId);
       for (const sid of roomSockets) {
@@ -375,6 +377,7 @@ export class RoomGateway {
       const state = this.gameState.getRoom(data.roomId);
       if (state) {
         if (state.players.length === 0) {
+          this.aiProvider.onRoomEmpty?.(data.roomId);
           this.gameState.removeRoom(data.roomId);
           this.roomService.remove(data.roomId);
         } else {
