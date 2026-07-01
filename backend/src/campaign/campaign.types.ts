@@ -38,6 +38,8 @@ export interface SavedCampaign {
   scene: string;
   gameStarted: boolean;
   history: SavedHistoryEntry[];
+  summary?: string;
+  lastSummarizedAt?: number;
   savedAt: string;
   status: 'active' | 'inactive';
 }

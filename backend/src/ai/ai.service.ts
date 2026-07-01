@@ -42,6 +42,22 @@ export class AiService {
     return response;
   }
 
+  async summarizeHistory(entries: string[], existingSummary?: string): Promise<string> {
+    if (!this.config.apiKey || !this.provider.summarize) {
+      return this.fallbackSummary(entries);
+    }
+    try {
+      return await this.provider.summarize(entries, existingSummary);
+    } catch (error) {
+      console.error('Summarization error:', error.message);
+      return this.fallbackSummary(entries);
+    }
+  }
+
+  private fallbackSummary(entries: string[]): string {
+    return entries.slice(0, 8).join(' ').slice(0, 500);
+  }
+
   private fallbackResponse(context: AIContext): AIResponse {
     const playerNames = context.players.map(p => p.name).join(', ');
 

@@ -23,6 +23,7 @@ export interface AIContext {
     playerId?: string;
     content: string;
   }>;
+  summary?: string;
   currentAction: {
     playerId?: string;
     characterName?: string;
@@ -38,4 +39,5 @@ export interface AIProvider {
   generate(context: AIContext): Promise<AIResponse>;
   onRoomReady?(roomId: string, context: AIContext): Promise<void>;
   onRoomEmpty?(roomId: string): Promise<void>;
+  summarize?(entries: string[], existingSummary?: string): Promise<string>;
 }

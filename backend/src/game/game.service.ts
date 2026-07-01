@@ -6,10 +6,12 @@ import { AIResponse } from '../dto/ai-response.dto';
 
 export const CAMPAIGN_SETTING = 'A medieval fantasy world of dark forests, dangerous dungeons, and warring kingdoms.';
 const MAX_NARRATION_DEPTH = 5;
+const SUMMARY_THRESHOLD = 50;
 
 @Injectable()
 export class GameService {
   readonly campaignSetting = CAMPAIGN_SETTING;
+  private isSummarizing = new Set<string>();
 
   constructor(
     private gameState: GameState,
@@ -50,6 +52,7 @@ export class GameService {
           scene: currentRoom.scene,
           currentLocation: currentRoom.currentLocation,
           history: currentRoom.history,
+          summary: currentRoom.summary || undefined,
           currentAction: depth === 0
             ? { playerId, characterName: player?.name, action: message }
             : null,
@@ -63,6 +66,7 @@ export class GameService {
       return response;
     } finally {
       this.turnManager.unlock(roomId);
+      this.maybeSummarize(roomId).catch(() => {});
     }
   }
 
@@ -101,6 +105,7 @@ export class GameService {
           scene: currentRoom.scene,
           currentLocation: currentRoom.currentLocation,
           history: currentRoom.history,
+          summary: currentRoom.summary || undefined,
           currentAction: depth === 0
             ? {
                 playerId,
@@ -121,6 +126,7 @@ export class GameService {
       return response;
     } finally {
       this.turnManager.unlock(roomId);
+      this.maybeSummarize(roomId).catch(() => {});
     }
   }
 
@@ -157,6 +163,7 @@ export class GameService {
           scene: currentRoom.history.length === 0 ? 'The adventure is about to begin.' : currentRoom.scene,
           currentLocation: currentRoom.currentLocation,
           history: currentRoom.history,
+          summary: currentRoom.summary || undefined,
           currentAction: null,
         });
 
@@ -170,6 +177,7 @@ export class GameService {
       return response;
     } finally {
       this.turnManager.unlock(roomId);
+      this.maybeSummarize(roomId).catch(() => {});
     }
   }
 
@@ -241,6 +249,40 @@ export class GameService {
           response.next.target = undefined;
         }
       }
+    }
+  }
+
+  private async maybeSummarize(roomId: string): Promise<void> {
+    const room = this.gameState.getRoom(roomId);
+    if (!room || room.history.length < SUMMARY_THRESHOLD) return;
+    if (this.isSummarizing.has(roomId)) return;
+
+    this.isSummarizing.add(roomId);
+    try {
+      const currentRoom = this.gameState.getRoom(roomId);
+      if (!currentRoom) return;
+
+      const newEntries = currentRoom.history.slice(currentRoom.lastSummarizedAt)
+        .map(h =>
+          h.role === 'player' ? `[${h.playerId}] ${h.content}`
+          : h.role === 'assistant' ? `GM: ${h.content}`
+          : `[system] ${h.content}`
+        );
+
+      if (newEntries.length === 0) return;
+
+      const summary = await this.aiService.summarizeHistory(
+        newEntries,
+        currentRoom.summary || undefined,
+      );
+
+      const roomAfter = this.gameState.getRoom(roomId);
+      if (!roomAfter) return;
+
+      roomAfter.summary = summary;
+      roomAfter.lastSummarizedAt = roomAfter.history.length;
+    } finally {
+      this.isSummarizing.delete(roomId);
     }
   }
 

@@ -42,6 +42,17 @@ ${locationLine}Scene: ${context.scene}
 ## Formatting
 You may use Markdown formatting (**bold**, *italic*, lists, blockquotes) for emphasis and structure in the narration.
 
+## Memory System
+This game has a two-tier memory system:
+- **Long-Term Memory**: A narrative summary of everything that happened before
+  the Recent Events. Use this to recall characters, places, past plot points,
+  and character relationships.
+- **Recent Events**: The last actions in detail, showing exactly what was
+  said or done.
+
+Always check Long-Term Memory for continuity before narrating. If a player
+asks about something that happened long ago, look in Long-Term Memory first.
+
 ## Output Format
 You MUST ALWAYS respond in valid JSON format with exactly this structure:
 {

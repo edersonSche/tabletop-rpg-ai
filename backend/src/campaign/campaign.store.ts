@@ -49,6 +49,8 @@ export class CampaignStore {
       scene: state.scene,
       gameStarted: state.gameStarted,
       history: state.history.map(h => ({ ...h })),
+      summary: state.summary || undefined,
+      lastSummarizedAt: state.lastSummarizedAt || undefined,
       savedAt: new Date().toISOString(),
       status: 'inactive',
     };
@@ -124,6 +126,8 @@ export class CampaignStore {
       scene: saved.scene,
       gameStarted: saved.gameStarted ?? false,
       history: [...saved.history],
+      summary: saved.summary,
+      lastSummarizedAt: saved.lastSummarizedAt,
     });
 
     return true;

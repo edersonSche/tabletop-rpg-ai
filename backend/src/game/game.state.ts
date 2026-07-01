@@ -36,6 +36,8 @@ export interface GameStateData {
     playerId?: string;
     content: string;
   }>;
+  summary: string;
+  lastSummarizedAt: number;
 }
 
 export class GameState {
@@ -56,11 +58,15 @@ export class GameState {
     scene: string;
     gameStarted: boolean;
     history: GameStateData['history'];
+    summary?: string;
+    lastSummarizedAt?: number;
   }): GameStateData {
     const state: GameStateData = {
       ...data,
       turnSkill: data.turnSkill,
       turnDc: data.turnDc,
+      summary: data.summary || '',
+      lastSummarizedAt: data.lastSummarizedAt || 0,
     };
     this.rooms.set(data.campaignId, state);
 
@@ -87,6 +93,8 @@ export class GameState {
       scene: '',
       gameStarted: false,
       history: [],
+      summary: '',
+      lastSummarizedAt: 0,
     };
     this.rooms.set(roomId, state);
     return state;

@@ -83,10 +83,14 @@ export class OpencodeProvider implements AIProvider {
       this.sessions.set(roomId, data.id);
     }
 
-    const systemPrompt = getSystemPrompt(context);
+    let systemPrompt = getSystemPrompt(context);
+
+    if (context.summary) {
+      systemPrompt += `\n\n## Long-Term Memory (campaign summary)\n${context.summary}`;
+    }
 
     const historyBlock = context.history.length > 0
-      ? '\n\n## Previous Events\n' + context.history.slice(-30).map(h =>
+      ? '\n\n## Recent Events (last 30 actions)\n' + context.history.slice(-30).map(h =>
           h.role === 'player' ? `[${h.playerId || 'unknown'}] ${h.content}`
           : h.role === 'assistant' ? `GM: ${h.content}`
           : `[system] ${h.content}`
@@ -95,6 +99,61 @@ export class OpencodeProvider implements AIProvider {
 
     await this.sendMessage(roomId, systemPrompt + historyBlock);
     this.sessionContextSent.add(roomId);
+  }
+
+  async summarize(entries: string[], existingSummary?: string): Promise<string> {
+    const promptLines: string[] = [];
+
+    if (existingSummary) {
+      promptLines.push(`Existing campaign summary:\n${existingSummary}\n`);
+      promptLines.push('Below are new events that happened after that summary. Please produce an updated, merged narrative summary that incorporates both the existing summary and these new events. Keep it concise but capture key plot points, character developments, locations, NPCs, and important decisions.');
+    } else {
+      promptLines.push('Summarize the following RPG campaign history concisely in narrative prose, capturing key plot points, character developments, locations visited, NPCs encountered, and important decisions made by the players.');
+    }
+
+    promptLines.push('');
+    promptLines.push(...entries);
+    promptLines.push('');
+    promptLines.push('Return only the updated summary as plain text, no JSON, no formatting.');
+
+    const prompt = promptLines.join('\n');
+
+    const res = await fetch(`${this.baseUrl}/session`, {
+      method: 'POST',
+      headers: this.headers(),
+      body: JSON.stringify({}),
+    });
+
+    if (!res.ok) {
+      throw new Error(`Failed to create temp session: ${res.status}`);
+    }
+
+    const sessionData = (await res.json()) as SessionResponse;
+    const sessionId = sessionData.id;
+
+    try {
+      const msgRes = await fetch(`${this.baseUrl}/session/${sessionId}/message`, {
+        method: 'POST',
+        headers: this.headers(),
+        body: JSON.stringify({
+          parts: [{ type: 'text', text: prompt }],
+          ...(this.model ? { model: this.model } : {}),
+        }),
+      });
+
+      if (!msgRes.ok) {
+        throw new Error(`Summarization request failed: ${msgRes.status}`);
+      }
+
+      const msgData = (await msgRes.json()) as MessageResponse;
+      const text = this.extractText(msgData);
+      return text.trim();
+    } finally {
+      fetch(`${this.baseUrl}/session/${sessionId}`, {
+        method: 'DELETE',
+        headers: this.headers(),
+      }).catch(() => {});
+    }
   }
 
   async onRoomEmpty(roomId: string): Promise<void> {
@@ -189,8 +248,13 @@ export class OpencodeProvider implements AIProvider {
       '',
     ];
 
+    if (context.summary) {
+      lines.push(`## Long-Term Memory (campaign summary)\n${context.summary}`);
+      lines.push('');
+    }
+
     if (context.history.length > 0) {
-      lines.push('Recent history:');
+      lines.push('## Recent Events (last 30 actions)');
       for (const entry of context.history.slice(-30)) {
         if (entry.role === 'player') {
           lines.push(`[${entry.playerId || 'unknown'}] ${entry.content}`);
