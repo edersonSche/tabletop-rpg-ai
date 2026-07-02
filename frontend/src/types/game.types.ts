@@ -12,6 +12,10 @@ export interface Player {
     wisdom: number;
     charisma: number;
   };
+  hp: number;
+  maxHp: number;
+  xp: number;
+  maxXp: number;
 }
 
 export type TurnType = 'group_action' | 'call_player' | 'call_roll' | 'narration_only';

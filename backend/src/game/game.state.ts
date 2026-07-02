@@ -15,6 +15,10 @@ export interface Player {
     wisdom: number;
     charisma: number;
   };
+  hp: number;
+  maxHp: number;
+  xp: number;
+  maxXp: number;
 }
 
 export interface GameStateData {
@@ -114,19 +118,28 @@ export class GameState {
     const room = this.rooms.get(roomId);
     if (!room) throw new Error('Room not found');
 
+    const attrs = attributes ?? {
+      strength: 10,
+      dexterity: 10,
+      constitution: 10,
+      intelligence: 10,
+      wisdom: 10,
+      charisma: 10,
+    };
+
+    const conMod = Math.floor((attrs.constitution - 10) / 2);
+    const maxHp = 10 + conMod;
+
     const player: Player = {
       id: uuid(),
       userId,
       name,
       active: true,
-      attributes: attributes ?? {
-        strength: 10,
-        dexterity: 10,
-        constitution: 10,
-        intelligence: 10,
-        wisdom: 10,
-        charisma: 10,
-      },
+      attributes: attrs,
+      hp: maxHp,
+      maxHp,
+      xp: 0,
+      maxXp: 0,
     };
 
     room.players.push(player);

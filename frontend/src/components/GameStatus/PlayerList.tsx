@@ -17,6 +17,10 @@ export function PlayerList({ players, currentTurn, playerId }: PlayerListProps) 
           name={p.name}
           isActive={p.id === currentTurn}
           isMe={p.id === playerId}
+          hp={p.hp}
+          maxHp={p.maxHp}
+          xp={p.xp}
+          maxXp={p.maxXp}
         />
       ))}
     </div>

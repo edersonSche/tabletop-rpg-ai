@@ -12,6 +12,10 @@ export interface SavedPlayer {
     wisdom: number;
     charisma: number;
   };
+  hp: number;
+  maxHp: number;
+  xp: number;
+  maxXp: number;
 }
 
 export interface SavedHistoryEntry {
