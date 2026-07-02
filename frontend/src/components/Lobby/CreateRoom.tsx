@@ -67,7 +67,7 @@ export function CreateRoom({ onCreate }: CreateRoomProps) {
         <h2 className="text-pixel text-gold text-lg mb-4 text-center">NEW CAMPAIGN</h2>
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label className="text-mono text-sm text-dungeon-200 block mb-1">Campaign Name</label>
+          <label className="text-mono text-sm text-dungeon-100 block mb-1">Campaign Name</label>
           <input
             type="text"
             value={roomName}
@@ -77,7 +77,7 @@ export function CreateRoom({ onCreate }: CreateRoomProps) {
           />
         </div>
         <div>
-          <label className="text-mono text-sm text-dungeon-200 block mb-1">Narration Language</label>
+          <label className="text-mono text-sm text-dungeon-100 block mb-1">Narration Language</label>
           <select
             value={language}
             onChange={e => setLanguage(e.target.value as NarrativeLanguage)}
@@ -89,7 +89,7 @@ export function CreateRoom({ onCreate }: CreateRoomProps) {
           </select>
         </div>
         <div>
-          <label className="text-mono text-sm text-dungeon-200 block mb-1">Theme</label>
+          <label className="text-mono text-sm text-dungeon-100 block mb-1">Theme</label>
           <select
             value={selectedPreset}
             onChange={e => handleThemeChange(e.target.value)}
@@ -101,7 +101,7 @@ export function CreateRoom({ onCreate }: CreateRoomProps) {
           </select>
         </div>
         <div>
-          <label className="text-mono text-sm text-dungeon-200 block mb-1">Theme Setting</label>
+          <label className="text-mono text-sm text-dungeon-100 block mb-1">Theme Setting</label>
           <textarea
             value={isCustom ? customTheme : (THEME_PRESETS.find(t => t.label === selectedPreset)?.setting || '')}
             onChange={e => setCustomTheme(e.target.value)}

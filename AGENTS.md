@@ -76,3 +76,4 @@ Opencode provider uses inline JSON prompt + regex extraction. Invalid `call_play
 - **History stores only narration text** (no JSON overhead) — saves tokens vs. storing full `AIResponse`.
 - **Scene context** (`buildSceneContext()`) built from complete sentences + location + next-action. Stored as `room.scene`, sent to AI every turn.
 - **Cold restore** (`lobby:resume` when room not in memory) forces `gameStarted = false` — creator lands in waiting room and must click START. Warm restore (room in memory) preserves actual `gameStarted`.
+- **Never use emoji/unicode characters to represent icons** — always use pixelarticons React components (`pixelarticons/react`) instead of characters like ▶, ✓, ✕, ⏳, etc.

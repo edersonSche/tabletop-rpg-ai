@@ -31,7 +31,7 @@ export function Lobby() {
             <span>RPG TABLETOP</span>
             <Sword width={24} height={24} />
           </h1>
-          <p className="text-mono text-dungeon-300 text-lg">AI Game Master · Endless adventures</p>
+          <p className="text-mono text-dungeon-100 text-lg">AI Game Master · Endless adventures</p>
         </div>
 
         <div className="flex gap-4 justify-center mb-6">
@@ -40,7 +40,7 @@ export function Lobby() {
             className={`text-mono text-sm px-4 py-2 pixel-border transition-all ${
               mode === 'create'
                 ? 'bg-gold text-dungeon-900'
-                : 'bg-dungeon-600 text-dungeon-200 hover:text-gold'
+                : 'bg-dungeon-600 text-dungeon-100 hover:text-gold'
             }`}
           >
             [CREATE]
@@ -50,7 +50,7 @@ export function Lobby() {
             className={`text-mono text-sm px-4 py-2 pixel-border transition-all ${
               mode === 'join'
                 ? 'bg-gold text-dungeon-900'
-                : 'bg-dungeon-600 text-dungeon-200 hover:text-gold'
+                : 'bg-dungeon-600 text-dungeon-100 hover:text-gold'
             }`}
           >
             [JOIN]
@@ -60,7 +60,7 @@ export function Lobby() {
             className={`text-mono text-sm px-4 py-2 pixel-border transition-all ${
               mode === 'resume'
                 ? 'bg-gold text-dungeon-900'
-                : 'bg-dungeon-600 text-dungeon-200 hover:text-gold'
+                : 'bg-dungeon-600 text-dungeon-100 hover:text-gold'
             }`}
           >
             [RESUME]

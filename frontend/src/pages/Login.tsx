@@ -7,7 +7,8 @@ export function Login() {
   const [userId, setUserId] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const handleLogin = async () => {
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
     if (!userId.trim() || loading) return;
     setLoading(true);
     await login(userId.trim());
@@ -23,20 +24,19 @@ export function Login() {
             <span>RPG TABLETOP</span>
             <Sword width={24} height={24} />
           </h1>
-          <p className="text-mono text-dungeon-300 text-lg">AI Game Master · Endless adventures</p>
+          <p className="text-mono text-dungeon-100 text-lg">AI Game Master · Endless adventures</p>
         </div>
 
         <div className="pixel-border bg-dungeon-500 p-6 rounded-none">
           <h2 className="text-pixel text-gold text-lg mb-4 text-center">LOGIN</h2>
 
-          <div className="space-y-4">
+          <form onSubmit={handleLogin} className="space-y-4">
             <div>
-              <label className="text-mono text-sm text-dungeon-200 block mb-1">User ID</label>
+              <label className="text-mono text-sm text-dungeon-100 block mb-1">User ID</label>
               <input
                 type="text"
                 value={userId}
                 onChange={e => setUserId(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && handleLogin()}
                 className="w-full bg-dungeon-700 text-dungeon-100 p-3 text-mono text-lg pixel-border outline-none focus:border-gold transition-colors"
                 placeholder="Enter your user ID"
                 autoFocus
@@ -44,13 +44,13 @@ export function Login() {
             </div>
 
             <button
-              onClick={handleLogin}
+              type="submit"
               disabled={!userId.trim() || loading}
               className="w-full bg-gold text-dungeon-900 font-bold py-3 px-4 text-mono text-lg pixel-border hover:brightness-110 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? 'CONNECTING...' : 'ENTER'}
             </button>
-          </div>
+          </form>
         </div>
       </div>
     </div>

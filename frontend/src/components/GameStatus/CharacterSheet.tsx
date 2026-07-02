@@ -36,7 +36,7 @@ export function CharacterSheet({ player, isOpen, onClose }: CharacterSheetProps)
       >
         <button
           onClick={onClose}
-          className="absolute top-3 right-3 text-dungeon-300 hover:text-dungeon-100 transition-colors"
+          className="absolute top-3 right-3 text-dungeon-100 hover:text-dungeon-100 transition-colors"
         >
           <Close width={18} height={18} />
         </button>
@@ -46,8 +46,8 @@ export function CharacterSheet({ player, isOpen, onClose }: CharacterSheetProps)
         {/* HP Bar */}
         <div className="mb-5">
           <div className="flex items-center justify-between mb-1">
-            <span className="text-mono text-xs text-dungeon-300">HP</span>
-            <span className="text-mono text-xs text-dungeon-300">{player.hp}/{player.maxHp}</span>
+            <span className="text-mono text-xs text-dungeon-100">HP</span>
+            <span className="text-mono text-xs text-dungeon-100">{player.hp}/{player.maxHp}</span>
           </div>
           <div className="h-3 bg-dungeon-900 rounded-full overflow-hidden pixel-border">
             <div
@@ -60,8 +60,8 @@ export function CharacterSheet({ player, isOpen, onClose }: CharacterSheetProps)
         {/* XP Bar */}
         <div className="mb-5">
           <div className="flex items-center justify-between mb-1">
-            <span className="text-mono text-xs text-dungeon-300">XP</span>
-            <span className="text-mono text-xs text-dungeon-300">{player.xp}/{player.maxXp}</span>
+            <span className="text-mono text-xs text-dungeon-100">XP</span>
+            <span className="text-mono text-xs text-dungeon-100">{player.xp}/{player.maxXp}</span>
           </div>
           <div className="h-3 bg-dungeon-900 rounded-full overflow-hidden pixel-border">
             <div
@@ -71,7 +71,7 @@ export function CharacterSheet({ player, isOpen, onClose }: CharacterSheetProps)
           </div>
         </div>
 
-        <h3 className="text-mono text-xs text-dungeon-300 mb-3 tracking-wider">ATRIBUTES</h3>
+        <h3 className="text-mono text-xs text-dungeon-100 mb-3 tracking-wider">ATRIBUTES</h3>
 
         <div className="grid grid-cols-3 gap-2">
           {ATTRIB_KEYS.map((key) => {

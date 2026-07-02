@@ -18,7 +18,7 @@ export function Toast() {
       <span className="text-mono text-sm text-blood flex-1">{error}</span>
       <button
         onClick={() => setError(null)}
-        className="text-dungeon-300 hover:text-dungeon-100 transition-colors shrink-0 mt-0.5"
+        className="text-dungeon-100 hover:text-dungeon-100 transition-colors shrink-0 mt-0.5"
       >
         <Close width={14} height={14} />
       </button>

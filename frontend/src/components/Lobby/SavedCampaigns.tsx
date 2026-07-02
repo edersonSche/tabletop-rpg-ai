@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { Play, Check, Close, Reload, Trash } from 'pixelarticons/react';
 import { SavedCampaignInfo } from '../../types/game.types';
 import { useSocket } from '../../hooks/useSocket';
 
@@ -61,7 +62,7 @@ export function SavedCampaigns({ onResume }: SavedCampaignsProps) {
     return (
       <div className="pixel-border bg-dungeon-500 p-6 rounded-none">
         <h2 className="text-pixel text-gold text-lg mb-4">RESUME CAMPAIGN</h2>
-        <p className="text-mono text-dungeon-300 text-center py-8">Loading saved campaigns...</p>
+        <p className="text-mono text-dungeon-100 text-center py-8">Loading saved campaigns...</p>
       </div>
     );
   }
@@ -70,7 +71,7 @@ export function SavedCampaigns({ onResume }: SavedCampaignsProps) {
     return (
       <div className="pixel-border bg-dungeon-500 p-6 rounded-none">
         <h2 className="text-pixel text-gold text-lg mb-4">RESUME CAMPAIGN</h2>
-        <p className="text-mono text-dungeon-300 text-center py-8">No saved campaigns found.</p>
+        <p className="text-mono text-dungeon-100 text-center py-8">No saved campaigns found.</p>
       </div>
     );
   }
@@ -82,78 +83,63 @@ export function SavedCampaigns({ onResume }: SavedCampaignsProps) {
       <div className="space-y-3">
         {campaigns.map(c => (
           <div key={c.campaignId} className="bg-dungeon-600 p-4 pixel-border">
-            <div className="flex items-start gap-3">
-              <div className="w-10 h-10 bg-gold text-dungeon-900 flex items-center justify-center text-mono text-lg pixel-border shrink-0">
-                {c.campaignName[0]}
-              </div>
+            <div className="flex items-center gap-2">
               <div className="flex-1 min-w-0">
-                <div className="flex items-center justify-between gap-2">
-                  <h3 className="text-mono text-base text-dungeon-100 truncate">
-                    {c.campaignName}
-                  </h3>
-                  <span className={`text-mono text-xs px-2 py-0.5 pixel-border shrink-0 ${
-                    c.hasStarted
-                      ? 'bg-magic text-dungeon-900'
-                      : 'bg-dungeon-400 text-dungeon-200'
-                  }`}>
-                    {c.hasStarted ? 'In progress' : 'Waiting'}
-                  </span>
-                </div>
-                <p className="text-mono text-xs text-dungeon-300 mt-1">
-                  Players: {c.playersCount} &middot; Saved: {timeAgo(c.lastSavedAt)}
+                <h3 className="text-mono text-base text-dungeon-100 truncate">
+                  {c.campaignName}
+                </h3>
+                <p className="text-mono text-xs text-dungeon-200 mt-0.5">
+                  {c.playersCount} player{c.playersCount !== 1 ? 's' : ''} &middot; {timeAgo(c.lastSavedAt)}
                 </p>
               </div>
-            </div>
-
-            <div className="mt-3 flex gap-1 flex-wrap">
-              {c.players.map(p => (
-                <span key={p.id} className="text-mono text-xs text-dungeon-300 bg-dungeon-700 px-2 py-0.5 pixel-border">
-                  {p.name}
-                </span>
-              ))}
-            </div>
-
-            {c.isCreator ? (
-              <div className="flex gap-2 mt-3">
-                <button
-                  onClick={() => handleResume(c.campaignId)}
-                  disabled={resumingId === c.campaignId || deletingId === c.campaignId}
-                  className="flex-1 bg-gold text-dungeon-900 py-2 px-4 text-mono text-base pixel-border hover:brightness-110 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {resumingId === c.campaignId ? 'RESUMING...' : 'RESUME'}
-                </button>
-                {confirmingDelete === c.campaignId ? (
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => handleDelete(c.campaignId)}
-                      disabled={deletingId === c.campaignId}
-                      className="bg-blood text-dungeon-100 py-2 px-3 text-mono text-sm pixel-border hover:brightness-110 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {deletingId === c.campaignId ? 'DELETING...' : 'CONFIRM'}
-                    </button>
-                    <button
-                      onClick={() => setConfirmingDelete(null)}
-                      disabled={deletingId === c.campaignId}
-                      className="bg-dungeon-400 text-dungeon-200 py-2 px-3 text-mono text-sm pixel-border hover:text-dungeon-100 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      CANCEL
-                    </button>
-                  </div>
-                ) : (
+              {c.isCreator ? (
+                <div className="flex items-center gap-2 shrink-0">
                   <button
-                    onClick={() => setConfirmingDelete(c.campaignId)}
+                    onClick={() => handleResume(c.campaignId)}
                     disabled={resumingId === c.campaignId || deletingId === c.campaignId}
-                    className="bg-dungeon-700 text-dungeon-300 py-2 px-3 text-mono text-sm pixel-border hover:text-blood transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-8 h-8 bg-gold text-dungeon-900 flex items-center justify-center text-mono text-sm pixel-border hover:brightness-110 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    title="Resume"
                   >
-                    DELETE
+                    {resumingId === c.campaignId ? <Reload width={14} height={14} className="animate-spin" /> : <Play width={14} height={14} />}
                   </button>
-                )}
-              </div>
-            ) : (
-              <p className="text-mono text-xs text-dungeon-400 mt-3 text-center">
-                Ask the creator to resume this campaign. Code: <span className="text-gold select-all">{c.campaignId}</span>
-              </p>
-            )}
+                  {confirmingDelete === c.campaignId ? (
+                    <>
+                      <button
+                        onClick={() => handleDelete(c.campaignId)}
+                        disabled={deletingId === c.campaignId}
+                        className="w-8 h-8 bg-blood text-dungeon-100 flex items-center justify-center text-mono text-sm pixel-border hover:brightness-110 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                        title="Confirm delete"
+                      >
+                        {deletingId === c.campaignId ? <Reload width={14} height={14} className="animate-spin" /> : <Check width={14} height={14} />}
+                      </button>
+                      <button
+                        onClick={() => setConfirmingDelete(null)}
+                        disabled={deletingId === c.campaignId}
+                        className="w-8 h-8 bg-dungeon-400 text-dungeon-200 flex items-center justify-center text-mono text-sm pixel-border hover:text-dungeon-100 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                        title="Cancel"
+                      >
+                        <Close width={14} height={14} />
+                      </button>
+                    </>
+                  ) : (
+                    <button
+                      onClick={() => setConfirmingDelete(c.campaignId)}
+                      disabled={resumingId === c.campaignId || deletingId === c.campaignId}
+                      className="w-8 h-8 bg-dungeon-700 text-dungeon-100 flex items-center justify-center text-mono text-sm pixel-border hover:text-blood transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                      title="Delete"
+                    >
+                      <Trash width={14} height={14} />
+                    </button>
+                  )}
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className="text-mono text-xs text-dungeon-400">
+                    Code: <span className="text-gold select-all">{c.campaignId}</span>
+                  </span>
+                </div>
+              )}
+            </div>
           </div>
         ))}
       </div>

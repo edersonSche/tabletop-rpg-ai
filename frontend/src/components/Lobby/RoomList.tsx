@@ -8,7 +8,8 @@ export function RoomList({ onJoin }: RoomListProps) {
   const [roomCode, setRoomCode] = useState('');
   const [joining, setJoining] = useState(false);
 
-  const handleJoin = async () => {
+  const handleJoin = async (e: React.FormEvent) => {
+    e.preventDefault();
     if (!roomCode.trim() || joining) return;
     setJoining(true);
     try {
@@ -22,9 +23,9 @@ export function RoomList({ onJoin }: RoomListProps) {
     <div className="pixel-border bg-dungeon-500 p-6 rounded-none">
       <h2 className="text-pixel text-gold text-lg mb-4">JOIN CAMPAIGN</h2>
 
-      <div className="space-y-4">
+      <form onSubmit={handleJoin} className="space-y-4">
         <div>
-          <label className="text-mono text-sm text-dungeon-200 block mb-1">Campaign Code</label>
+          <label className="text-mono text-sm text-dungeon-100 block mb-1">Campaign Code</label>
           <input
             type="text"
             value={roomCode}
@@ -35,13 +36,13 @@ export function RoomList({ onJoin }: RoomListProps) {
         </div>
 
         <button
-          onClick={handleJoin}
+          type="submit"
           disabled={!roomCode.trim() || joining}
           className="w-full bg-gold text-dungeon-900 py-3 px-4 text-mono text-lg pixel-border hover:brightness-110 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {joining ? 'JOINING...' : 'JOIN'}
         </button>
-      </div>
+      </form>
     </div>
   );
 }

@@ -44,6 +44,7 @@ interface SocketContextValue {
   resumeCampaign: (campaignId: string) => Promise<void>;
   deleteSavedCampaign: (campaignId: string) => Promise<boolean>;
   leaveRoom: () => Promise<void>;
+  backToLobby: () => void;
 }
 
 const SocketContext = createContext<SocketContextValue | null>(null);
@@ -350,6 +351,14 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     });
   }, [player]);
 
+  const backToLobby = useCallback(() => {
+    setPlayer({ playerId: '', roomId: null });
+    setGameState(null);
+    setMessages([]);
+    setTurnUpdate(null);
+    dispatch({ type: 'LEFT_ROOM' });
+  }, []);
+
   const login = useCallback((userId: string): Promise<boolean> => {
     return new Promise((resolve) => {
       if (!socketRef.current) return resolve(false);
@@ -426,7 +435,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
         login, createRoom, createCharacter, createCharacterOnJoin,
         joinRoom, joinGameRoom, sendAction, sendRoll,
         startCampaign, emitTyping, emitTypingStop, listRooms,
-        listSavedCampaigns, resumeCampaign, deleteSavedCampaign, leaveRoom,
+        listSavedCampaigns, resumeCampaign, deleteSavedCampaign, leaveRoom, backToLobby,
       }}
     >
       {children}

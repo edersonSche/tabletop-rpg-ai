@@ -8,9 +8,9 @@ export function LocationBadge({ location }: LocationBadgeProps) {
   if (!location) return null;
 
   return (
-    <div className="flex items-center gap-1.5 px-2 py-1.5 bg-dungeon-800 border-l-2 border-gold rounded-r-sm text-mono text-xs text-parchment-200">
-      <MapPin width={14} height={14} className="text-gold shrink-0" />
-      <span className="font-normal capitalize">{location}</span>
+    <div className="flex items-center gap-3 px-3 py-2 text-mono text-dungeon-50">
+      <MapPin width={16} height={16} className="text-gold shrink-0" />
+      <span className="text-sm font-bold capitalize">{location}</span>
     </div>
   );
 }

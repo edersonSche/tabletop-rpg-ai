@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Sword } from 'pixelarticons/react';
+import { Sword, Logout } from 'pixelarticons/react';
 import { useSocket } from '../hooks/useSocket';
 
 type StatKey = 'strength' | 'dexterity' | 'constitution' | 'intelligence' | 'wisdom' | 'charisma';
@@ -44,7 +44,7 @@ function sum(attrs: Attributes): number {
 }
 
 export function CharacterCreation() {
-  const { createCharacter, player } = useSocket();
+  const { createCharacter, player, backToLobby } = useSocket();
   const [name, setName] = useState('');
   const [loading, setLoading] = useState(false);
   const [attributes, setAttributes] = useState<Attributes>(defaultAttributes);
@@ -64,7 +64,8 @@ export function CharacterCreation() {
     });
   };
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
     if (!canSubmit || !player.roomId) return;
     setLoading(true);
     try {
@@ -83,20 +84,19 @@ export function CharacterCreation() {
             <span>RPG TABLETOP</span>
             <Sword width={24} height={24} />
           </h1>
-          <p className="text-mono text-dungeon-300 text-lg">Create your character</p>
+          <p className="text-mono text-dungeon-100 text-lg">Create your character</p>
         </div>
 
         <div className="pixel-border bg-dungeon-500 p-6 rounded-none">
           <h2 className="text-pixel text-gold text-lg mb-4 text-center">NEW CHARACTER</h2>
 
-          <div className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="text-mono text-sm text-dungeon-200 block mb-1">Character Name</label>
+              <label className="text-mono text-sm text-dungeon-100 block mb-1">Character Name</label>
               <input
                 type="text"
                 value={name}
                 onChange={e => setName(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && handleSubmit()}
                 className="w-full bg-dungeon-700 text-dungeon-100 p-3 text-mono text-lg pixel-border outline-none focus:border-gold transition-colors"
                 placeholder="e.g. Aragorn"
                 autoFocus
@@ -104,19 +104,19 @@ export function CharacterCreation() {
             </div>
 
             <div className="border-t border-dungeon-400 pt-4">
-              <p className="text-mono text-sm text-dungeon-200 mb-3 text-center">
+              <p className="text-mono text-sm text-dungeon-100 mb-3 text-center">
                 Points remaining: <span className="text-gold">{remaining}</span>
               </p>
 
               {STATS.map(({ key, label }) => (
                 <div key={key} className="flex items-center justify-between mb-2">
-                  <span className="text-mono text-sm text-dungeon-200 w-32">{label}</span>
+                  <span className="text-mono text-sm text-dungeon-100 w-32">{label}</span>
                   <div className="flex items-center gap-2">
                     <button
                       type="button"
                       onClick={() => adjust(key, -1)}
                       disabled={attributes[key] <= MIN}
-                      className="w-8 h-8 bg-dungeon-700 text-dungeon-200 pixel-border hover:bg-dungeon-600 transition-colors disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center text-lg"
+                      className="w-8 h-8 bg-dungeon-700 text-dungeon-100 pixel-border hover:bg-dungeon-600 transition-colors disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center text-lg"
                     >
                       −
                     </button>
@@ -125,7 +125,7 @@ export function CharacterCreation() {
                       type="button"
                       onClick={() => adjust(key, 1)}
                       disabled={attributes[key] >= MAX || remaining <= 0}
-                      className="w-8 h-8 bg-dungeon-700 text-dungeon-200 pixel-border hover:bg-dungeon-600 transition-colors disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center text-lg"
+                      className="w-8 h-8 bg-dungeon-700 text-dungeon-100 pixel-border hover:bg-dungeon-600 transition-colors disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center text-lg"
                     >
                       +
                     </button>
@@ -135,11 +135,21 @@ export function CharacterCreation() {
             </div>
 
             <button
-              onClick={handleSubmit}
+              type="submit"
               disabled={!canSubmit}
               className="w-full bg-gold text-dungeon-900 font-bold py-3 px-4 text-mono text-lg pixel-border hover:brightness-110 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? 'CREATING...' : 'CREATE CHARACTER'}
+            </button>
+          </form>
+
+          <div className="flex justify-center mt-4">
+            <button
+              onClick={backToLobby}
+              className="text-mono text-sm text-blood hover:text-blood/80 transition-colors flex items-center gap-1"
+            >
+              <Logout width={14} height={14} />
+              Back
             </button>
           </div>
         </div>

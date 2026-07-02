@@ -1,4 +1,4 @@
-import { Logout, AiUserCircle } from 'pixelarticons/react';
+import { Users, AiSettings2, Logout } from 'pixelarticons/react';
 import { useState } from 'react';
 import { useSocket } from '../hooks/useSocket';
 import { useGameTurn } from '../hooks/useGameTurn';
@@ -6,14 +6,17 @@ import { Header } from '../components/Layout/Header';
 import { MessageList } from '../components/Chat/MessageList';
 import { MessageInput } from '../components/Chat/MessageInput';
 import { DiceRollButton } from '../components/Chat/DiceRollButton';
-import { PlayerList } from '../components/GameStatus/PlayerList';
-import { TurnIndicator } from '../components/GameStatus/TurnIndicator';
 import { TypingIndicator } from '../components/GameStatus/TypingIndicator';
-import { LocationBadge } from '../components/GameStatus/LocationBadge';
 import { CharacterSheet } from '../components/GameStatus/CharacterSheet';
+import { CharacterListModal } from '../components/GameStatus/CharacterListModal';
+import { OptionsModal } from '../components/GameStatus/OptionsModal';
+import { MyCharacterStatus } from '../components/GameStatus/MyCharacterStatus';
+import { CampaignStatusBar } from '../components/GameStatus/CampaignStatusBar';
 
 export function GameRoom() {
   const [showSheet, setShowSheet] = useState(false);
+  const [showCharacterList, setShowCharacterList] = useState(false);
+  const [showOptions, setShowOptions] = useState(false);
   const [leaving, setLeaving] = useState(false);
 
   const {
@@ -31,6 +34,7 @@ export function GameRoom() {
     emitTypingStop,
   } = useSocket();
 
+  const me = gameState?.players.find(p => p.id === player.playerId);
   const isCreator = player.playerId === gameState?.creatorId;
 
   const {
@@ -61,85 +65,49 @@ export function GameRoom() {
 
       <div className="flex-1 flex max-w-6xl w-full mx-auto overflow-hidden">
         {/* Sidebar */}
-        <aside className="w-56 bg-dungeon-900 border-r-2 border-dungeon-600 p-3 hidden md:flex flex-col gap-4">
+        <aside className="w-48 bg-dungeon-900 border-r-2 border-dungeon-600 p-3 flex flex-col gap-4">
           {gameState && (
             <>
-              <LocationBadge location={gameState.currentLocation} />
-              <TurnIndicator
-                currentTurn={turnUpdate?.currentTurn || null}
-                type={turnUpdate?.type || null}
-                target={turnUpdate?.target || null}
-                players={gameState.players}
-                playerId={player.playerId}
-              />
-              <PlayerList
-                players={gameState.players}
-                currentTurn={turnUpdate?.currentTurn || null}
-                playerId={player.playerId}
-              />
+              {me && <MyCharacterStatus player={me} onOpenSheet={() => setShowSheet(true)} />}
               <div className="flex-1" />
-              <button
-                onClick={() => setShowSheet(true)}
-                className="text-mono text-sm text-magic hover:text-magic/80 transition-colors flex items-center gap-1"
-              >
-                <AiUserCircle width={14} height={14} />
-                Character
-              </button>
-              <button
-                onClick={handleLeave}
-                disabled={leaving || isAiProcessing}
-                className="text-mono text-sm text-blood hover:text-blood/80 transition-colors flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <Logout width={14} height={14} />
-                {leaving ? 'LEAVING...' : (isCreator ? 'Close campaign' : 'Leave campaign')}
-              </button>
+              <div className="flex flex-col gap-2">
+                <button
+                  onClick={() => setShowCharacterList(true)}
+                  className="w-full bg-dungeon-700 pixel-border py-2 px-3 flex items-center gap-2 text-mono text-sm text-dungeon-100 hover:brightness-110 transition-all"
+                >
+                  <Users width={16} height={16} />
+                  Characters ({gameState.players.length})
+                </button>
+                <button
+                  onClick={() => setShowOptions(true)}
+                  className="w-full bg-dungeon-700 pixel-border py-2 px-3 flex items-center gap-2 text-mono text-sm text-dungeon-100 hover:brightness-110 transition-all"
+                >
+                  <AiSettings2 width={16} height={16} />
+                  Options
+                </button>
+                <button
+                  onClick={handleLeave}
+                  disabled={leaving || isAiProcessing}
+                  className="w-full bg-dungeon-700 pixel-border py-2 px-3 flex items-center gap-2 text-mono text-sm text-blood hover:brightness-110 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <Logout width={16} height={16} />
+                  {leaving ? 'LEAVING...' : (isCreator ? 'Close' : 'Leave')}
+                </button>
+              </div>
             </>
           )}
         </aside>
 
         {/* Main Chat Area */}
         <div className="flex-1 flex flex-col bg-dungeon-800 bg-noise">
-          {/* Mobile top bar */}
-          <div className="md:hidden bg-dungeon-900 border-b border-dungeon-600 p-2 flex items-center justify-between px-4">
-            {gameState && (
-              <>
-                <div className="flex items-center gap-2">
-                  <TurnIndicator
-                  currentTurn={turnUpdate?.currentTurn || null}
-                  type={turnUpdate?.type || null}
-                  target={turnUpdate?.target || null}
-                  players={gameState.players}
-                  playerId={player.playerId}
-                />
-                  <LocationBadge location={gameState.currentLocation} />
-                </div>
-                <div className="flex gap-1 items-center">
-                  <button
-                    onClick={() => setShowSheet(true)}
-                    className="text-magic hover:text-magic/80 transition-colors mr-1"
-                    title="Character sheet"
-                  >
-                    <AiUserCircle width={18} height={18} />
-                  </button>
-                  {gameState.players.slice(0, 3).map(p => (
-                    <span key={p.id} className={`w-6 h-6 flex items-center justify-center text-xs pixel-border ${
-                      p.id === turnUpdate?.currentTurn ? 'bg-gold text-dungeon-900' : 'bg-dungeon-600 text-dungeon-300'
-                    }`}>
-                      {p.name[0]}
-                    </span>
-                  ))}
-                  <button
-                    onClick={handleLeave}
-                    disabled={leaving || isAiProcessing}
-                    className="text-blood hover:text-blood/80 disabled:opacity-50 ml-1"
-                    title={isCreator ? 'Close campaign' : 'Leave campaign'}
-                  >
-                    <Logout width={16} height={16} />
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
+          <CampaignStatusBar
+            location={gameState?.currentLocation || null}
+            currentTurn={turnUpdate?.currentTurn || null}
+            turnType={turnUpdate?.type || null}
+            turnTarget={turnUpdate?.target || null}
+            players={gameState?.players || []}
+            playerId={player.playerId}
+          />
 
           <MessageList messages={messages} isProcessing={isAiProcessing} />
 
@@ -155,7 +123,7 @@ export function GameRoom() {
                 onTypingStop={emitTypingStop}
                 disabled={isInputDisabled}
                 disabledReason={disabledReason}
-                characterName={gameState?.players.find(p => p.id === player.playerId)?.name || 'Aventureiro'}
+                  characterName={me?.name || 'Aventureiro'}
                 turnType={turnUpdate?.type || null}
               />
             </div>
@@ -169,9 +137,23 @@ export function GameRoom() {
       </div>
 
       <CharacterSheet
-        player={gameState?.players.find(p => p.id === player.playerId)}
+        player={me}
         isOpen={showSheet}
         onClose={() => setShowSheet(false)}
+      />
+
+      <CharacterListModal
+        players={gameState?.players || []}
+        currentTurn={turnUpdate?.currentTurn || null}
+        playerId={player.playerId}
+        isOpen={showCharacterList}
+        onClose={() => setShowCharacterList(false)}
+      />
+
+      <OptionsModal
+        roomId={player.roomId}
+        isOpen={showOptions}
+        onClose={() => setShowOptions(false)}
       />
     </div>
   );

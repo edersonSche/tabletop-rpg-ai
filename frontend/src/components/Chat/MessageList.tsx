@@ -25,7 +25,7 @@ export function MessageList({ messages, isProcessing }: MessageListProps) {
   return (
     <div className="flex-1 overflow-y-auto p-4 space-y-3 scrollbar-pixel">
       {messages.length === 0 && (
-        <div className="flex flex-col items-center justify-center h-full text-dungeon-400 text-mono text-lg">
+        <div className="flex flex-col items-center justify-center h-full text-dungeon-200 text-mono text-lg">
           <Sword width={40} height={40} className="mb-4" />
           <p>The adventure hasn't started yet...</p>
           <p className="text-sm">Start the campaign to begin playing</p>
@@ -100,7 +100,7 @@ export function MessageList({ messages, isProcessing }: MessageListProps) {
         if (msg.type === 'system') {
           return (
             <div key={i} className="text-center">
-              <span className="text-mono text-xs text-dungeon-300 italic">{msg.content}</span>
+              <span className="text-mono text-xs text-dungeon-100 italic">{msg.content}</span>
             </div>
           );
         }
@@ -109,7 +109,7 @@ export function MessageList({ messages, isProcessing }: MessageListProps) {
       })}
 
       {isProcessing && (
-        <div className="flex items-center gap-2 text-mono text-dungeon-400">
+        <div className="flex items-center gap-2 text-mono text-dungeon-200">
           <span className="text-gold text-xs inline-flex items-center gap-1"><Star width={12} height={12} /> Game Master is thinking...</span>
         </div>
       )}
