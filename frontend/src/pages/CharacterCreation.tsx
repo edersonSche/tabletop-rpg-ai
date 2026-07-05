@@ -14,9 +14,9 @@ const STATS: Array<{ key: StatKey; label: string }> = [
 ];
 
 const MIN = 8;
-const MAX = 16;
-const TOTAL = 72;
-const DEFAULT = 10;
+const MAX = 15;
+const POINTS = 27;
+const DEFAULT = 8;
 
 type Attributes = {
   strength: number;
@@ -26,6 +26,19 @@ type Attributes = {
   wisdom: number;
   charisma: number;
 };
+
+const COST: Record<number, number> = {
+  8: 1, 9: 1, 10: 1, 11: 1, 12: 1,
+  13: 2, 14: 2,
+};
+
+function costToReach(value: number): number {
+  let total = 0;
+  for (let v = MIN; v < value; v++) {
+    total += COST[v] ?? 0;
+  }
+  return total;
+}
 
 function defaultAttributes(): Attributes {
   return {
@@ -38,9 +51,8 @@ function defaultAttributes(): Attributes {
   };
 }
 
-function sum(attrs: Attributes): number {
-  return attrs.strength + attrs.dexterity + attrs.constitution
-    + attrs.intelligence + attrs.wisdom + attrs.charisma;
+function totalCost(attrs: Attributes): number {
+  return (Object.values(attrs) as number[]).reduce((sum, v) => sum + costToReach(v), 0);
 }
 
 export function CharacterCreation() {
@@ -49,8 +61,7 @@ export function CharacterCreation() {
   const [loading, setLoading] = useState(false);
   const [attributes, setAttributes] = useState<Attributes>(defaultAttributes);
 
-  const currentSum = sum(attributes);
-  const remaining = TOTAL - currentSum;
+  const remaining = POINTS - totalCost(attributes);
   const canSubmit = name.trim().length > 0 && remaining === 0 && !loading;
 
   const adjust = (key: StatKey, delta: number) => {
@@ -58,8 +69,12 @@ export function CharacterCreation() {
       const current = prev[key];
       const next = current + delta;
       if (next < MIN || next > MAX) return prev;
-      const newSum = sum(prev) + delta;
-      if (newSum > TOTAL) return prev;
+      if (delta > 0) {
+        const costStep = COST[current];
+        if (costStep === undefined) return prev;
+        const spent = totalCost(prev);
+        if (spent + costStep > POINTS) return prev;
+      }
       return { ...prev, [key]: next };
     });
   };
@@ -124,7 +139,7 @@ export function CharacterCreation() {
                     <button
                       type="button"
                       onClick={() => adjust(key, 1)}
-                      disabled={attributes[key] >= MAX || remaining <= 0}
+                      disabled={attributes[key] >= MAX || remaining < (COST[attributes[key]] ?? 0)}
                       className="w-8 h-8 bg-dungeon-700 text-dungeon-100 pixel-border hover:bg-dungeon-600 transition-colors disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center text-lg"
                     >
                       +

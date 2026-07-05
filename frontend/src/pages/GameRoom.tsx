@@ -1,4 +1,4 @@
-import { Users, AiSettings2, Logout } from 'pixelarticons/react';
+import { File, Users, AiSettings2, Logout } from 'pixelarticons/react';
 import { useState } from 'react';
 import { useSocket } from '../hooks/useSocket';
 import { useGameTurn } from '../hooks/useGameTurn';
@@ -10,6 +10,7 @@ import { TypingIndicator } from '../components/GameStatus/TypingIndicator';
 import { CharacterSheet } from '../components/GameStatus/CharacterSheet';
 import { CharacterListModal } from '../components/GameStatus/CharacterListModal';
 import { OptionsModal } from '../components/GameStatus/OptionsModal';
+import { AttributeAllocationModal } from '../components/GameStatus/AttributeAllocationModal';
 import { MyCharacterStatus } from '../components/GameStatus/MyCharacterStatus';
 import { CampaignStatusBar } from '../components/GameStatus/CampaignStatusBar';
 
@@ -17,6 +18,7 @@ export function GameRoom() {
   const [showSheet, setShowSheet] = useState(false);
   const [showCharacterList, setShowCharacterList] = useState(false);
   const [showOptions, setShowOptions] = useState(false);
+  const [showAttributeAllocation, setShowAttributeAllocation] = useState(false);
   const [leaving, setLeaving] = useState(false);
 
   const {
@@ -32,6 +34,7 @@ export function GameRoom() {
     leaveRoom,
     emitTyping,
     emitTypingStop,
+    allocateAttributes,
   } = useSocket();
 
   const me = gameState?.players.find(p => p.id === player.playerId);
@@ -68,9 +71,24 @@ export function GameRoom() {
         <aside className="w-48 bg-dungeon-900 border-r-2 border-dungeon-600 p-3 flex flex-col gap-4">
           {gameState && (
             <>
-              {me && <MyCharacterStatus player={me} onOpenSheet={() => setShowSheet(true)} />}
+              {me && <MyCharacterStatus player={me} />}
+              {me && me.pendingAttributePoints > 0 && (
+                <button
+                  onClick={() => setShowAttributeAllocation(true)}
+                  className="w-full bg-gold/20 border border-gold pixel-border py-2 px-3 text-mono text-xs text-gold font-bold hover:brightness-110 transition-all"
+                >
+                  Distribute Attributes ({me.pendingAttributePoints} pts)
+                </button>
+              )}
               <div className="flex-1" />
               <div className="flex flex-col gap-2">
+                <button
+                  onClick={() => setShowSheet(true)}
+                  className="w-full bg-dungeon-700 pixel-border py-2 px-3 flex items-center gap-2 text-mono text-sm text-dungeon-100 hover:brightness-110 transition-all"
+                >
+                  <File width={16} height={16} />
+                  Sheet
+                </button>
                 <button
                   onClick={() => setShowCharacterList(true)}
                   className="w-full bg-dungeon-700 pixel-border py-2 px-3 flex items-center gap-2 text-mono text-sm text-dungeon-100 hover:brightness-110 transition-all"
@@ -154,6 +172,13 @@ export function GameRoom() {
         roomId={player.roomId}
         isOpen={showOptions}
         onClose={() => setShowOptions(false)}
+      />
+
+      <AttributeAllocationModal
+        player={me}
+        isOpen={showAttributeAllocation}
+        onClose={() => setShowAttributeAllocation(false)}
+        onAllocate={allocateAttributes}
       />
     </div>
   );

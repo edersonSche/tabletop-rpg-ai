@@ -14,8 +14,10 @@ export interface Player {
   };
   hp: number;
   maxHp: number;
+  level: number;
   xp: number;
   maxXp: number;
+  pendingAttributePoints: number;
 }
 
 export type TurnType = 'group_action' | 'call_player' | 'call_roll' | 'narration_only';

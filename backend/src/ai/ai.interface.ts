@@ -15,6 +15,7 @@ export interface AIContext {
   players: Array<{
     id: string;
     name: string;
+    level: number;
   }>;
   scene: string;
   currentLocation: string | null;

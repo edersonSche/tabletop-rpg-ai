@@ -280,6 +280,36 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     client.to(data.roomId).emit('game:typing_stop', { playerId: data.playerId });
   }
 
+  @SubscribeMessage('game:allocate_attributes')
+  async handleAllocateAttributes(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { roomId: string; playerId: string; allocations: Record<string, number> },
+  ) {
+    try {
+      const result = this.gameService.allocateAttributes(data.roomId, data.playerId, data.allocations);
+      if (!result.success) {
+        client.emit('game:error', { message: result.error });
+        return { success: false, error: result.error };
+      }
+
+      const room = this.gameState.getRoom(data.roomId);
+      if (room) {
+        this.server.to(data.roomId).emit('game:state', {
+          ...this.gameService.getState(data.roomId),
+          creatorId: room.creatorId,
+          history: room.history,
+        });
+      }
+
+      this.campaignStore.saveFromMemory(data.roomId);
+
+      return { success: true };
+    } catch (error) {
+      client.emit('game:error', { message: error.message });
+      return { success: false, error: error.message };
+    }
+  }
+
   @SubscribeMessage('game:get_state')
   handleGetState(
     @ConnectedSocket() client: Socket,

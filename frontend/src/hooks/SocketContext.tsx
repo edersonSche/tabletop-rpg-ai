@@ -45,6 +45,7 @@ interface SocketContextValue {
   deleteSavedCampaign: (campaignId: string) => Promise<boolean>;
   leaveRoom: () => Promise<void>;
   backToLobby: () => void;
+  allocateAttributes: (allocations: Record<string, number>) => void;
 }
 
 const SocketContext = createContext<SocketContextValue | null>(null);
@@ -207,6 +208,15 @@ export function SocketProvider({ children }: { children: ReactNode }) {
 
     s.on('game:processing', (data: { processing: boolean }) => {
       setIsAiProcessing(data.processing);
+    });
+
+    s.on('game:level_up', (data: { playerId: string; newLevel: number; gainedPoints: number }) => {
+      if (data.playerId === playerRef.current.playerId) {
+        const msg = data.gainedPoints > 0
+          ? `Level up! You reached level ${data.newLevel} and gained ${data.gainedPoints} attribute points to distribute!`
+          : `Level up! You reached level ${data.newLevel}!`;
+        setMessages(prev => [...prev, { type: 'system', content: msg, timestamp: Date.now() }]);
+      }
     });
 
     s.on('game:disband', (data: { reason: string }) => {
@@ -413,6 +423,15 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
+  const allocateAttributes = useCallback((allocations: Record<string, number>) => {
+    if (!socketRef.current || !player.roomId || !player.playerId) return;
+    socketRef.current.emit('game:allocate_attributes', {
+      roomId: player.roomId,
+      playerId: player.playerId,
+      allocations,
+    });
+  }, [player]);
+
   const deleteSavedCampaign = useCallback((campaignId: string): Promise<boolean> => {
     return new Promise((resolve) => {
       if (!socketRef.current) return resolve(false);
@@ -436,6 +455,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
         joinRoom, joinGameRoom, sendAction, sendRoll,
         startCampaign, emitTyping, emitTypingStop, listRooms,
         listSavedCampaigns, resumeCampaign, deleteSavedCampaign, leaveRoom, backToLobby,
+        allocateAttributes,
       }}
     >
       {children}

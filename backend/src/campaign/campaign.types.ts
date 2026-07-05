@@ -14,8 +14,10 @@ export interface SavedPlayer {
   };
   hp: number;
   maxHp: number;
+  level: number;
   xp: number;
   maxXp: number;
+  pendingAttributePoints: number;
 }
 
 export interface SavedHistoryEntry {

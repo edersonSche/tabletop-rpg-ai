@@ -36,6 +36,7 @@ export function CharacterListModal({ players, currentTurn, playerId, isOpen, onC
                 {p.id === currentTurn ? <Play width={14} height={14} /> : <Circle width={14} height={14} />}
               </span>
               <span className="text-mono text-sm text-dungeon-100 font-bold flex-1">{p.name}</span>
+              <span className="text-mono text-[10px] text-dungeon-100 mr-2">Lv{p.level}</span>
               {p.id === playerId && (
                 <span className="text-xs text-magic">(you)</span>
               )}

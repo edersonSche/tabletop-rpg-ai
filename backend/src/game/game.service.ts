@@ -302,4 +302,12 @@ export class GameService {
       gameStarted: room.gameStarted,
     };
   }
+
+  allocateAttributes(
+    roomId: string,
+    playerId: string,
+    allocations: Partial<Record<keyof Player['attributes'], number>>,
+  ) {
+    return this.gameState.allocateAttributes(roomId, playerId, allocations);
+  }
 }

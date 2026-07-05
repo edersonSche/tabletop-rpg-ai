@@ -1,6 +1,6 @@
 # AGENTS.md
 
-Two-package monorepo: `backend/` (NestJS 11, Socket.IO 4.8), `frontend/` (React 19, Vite 6, Tailwind 3.4). No root `package.json` — each package is independent. **No tests, no lint, no formatter, no CI.**  
+Two-package monorepo: `backend/` (NestJS 11, Socket.IO 4.8), `frontend/` (React 19, Vite 6, Tailwind 3.4, react-markdown 9, remark-gfm 4). No root `package.json` — each package is independent. **No tests, no lint, no formatter, no CI.**  
 
 **Game state is in-memory** — restarting wipes active rooms (but not saved campaigns). **Campaign persistence** writes to `data/campaigns.json` on every action/roll/start/disconnect/create_character/leave — `saveFromMemory()` skips if `!gameStarted`, so pre-start creates/leaves do not persist. Saved campaigns survive restarts and can be resumed via `lobby:resume`.
 
@@ -38,11 +38,11 @@ Actions: `LOGGED_IN`, `LOGGED_OUT`, `CREATED_ROOM`, `JOIN_NEEDS_CHARACTER`, `CHA
 
 **Backend** — all under `backend/src/`:
 - `auth/` — `AuthGateway` (auth:login, disconnect), `AuthService` (userId↔socketId + playerId↔socketId), `AuthWsGuard`
-- `game/` — `GameGateway` (action/roll/start/typing/get_state/room:join), `GameService` (turn orchestration, AI target validation, `buildSceneContext()`), `GameState` (in-memory Map), `TurnManager` (lock-per-room)
-- `room/` — `RoomGateway` (lobby:create/join/list/list_saved/resume/delete_saved/create_character, room:leave), `RoomService` (in-memory room registry, IDs = first 8 UUID chars)
-- `campaign/` — `CampaignStore` (persist/restore to `data/campaigns.json`, 1s debounced write)
+- `game/` — `GameGateway` (action/roll/start/typing/get_state/room:join/allocate_attributes), `GameService` (turn orchestration, AI target validation, `buildSceneContext()`, `maybeSummarize()` history summarization), `GameState` (in-memory Map with HP/XP/level engine, XP thresholds, ASI levels), `TurnManager` (lock-per-room, stores `turnSkill`/`turnDc`)
+- `room/` — `RoomGateway` (lobby:create/join/list/list_saved/resume/delete_saved/create_character, room:leave), `RoomService` (in-memory room registry, IDs = first 8 UUID chars, tracks `creatorId`)
+- `campaign/` — `CampaignStore` (persist/restore to `data/campaigns.json`, 1s debounced write; stores HP/XP/level/summary/campaignTheme)
 - `dto/` — `ai-response.dto.ts`, `game-action.dto.ts`
-- `ai/` — Provider pattern: `AiService` → `OpencodeProvider` (raw HTTP). Empty `AI_API_KEY` → fallback narration. `onRoomReady()` lifecycle called on char creation and campaign resume
+- `ai/` — Provider pattern: `AiService` → `OpencodeProvider` (raw HTTP with per-room sessions). `summarizeHistory()` for long-term memory. Empty `AI_API_KEY` → fallback narration. `onRoomReady()`/`onRoomEmpty()` lifecycle for session create/delete
 
 **Frontend** — under `frontend/src/`:
 - `hooks/SocketContext.tsx` — Socket.IO context provider; owns all server event subscriptions, page dispatches, messages, gameState, turnUpdate, isAiProcessing, typingPlayers
@@ -50,7 +50,7 @@ Actions: `LOGGED_IN`, `LOGGED_OUT`, `CREATED_ROOM`, `JOIN_NEEDS_CHARACTER`, `CHA
 - `hooks/useGameTurn.ts` — derives `isMyTurn`, `isRollRequest`, `canAct`, etc. from `gameState` + `turnUpdate`
 - `types/game.types.ts` — TS interfaces mirroring backend DTOs
 - `pages/` — `Login`, `Lobby`, `CharacterCreation`, `WaitingRoom`, `GameRoom`
-- `components/` — `Chat/` (MessageList, MessageInput, DiceRollButton), `GameStatus/` (LocationBadge, TurnIndicator, PlayerList, PlayerCard, CharacterSheet, TypingIndicator), `Layout/` (Header, Toast), `Lobby/` (CreateRoom, RoomList, SavedCampaigns)
+- `components/` — `Chat/` (MessageList, MessageInput, DiceRollButton), `GameStatus/` (LocationBadge, TurnIndicator, PlayerList, PlayerCard, CharacterSheet, TypingIndicator, CampaignStatusBar, MyCharacterStatus, PlayerCircles, AttributeAllocationModal, CharacterListModal, OptionsModal), `Layout/` (Header, Toast), `Lobby/` (CreateRoom, RoomList, SavedCampaigns)
 
 ## AI integration
 
@@ -63,6 +63,8 @@ Actions: `LOGGED_IN`, `LOGGED_OUT`, `CREATED_ROOM`, `JOIN_NEEDS_CHARACTER`, `CHA
 Repo `.env` defaults: `AI_PROVIDER=opencode`, `AI_API_KEY=none`, `AI_BASE_URL=http://localhost:4096`. Config loaded in `app.module.ts:27-30` via `ConfigModule.forRoot()`.
 
 Opencode provider uses inline JSON prompt + regex extraction. Invalid `call_player`/`call_roll` targets get coerced to `group_action` by `GameService.validateAiResponseTarget()`.
+
+System prompt (`system.prompt.ts`) documents: Markdown narration, two-tier memory (history + summary), player levels, location/target rules, and out-of-game question handling.
 
 ## Key gotchas
 
@@ -77,3 +79,10 @@ Opencode provider uses inline JSON prompt + regex extraction. Invalid `call_play
 - **Scene context** (`buildSceneContext()`) built from complete sentences + location + next-action. Stored as `room.scene`, sent to AI every turn.
 - **Cold restore** (`lobby:resume` when room not in memory) forces `gameStarted = false` — creator lands in waiting room and must click START. Warm restore (room in memory) preserves actual `gameStarted`.
 - **Never use emoji/unicode characters to represent icons** — always use pixelarticons React components (`pixelarticons/react`) instead of characters like ▶, ✓, ✕, ⏳, etc.
+- **HP/XP/Leveling** — Player model includes `hp`, `maxHp`, `level` (1-20), `xp`, `maxXp`, `pendingAttributePoints`. HP = `10 + CON mod`. XP thresholds from D&D 5e SRD. ASI levels (4/8/12/16/19) grant +2 attribute points. Backend engine is complete; XP gain is not yet triggered by game actions (no server-side `game:level_up` emit).
+- **Attribute point-buy** — Character creation: 27-point pool, attributes range 8-15 (cost: 1pt for 8-12, 2pt for 13-14). Max attribute is 20.
+- **AI sessions** — `OpencodeProvider` creates a dedicated AI session per room on `onRoomReady()` (character creation / campaign resume). Session deleted on `onRoomEmpty()` (last leave / disband / delete_saved). 404/410 errors auto-recreate the session.
+- **History summarization** — `maybeSummarize()` triggers every 50 history entries. Uses a temporary AI session to merge new entries into `room.summary`. Guarded by a per-room `isSummarizing` Set to prevent concurrency. Summary is persisted in saved campaigns.
+- **GameRoom layout** — Left sidebar (48px) with `MyCharacterStatus` (HP/XP bars, name, level) + modal navigation buttons (Sheet, Characters, Options, Leave). Main area has `CampaignStatusBar` at top, Chat in center, TypingIndicator + MessageInput + DiceRollButton at bottom. All panels (CharacterSheet, CharacterList, Options, AttributeAllocation) are modals.
+- **Campaign themes** — 18 preset themes (Medieval Fantasy, Lovecraftian Horror, Cyberpunk, Dark Souls, Pirate, Steampunk, Sci-Fi, Weird West, Post-Apocalyptic, Norse, Arabian Nights, Wuxia, Superhero, Arthurian, Zombie, Japanese Folklore, Space Horror, Post-Magic Apocalypse) + Custom free-form text. Set at room creation via `lobby:create { campaignTheme }`.
+- **Markdown narration** — AI narration rendered with `react-markdown` + `remark-gfm`. Bold, blockquotes, code, lists, tables, horizontal rules supported.

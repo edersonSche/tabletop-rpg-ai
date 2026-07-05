@@ -41,7 +41,8 @@ export function CharacterSheet({ player, isOpen, onClose }: CharacterSheetProps)
           <Close width={18} height={18} />
         </button>
 
-        <h2 className="text-mono text-lg text-gold text-center mb-6">{player.name}</h2>
+        <h2 className="text-mono text-lg text-gold text-center mb-1">{player.name}</h2>
+        <p className="text-mono text-xs text-dungeon-100 text-center mb-5">Level {player.level}</p>
 
         {/* HP Bar */}
         <div className="mb-5">

@@ -15,6 +15,7 @@ export function PlayerList({ players, currentTurn, playerId }: PlayerListProps) 
         <PlayerCard
           key={p.id}
           name={p.name}
+          level={p.level}
           isActive={p.id === currentTurn}
           isMe={p.id === playerId}
         />

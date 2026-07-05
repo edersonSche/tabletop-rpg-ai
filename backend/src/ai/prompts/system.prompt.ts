@@ -17,7 +17,7 @@ const LANGUAGE_INSTRUCTIONS: Record<string, { narration: string; write: string }
 
 export function getSystemPrompt(context: AIContext): string {
   const lang = LANGUAGE_INSTRUCTIONS[context.language] || LANGUAGE_INSTRUCTIONS.english;
-  const playersList = context.players.map(p => `- ${p.id}: ${p.name}`).join('\n');
+  const playersList = context.players.map(p => `- ${p.id}: ${p.name} (Level ${p.level})`).join('\n');
   const locationLine = context.currentLocation ? `Location: ${context.currentLocation}\n` : '';
 
   return `You are the Game Master of a tabletop RPG.
@@ -100,6 +100,7 @@ of previous narrations is also available — use both to avoid contradictions.
 ## Rules
 - ${lang.write}
 - Player attributes range from 1-20, with modifier = (value - 10) / 2
+- Player level indicates character experience and power. Take it into account when determining the difficulty of challenges and the tone of narration.
 - Keep the story engaging and responsive to player choices
 - If players try impossible actions, narrate the failure creatively
 - Use "call_roll" when a player attempts something uncertain

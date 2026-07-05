@@ -7,7 +7,7 @@
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind-3.4-06b6d4?logo=tailwindcss)](https://tailwindcss.com/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.7-3178c6?logo=typescript)](https://www.typescriptlang.org/)
 
-AI-powered tabletop role-playing game platform with a real-time multiplayer experience. Players create or join campaign rooms and play through a medieval fantasy adventure narrated by an AI Game Master — all through a chat-like interface with a retro pixel-art dark theme.
+AI-powered tabletop role-playing game platform with a real-time multiplayer experience. Players create or join campaign rooms with customizable themes (Medieval Fantasy, Cyberpunk, Dark Souls, etc.) and play through adventures narrated by an AI Game Master — all through a chat-like interface with a retro pixel-art dark theme.
 
 ## Architecture
 
@@ -37,7 +37,7 @@ Two-package monorepo with no root `package.json` — each package is independent
 | Layer | Technology |
 |-------|-----------|
 | **Backend** | NestJS 11, Socket.IO 4.8, TypeScript 5.7 |
-| **Frontend** | React 19, Vite 6, Tailwind CSS 3.4, Socket.IO Client, pixelarticons, TypeScript 5.7 |
+| **Frontend** | React 19, Vite 6, Tailwind CSS 3.4, Socket.IO Client, pixelarticons, react-markdown 9, remark-gfm 4, TypeScript 5.7 |
 | **Fonts** | Press Start 2P (UI), VT323 + Space Mono (narrative) |
 
 ## Getting Started
@@ -99,7 +99,7 @@ cd frontend && npm run preview     # vite preview
 | Event | Handler | Payload |
 |-------|---------|---------|
 | `auth:login` | `AuthGateway` | `{ userId }` |
-| `lobby:create` | `RoomGateway` | `{ name, language? }` |
+| `lobby:create` | `RoomGateway` | `{ name, language?, campaignTheme? }` |
 | `lobby:create_character` | `RoomGateway` | `{ roomId, name, attributes? }` |
 | `lobby:list` | `RoomGateway` | — |
 | `lobby:join` | `RoomGateway` | `{ roomId }` |
@@ -114,6 +114,7 @@ cd frontend && npm run preview     # vite preview
 | `game:typing` | `GameGateway` | `{ roomId, playerId, username }` |
 | `game:typing_stop` | `GameGateway` | `{ roomId, playerId }` |
 | `game:get_state` | `GameGateway` | `{ roomId }` |
+| `game:allocate_attributes` | `GameGateway` | `{ roomId, playerId, allocations }` |
 
 ### Server → Client
 
@@ -130,6 +131,7 @@ cd frontend && npm run preview     # vite preview
 | `game:typing_stop` | `{ playerId }` |
 | `game:processing` | `{ processing: boolean }` |
 | `game:disband` | `{ reason }` |
+| `game:level_up` | `{ playerId, newLevel, gainedPoints }` (frontend-ready, server not yet emitting) |
 
 ## AI Integration
 
@@ -139,9 +141,51 @@ The backend uses a **provider pattern**:
 - **`OpencodeProvider`** — raw HTTP fetch to a local Opencode session; manages sessions per room.
 - **Fallback** — if `AI_API_KEY` is empty, `AiService.generate()` returns a static narration without calling any provider.
 
-The system prompt supports **English**, **Portuguese (Brazil)**, and **Spanish** narration. The AI responds in strict JSON with `narration`, optional `location`, and `next` (with `type`, `target`, `skill`, `dc`).
+The system prompt supports **English**, **Portuguese (Brazil)**, and **Spanish** narration. The AI responds in strict JSON with `narration`, optional `location`, and `next` (with `type`, `target`, `skill`, `dc`). Narration supports **Markdown** formatting rendered via `react-markdown`.
+
+The AI has a **two-tier memory system**: a running history of narration text (for immediate context) and a periodic **summarization** that condenses old entries into a persistent summary every 50 actions — saving tokens vs. storing full history.
 
 Invalid AI targets (`call_player`/`call_roll` pointing to missing players) are coerced to `group_action` by `GameService.validateAiResponseTarget()`.
+
+The provider manages **per-room sessions**: created when a character is made or campaign is resumed (`onRoomReady()`), and deleted when the last player leaves or the campaign is deleted (`onRoomEmpty()`). 404/410 errors auto-recreate sessions.
+
+## Character Creation
+
+Players build characters using a **point-buy system**:
+
+- **27-point pool** to distribute across 6 attributes
+- Attributes range from **8 (min) to 15 (max)**
+- Cost: **1 point** per point from 8-12, **2 points** per point at 13-14
+- Default: all attributes start at 8
+- Maximum attribute cap is **20** (reachable via ASI level-ups)
+- **ASI levels** (4, 8, 12, 16, 19) grant +2 attribute points on level-up
+
+## Campaign Themes
+
+18 preset campaign themes plus a **Custom** free-form option:
+
+| Theme | Description |
+|-------|-------------|
+| Medieval Fantasy | Classic swords & sorcery |
+| Lovecraftian Horror | Cosmic horror & madness |
+| Cyberpunk | High-tech low-life |
+| Dark Souls | Gothic dark fantasy |
+| Pirate Adventure | High seas & treasure |
+| Steampunk | Victorian steam-powered |
+| Sci-Fi / Space Opera | Starships & aliens |
+| Weird West | Supernatural frontier |
+| Post-Apocalyptic | Wasteland survival |
+| Norse Mythology | Viking sagas |
+| Arabian Nights | Desert adventures |
+| Wuxia / Martial Arts | Chinese martial arts epic |
+| Superhero | Modern supers |
+| Arthurian Legend | Knights & chivalry |
+| Zombie Survival | Undead apocalypse |
+| Japanese Folklore | Yokai & spirits |
+| Space Horror | Cosmic isolation |
+| Post-Magic Apocalypse | Magic shattered world |
+
+Set at room creation via `lobby:create { campaignTheme }`. The theme is injected into the AI system prompt and persisted in saved campaigns.
 
 ## Project Structure
 
@@ -155,20 +199,20 @@ backend/src/
 │   ├── auth.service.ts      # userId/socketId + playerId/socketId mapping
 │   └── auth.guard.ts        # AuthWsGuard
 ├── ai/
-│   ├── ai.interface.ts      # AIConfig / AIProvider interface
-│   ├── ai.service.ts        # Provider dispatcher + response validation
+│   ├── ai.interface.ts      # AIConfig / AIProvider interface (includes summarize)
+│   ├── ai.service.ts        # Provider dispatcher + response validation + summarizeHistory()
 │   ├── prompts/
-│   │   └── system.prompt.ts # Multilingual system prompt builder
+│   │   └── system.prompt.ts # Multilingual system prompt builder (memory, markdown, levels)
 │   └── providers/
-│       └── opencode.provider.ts
+│       └── opencode.provider.ts  # Per-room sessions, summarization, error recovery
 ├── campaign/
-│   ├── campaign.store.ts    # Persist/restore to data/campaigns.json
+│   ├── campaign.store.ts    # Persist/restore to data/campaigns.json (stores HP/XP/level/summary)
 │   └── campaign.types.ts    # SavedCampaign, SavedCampaignInfo
 ├── game/
-│   ├── game.gateway.ts      # Game WebSocket handlers
-│   ├── game.service.ts      # Turn orchestration + AI response processing
-│   ├── game.state.ts        # In-memory GameState store
-│   └── turn.manager.ts      # Lock-per-room turn gate
+│   ├── game.gateway.ts      # Game WebSocket handlers (incl. allocate_attributes)
+│   ├── game.service.ts      # Turn orchestration + AI response processing + maybeSummarize()
+│   ├── game.state.ts        # In-memory GameState store (HP/XP/level engine, ASI, XP thresholds)
+│   └── turn.manager.ts      # Lock-per-room turn gate (stores turnSkill/turnDc)
 ├── room/
 │   ├── room.gateway.ts      # Lobby WebSocket handlers
 │   └── room.service.ts      # In-memory Room registry
@@ -201,7 +245,13 @@ frontend/src/
 │   │   ├── PlayerList.tsx
 │   │   ├── PlayerCard.tsx
 │   │   ├── CharacterSheet.tsx
-│   │   └── TypingIndicator.tsx
+│   │   ├── TypingIndicator.tsx
+│   │   ├── CampaignStatusBar.tsx
+│   │   ├── MyCharacterStatus.tsx
+│   │   ├── PlayerCircles.tsx
+│   │   ├── AttributeAllocationModal.tsx
+│   │   ├── CharacterListModal.tsx
+│   │   └── OptionsModal.tsx
 │   ├── Layout/
 │   │   ├── Header.tsx
 │   │   └── Toast.tsx
@@ -216,5 +266,4 @@ frontend/src/
 ## Limitations
 
 - **Active rooms are in-memory** — restarting the backend wipes active rooms, but saved campaigns persist in `data/campaigns.json` and can be resumed.
-- **No HP or stats** — players have only `id`, `name`, and 6 attributes (all at 10).
-- **Hardcoded campaign setting** — `"A medieval fantasy world..."` is defined in `game.service.ts` and referenced in 6+ places; not configurable at runtime.
+- **XP gain not yet wired** — the HP/XP/leveling engine is structurally complete (levels 1-20, D&D 5e SRD XP thresholds, ASI at levels 4/8/12/16/19), but no server-side game action triggers XP gain yet. `game:level_up` is frontend-ready but not emitted by the backend.
