@@ -115,6 +115,8 @@ cd frontend && npm run preview     # vite preview
 | `game:typing_stop` | `GameGateway` | `{ roomId, playerId }` |
 | `game:get_state` | `GameGateway` | `{ roomId }` |
 | `game:allocate_attributes` | `GameGateway` | `{ roomId, playerId, allocations }` |
+| `game:equip` | `GameGateway` | `{ roomId, playerId, itemId, slot }` |
+| `game:unequip` | `GameGateway` | `{ roomId, playerId, slot }` |
 
 ### Server → Client
 
@@ -159,6 +161,24 @@ Players build characters using a **point-buy system**:
 - Default: all attributes start at 8
 - Maximum attribute cap is **20** (reachable via ASI level-ups)
 - **ASI levels** (4, 8, 12, 16, 19) grant +2 attribute points on level-up
+
+## Inventory & Equipment
+
+Players start each campaign with basic equipment:
+
+- **Dagger** (hand slot) — a melee weapon
+- **2 Healing Potions** (potion type)
+- **50 coins**
+
+Items have **types** (`weapon`, `armor`, `potion`, `scroll`, `key_item`, `misc`) and **slots** (`body`, `hand`, `two-handed`). Each player has three equipment slots:
+
+| Slot | Accepts |
+|------|---------|
+| `body` | Items with `body` slot (armor) |
+| `mainHand` | Items with `hand` or `two-handed` slot |
+| `offHand` | Items with `hand` slot |
+
+Two-handed weapons block the off-hand slot when equipped. Equipment is managed via `game:equip` / `game:unequip` events and is persisted in saved campaigns.
 
 ## Campaign Themes
 
@@ -206,12 +226,12 @@ backend/src/
 │   └── providers/
 │       └── opencode.provider.ts  # Per-room sessions, summarization, error recovery
 ├── campaign/
-│   ├── campaign.store.ts    # Persist/restore to data/campaigns.json (stores HP/XP/level/summary)
-│   └── campaign.types.ts    # SavedCampaign, SavedCampaignInfo
+│   ├── campaign.store.ts    # Persist/restore to data/campaigns.json (stores HP/XP/level/summary/inventory/coins/equipment)
+│   └── campaign.types.ts    # SavedCampaign, SavedCampaignInfo (incl. inventory/coins/equipment)
 ├── game/
-│   ├── game.gateway.ts      # Game WebSocket handlers (incl. allocate_attributes)
+│   ├── game.gateway.ts      # Game WebSocket handlers (incl. allocate_attributes, equip, unequip)
 │   ├── game.service.ts      # Turn orchestration + AI response processing + maybeSummarize()
-│   ├── game.state.ts        # In-memory GameState store (HP/XP/level engine, ASI, XP thresholds)
+│   ├── game.state.ts        # In-memory GameState store (HP/XP/level engine, ASI, XP thresholds, inventory/coins/equipment)
 │   └── turn.manager.ts      # Lock-per-room turn gate (stores turnSkill/turnDc)
 ├── room/
 │   ├── room.gateway.ts      # Lobby WebSocket handlers
@@ -223,7 +243,7 @@ frontend/src/
 ├── App.tsx                  # Page router (state machine via useReducer)
 ├── index.css                # Tailwind + custom layers (pixel fonts, colors)
 ├── hooks/
-│   ├── SocketContext.tsx    # Socket.IO context provider + state
+│   ├── SocketContext.tsx    # Socket.IO context provider + state (incl. emitEquip, emitUnequip)
 │   ├── useSocket.ts         # Context re-export
 │   └── useGameTurn.ts       # Turn logic hook (isMyTurn, isRollRequest, etc.)
 ├── routing/
@@ -244,7 +264,7 @@ frontend/src/
 │   │   ├── TurnIndicator.tsx
 │   │   ├── PlayerList.tsx
 │   │   ├── PlayerCard.tsx
-│   │   ├── CharacterSheet.tsx
+│   │   ├── CharacterSheet.tsx   # Attributes + Inventory tabs, equip/unequip UI
 │   │   ├── TypingIndicator.tsx
 │   │   ├── CampaignStatusBar.tsx
 │   │   ├── MyCharacterStatus.tsx
@@ -260,7 +280,7 @@ frontend/src/
 │       ├── RoomList.tsx
 │       └── SavedCampaigns.tsx
 └── types/
-    └── game.types.ts        # Shared TypeScript interfaces
+    └── game.types.ts        # Shared TypeScript interfaces (Player incl. inventory/coins/equipment)
 ```
 
 ## Limitations

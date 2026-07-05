@@ -310,6 +310,64 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
   }
 
+  @SubscribeMessage('game:equip')
+  async handleEquip(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { roomId: string; playerId: string; itemId: string; slot: 'body' | 'mainHand' | 'offHand' },
+  ) {
+    try {
+      const result = this.gameState.equipItem(data.roomId, data.playerId, data.itemId, data.slot);
+      if (!result.success) {
+        client.emit('game:error', { message: result.error });
+        return { success: false, error: result.error };
+      }
+
+      const room = this.gameState.getRoom(data.roomId);
+      if (room) {
+        this.server.to(data.roomId).emit('game:state', {
+          ...this.gameService.getState(data.roomId),
+          creatorId: room.creatorId,
+          history: room.history,
+        });
+      }
+
+      this.campaignStore.saveFromMemory(data.roomId);
+      return { success: true };
+    } catch (error) {
+      client.emit('game:error', { message: error.message });
+      return { success: false, error: error.message };
+    }
+  }
+
+  @SubscribeMessage('game:unequip')
+  async handleUnequip(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { roomId: string; playerId: string; slot: 'body' | 'mainHand' | 'offHand' },
+  ) {
+    try {
+      const result = this.gameState.unequipItem(data.roomId, data.playerId, data.slot);
+      if (!result.success) {
+        client.emit('game:error', { message: result.error });
+        return { success: false, error: result.error };
+      }
+
+      const room = this.gameState.getRoom(data.roomId);
+      if (room) {
+        this.server.to(data.roomId).emit('game:state', {
+          ...this.gameService.getState(data.roomId),
+          creatorId: room.creatorId,
+          history: room.history,
+        });
+      }
+
+      this.campaignStore.saveFromMemory(data.roomId);
+      return { success: true };
+    } catch (error) {
+      client.emit('game:error', { message: error.message });
+      return { success: false, error: error.message };
+    }
+  }
+
   @SubscribeMessage('game:get_state')
   handleGetState(
     @ConnectedSocket() client: Socket,

@@ -18,6 +18,20 @@ export interface SavedPlayer {
   xp: number;
   maxXp: number;
   pendingAttributePoints: number;
+  inventory: Array<{
+    id: string;
+    name: string;
+    description: string;
+    type: 'weapon' | 'armor' | 'potion' | 'scroll' | 'key_item' | 'misc';
+    quantity: number;
+    slot?: 'body' | 'hand' | 'two-handed';
+  }>;
+  coins: number;
+  equipment: {
+    body?: string;
+    mainHand?: string;
+    offHand?: string;
+  };
 }
 
 export interface SavedHistoryEntry {

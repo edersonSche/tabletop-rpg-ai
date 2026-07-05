@@ -1,5 +1,14 @@
 export type NarrativeLanguage = 'english' | 'portuguese' | 'spanish';
 
+export interface InventoryItem {
+  id: string;
+  name: string;
+  description: string;
+  type: 'weapon' | 'armor' | 'potion' | 'scroll' | 'key_item' | 'misc';
+  quantity: number;
+  slot?: 'body' | 'hand' | 'two-handed';
+}
+
 export interface Player {
   id: string;
   name: string;
@@ -18,6 +27,13 @@ export interface Player {
   xp: number;
   maxXp: number;
   pendingAttributePoints: number;
+  inventory: InventoryItem[];
+  coins: number;
+  equipment: {
+    body?: string;
+    mainHand?: string;
+    offHand?: string;
+  };
 }
 
 export type TurnType = 'group_action' | 'call_player' | 'call_roll' | 'narration_only';

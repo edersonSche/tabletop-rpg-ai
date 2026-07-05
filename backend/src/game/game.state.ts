@@ -2,6 +2,15 @@ import { v4 as uuid } from 'uuid';
 
 export type NarrativeLanguage = 'english' | 'portuguese' | 'spanish';
 
+export interface InventoryItem {
+  id: string;
+  name: string;
+  description: string;
+  type: 'weapon' | 'armor' | 'potion' | 'scroll' | 'key_item' | 'misc';
+  quantity: number;
+  slot?: 'body' | 'hand' | 'two-handed';
+}
+
 export interface Player {
   id: string;
   userId: string;
@@ -21,6 +30,13 @@ export interface Player {
   xp: number;
   maxXp: number;
   pendingAttributePoints: number;
+  inventory: InventoryItem[];
+  coins: number;
+  equipment: {
+    body?: string;
+    mainHand?: string;
+    offHand?: string;
+  };
 }
 
 export interface GameStateData {
@@ -154,6 +170,25 @@ export class GameState {
       xp: 0,
       maxXp: XP_THRESHOLDS[1] ?? 300,
       pendingAttributePoints: 0,
+      inventory: [
+        {
+          id: uuid(),
+          name: 'Adaga',
+          description: 'Uma lâmina curta e afiada, útil para combate ou tarefas cotidianas.',
+          type: 'weapon',
+          quantity: 1,
+          slot: 'hand',
+        },
+        {
+          id: uuid(),
+          name: 'Poção de Cura',
+          description: 'Um líquido vermelho fumegante que restaura o vigor quando bebido.',
+          type: 'potion',
+          quantity: 2,
+        },
+      ],
+      coins: 50,
+      equipment: {},
     };
 
     room.players.push(player);
@@ -211,6 +246,100 @@ export class GameState {
   removeRoom(roomId: string): void {
     this.rooms.delete(roomId);
     this.playerByUserId.delete(roomId);
+  }
+
+  addItem(roomId: string, playerId: string, item: Omit<InventoryItem, 'id'>): Player | undefined {
+    const room = this.rooms.get(roomId);
+    if (!room) return undefined;
+    const player = room.players.find(p => p.id === playerId);
+    if (!player) return undefined;
+
+    const existing = player.inventory.find(i => i.name === item.name && i.type === item.type);
+    if (existing) {
+      existing.quantity += item.quantity;
+    } else {
+      player.inventory.push({ id: uuid(), ...item });
+    }
+    return player;
+  }
+
+  removeItem(roomId: string, playerId: string, itemId: string, quantity = 1): boolean {
+    const room = this.rooms.get(roomId);
+    if (!room) return false;
+    const player = room.players.find(p => p.id === playerId);
+    if (!player) return false;
+
+    const index = player.inventory.findIndex(i => i.id === itemId);
+    if (index === -1) return false;
+
+    const item = player.inventory[index];
+    if (item.quantity <= quantity) {
+      player.inventory.splice(index, 1);
+    } else {
+      item.quantity -= quantity;
+    }
+    return true;
+  }
+
+  equipItem(roomId: string, playerId: string, itemId: string, slot: 'body' | 'mainHand' | 'offHand'): { success: boolean; error?: string } {
+    const room = this.rooms.get(roomId);
+    if (!room) return { success: false, error: 'Room not found' };
+    const player = room.players.find(p => p.id === playerId);
+    if (!player) return { success: false, error: 'Player not found' };
+
+    const item = player.inventory.find(i => i.id === itemId);
+    if (!item) return { success: false, error: 'Item not found in inventory' };
+
+    if (slot === 'body' && item.slot !== 'body') return { success: false, error: 'This item cannot be equipped on the body' };
+    if (slot === 'mainHand' && item.slot !== 'hand' && item.slot !== 'two-handed') return { success: false, error: 'This item cannot be held in the main hand' };
+    if (slot === 'offHand' && item.slot !== 'hand') return { success: false, error: 'This item cannot be held in the off hand' };
+
+    if (item.slot === 'two-handed' && slot === 'mainHand') {
+      player.equipment.offHand = undefined;
+    }
+
+    if (slot === 'offHand') {
+      const mainHandItem = player.equipment.mainHand ? player.inventory.find(i => i.id === player.equipment.mainHand) : undefined;
+      if (mainHandItem?.slot === 'two-handed') return { success: false, error: 'Cannot equip off-hand while wielding a two-handed weapon' };
+    }
+
+    if (slot === 'body') player.equipment.body = itemId;
+    else if (slot === 'mainHand') player.equipment.mainHand = itemId;
+    else if (slot === 'offHand') player.equipment.offHand = itemId;
+
+    return { success: true };
+  }
+
+  unequipItem(roomId: string, playerId: string, slot: 'body' | 'mainHand' | 'offHand'): { success: boolean; error?: string } {
+    const room = this.rooms.get(roomId);
+    if (!room) return { success: false, error: 'Room not found' };
+    const player = room.players.find(p => p.id === playerId);
+    if (!player) return { success: false, error: 'Player not found' };
+
+    if (slot === 'body') player.equipment.body = undefined;
+    else if (slot === 'mainHand') player.equipment.mainHand = undefined;
+    else if (slot === 'offHand') player.equipment.offHand = undefined;
+
+    return { success: true };
+  }
+
+  addCoins(roomId: string, playerId: string, amount: number): boolean {
+    const room = this.rooms.get(roomId);
+    if (!room) return false;
+    const player = room.players.find(p => p.id === playerId);
+    if (!player) return false;
+    player.coins += amount;
+    return true;
+  }
+
+  removeCoins(roomId: string, playerId: string, amount: number): boolean {
+    const room = this.rooms.get(roomId);
+    if (!room) return false;
+    const player = room.players.find(p => p.id === playerId);
+    if (!player) return false;
+    if (player.coins < amount) return false;
+    player.coins -= amount;
+    return true;
   }
 
   addHistory(roomId: string, entry: GameStateData['history'][0]): void {

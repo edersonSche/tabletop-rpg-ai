@@ -38,10 +38,10 @@ Actions: `LOGGED_IN`, `LOGGED_OUT`, `CREATED_ROOM`, `JOIN_NEEDS_CHARACTER`, `CHA
 
 **Backend** — all under `backend/src/`:
 - `auth/` — `AuthGateway` (auth:login, disconnect), `AuthService` (userId↔socketId + playerId↔socketId), `AuthWsGuard`
-- `game/` — `GameGateway` (action/roll/start/typing/get_state/room:join/allocate_attributes), `GameService` (turn orchestration, AI target validation, `buildSceneContext()`, `maybeSummarize()` history summarization), `GameState` (in-memory Map with HP/XP/level engine, XP thresholds, ASI levels), `TurnManager` (lock-per-room, stores `turnSkill`/`turnDc`)
+- `game/` — `GameGateway` (action/roll/start/typing/get_state/room:join/allocate_attributes/equip/unequip), `GameService` (turn orchestration, AI target validation, `buildSceneContext()`, `maybeSummarize()` history summarization), `GameState` (in-memory Map with HP/XP/level engine, XP thresholds, ASI levels, inventory/coins/equipment system), `TurnManager` (lock-per-room, stores `turnSkill`/`turnDc`)
 - `room/` — `RoomGateway` (lobby:create/join/list/list_saved/resume/delete_saved/create_character, room:leave), `RoomService` (in-memory room registry, IDs = first 8 UUID chars, tracks `creatorId`)
-- `campaign/` — `CampaignStore` (persist/restore to `data/campaigns.json`, 1s debounced write; stores HP/XP/level/summary/campaignTheme)
-- `dto/` — `ai-response.dto.ts`, `game-action.dto.ts`
+- `campaign/` — `CampaignStore` (persist/restore to `data/campaigns.json`, 1s debounced write; stores HP/XP/level/summary/campaignTheme/inventory/coins/equipment)
+- `dto/` — `ai-response.dto.ts`, `game-action.dto.ts` (incl. `EquipItemDto`, `UnequipItemDto`)
 - `ai/` — Provider pattern: `AiService` → `OpencodeProvider` (raw HTTP with per-room sessions). `summarizeHistory()` for long-term memory. Empty `AI_API_KEY` → fallback narration. `onRoomReady()`/`onRoomEmpty()` lifecycle for session create/delete
 
 **Frontend** — under `frontend/src/`:
@@ -74,13 +74,14 @@ System prompt (`system.prompt.ts`) documents: Markdown narration, two-tier memor
 - **Roll fallback** — `handleRoll()` defaults skill to `'destreza'` and DC to 10. Roll computed and emitted as `game:player_action` *before* AI processing. Frontend `sendRoll()` reads `turnUpdate.skill`/`dc` if `turnUpdate.type === 'call_roll'`.
 - **Actions** are optimistically added for the sender (`characterName: 'You'`) and broadcast to others via `game:player_action`. **Rolls** add a placeholder `"Rolando dados..."` locally then broadcast the final result to all.
 - **Campaign theme** — `campaignTheme` (free-form setting description) is a per-room param set at creation, persisted in saved campaigns, and injected into the system prompt.
-- **Player model**: `id`, `userId`, `name`, `active` bool, 6 attributes (all at 10). No HP/stats.
+- **Player model**: `id`, `userId`, `name`, `active` bool, 6 attributes, HP/XP/level, inventory (items with quantity/type/slot), coins, and equipment (body/mainHand/offHand slots).
 - **History stores only narration text** (no JSON overhead) — saves tokens vs. storing full `AIResponse`.
 - **Scene context** (`buildSceneContext()`) built from complete sentences + location + next-action. Stored as `room.scene`, sent to AI every turn.
 - **Cold restore** (`lobby:resume` when room not in memory) forces `gameStarted = false` — creator lands in waiting room and must click START. Warm restore (room in memory) preserves actual `gameStarted`.
 - **Never use emoji/unicode characters to represent icons** — always use pixelarticons React components (`pixelarticons/react`) instead of characters like ▶, ✓, ✕, ⏳, etc.
 - **HP/XP/Leveling** — Player model includes `hp`, `maxHp`, `level` (1-20), `xp`, `maxXp`, `pendingAttributePoints`. HP = `10 + CON mod`. XP thresholds from D&D 5e SRD. ASI levels (4/8/12/16/19) grant +2 attribute points. Backend engine is complete; XP gain is not yet triggered by game actions (no server-side `game:level_up` emit).
 - **Attribute point-buy** — Character creation: 27-point pool, attributes range 8-15 (cost: 1pt for 8-12, 2pt for 13-14). Max attribute is 20.
+- **Inventory & Equipment** — Players start with a dagger, 2 healing potions, and 50 coins. Items have types (`weapon`/`armor`/`potion`/`scroll`/`key_item`/`misc`) and slots (`body`/`hand`/`two-handed`). Equipment slots: body, mainHand, offHand. `game:equip`/`game:unequip` events manage equipment; two-handed weapons block off-hand slot. Inventory/coins/equipment are persisted in saved campaigns.
 - **AI sessions** — `OpencodeProvider` creates a dedicated AI session per room on `onRoomReady()` (character creation / campaign resume). Session deleted on `onRoomEmpty()` (last leave / disband / delete_saved). 404/410 errors auto-recreate the session.
 - **History summarization** — `maybeSummarize()` triggers every 50 history entries. Uses a temporary AI session to merge new entries into `room.summary`. Guarded by a per-room `isSummarizing` Set to prevent concurrency. Summary is persisted in saved campaigns.
 - **GameRoom layout** — Left sidebar (48px) with `MyCharacterStatus` (HP/XP bars, name, level) + modal navigation buttons (Sheet, Characters, Options, Leave). Main area has `CampaignStatusBar` at top, Chat in center, TypingIndicator + MessageInput + DiceRollButton at bottom. All panels (CharacterSheet, CharacterList, Options, AttributeAllocation) are modals.

@@ -46,6 +46,8 @@ interface SocketContextValue {
   leaveRoom: () => Promise<void>;
   backToLobby: () => void;
   allocateAttributes: (allocations: Record<string, number>) => void;
+  emitEquip: (itemId: string, slot: 'body' | 'mainHand' | 'offHand') => void;
+  emitUnequip: (slot: 'body' | 'mainHand' | 'offHand') => void;
 }
 
 const SocketContext = createContext<SocketContextValue | null>(null);
@@ -432,6 +434,25 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     });
   }, [player]);
 
+  const emitEquip = useCallback((itemId: string, slot: 'body' | 'mainHand' | 'offHand') => {
+    if (!socketRef.current || !player.roomId || !player.playerId) return;
+    socketRef.current.emit('game:equip', {
+      roomId: player.roomId,
+      playerId: player.playerId,
+      itemId,
+      slot,
+    });
+  }, [player]);
+
+  const emitUnequip = useCallback((slot: 'body' | 'mainHand' | 'offHand') => {
+    if (!socketRef.current || !player.roomId || !player.playerId) return;
+    socketRef.current.emit('game:unequip', {
+      roomId: player.roomId,
+      playerId: player.playerId,
+      slot,
+    });
+  }, [player]);
+
   const deleteSavedCampaign = useCallback((campaignId: string): Promise<boolean> => {
     return new Promise((resolve) => {
       if (!socketRef.current) return resolve(false);
@@ -455,7 +476,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
         joinRoom, joinGameRoom, sendAction, sendRoll,
         startCampaign, emitTyping, emitTypingStop, listRooms,
         listSavedCampaigns, resumeCampaign, deleteSavedCampaign, leaveRoom, backToLobby,
-        allocateAttributes,
+        allocateAttributes, emitEquip, emitUnequip,
       }}
     >
       {children}
