@@ -30,3 +30,9 @@ export class UnequipItemDto {
   playerId: string;
   slot: 'body' | 'mainHand' | 'offHand';
 }
+
+export class UseItemDto {
+  roomId: string;
+  playerId: string;
+  itemId: string;
+}

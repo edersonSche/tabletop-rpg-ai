@@ -68,11 +68,11 @@ System prompt (`system.prompt.ts`) documents: Markdown narration, two-tier memor
 
 ## Key gotchas
 
-- **UI is pt-BR** (`<html lang="pt-BR">`); AI narration supports `english | portuguese | spanish`; all source code is English.
+- **UI is English** (`<html lang="en">`); AI narration supports `english | portuguese | spanish`; all source code is English.
 - **Always-dark design** — custom Tailwind colors (`parchment`, `dungeon`, `gold`, `blood`, `magic`), pixel/mono font utilities (`text-pixel`, `text-mono`). No `dark:` variants.
 - **Backend** uses CommonJS (`"module": "commonjs"` in tsconfig + `experimentalDecorators`). **Frontend** uses `"type": "module"`.
-- **Roll fallback** — `handleRoll()` defaults skill to `'destreza'` and DC to 10. Roll computed and emitted as `game:player_action` *before* AI processing. Frontend `sendRoll()` reads `turnUpdate.skill`/`dc` if `turnUpdate.type === 'call_roll'`.
-- **Actions** are optimistically added for the sender (`characterName: 'You'`) and broadcast to others via `game:player_action`. **Rolls** add a placeholder `"Rolando dados..."` locally then broadcast the final result to all.
+- **Roll fallback** — `handleRoll()` defaults skill to `'dexterity'` and DC to 10. Roll computed and emitted as `game:player_action` *before* AI processing. Frontend `sendRoll()` reads `turnUpdate.skill`/`dc` if `turnUpdate.type === 'call_roll'`.
+- **Actions** are optimistically added for the sender (`characterName: 'You'`) and broadcast to others via `game:player_action`. **Rolls** add a placeholder `"Rolling dice..."` locally then broadcast the final result to all.
 - **Campaign theme** — `campaignTheme` (free-form setting description) is a per-room param set at creation, persisted in saved campaigns, and injected into the system prompt.
 - **Player model**: `id`, `userId`, `name`, `active` bool, 6 attributes, HP/XP/level, inventory (items with quantity/type/slot), coins, and equipment (body/mainHand/offHand slots).
 - **History stores only narration text** (no JSON overhead) — saves tokens vs. storing full `AIResponse`.

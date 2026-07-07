@@ -6,6 +6,7 @@ import { Header } from '../components/Layout/Header';
 import { MessageList } from '../components/Chat/MessageList';
 import { MessageInput } from '../components/Chat/MessageInput';
 import { DiceRollButton } from '../components/Chat/DiceRollButton';
+import { UseItemButton } from '../components/Chat/UseItemButton';
 import { TypingIndicator } from '../components/GameStatus/TypingIndicator';
 import { CharacterSheet } from '../components/GameStatus/CharacterSheet';
 import { CharacterListModal } from '../components/GameStatus/CharacterListModal';
@@ -35,6 +36,7 @@ export function GameRoom() {
     emitTyping,
     emitTypingStop,
     allocateAttributes,
+    emitUseItem,
   } = useSocket();
 
   const me = gameState?.players.find(p => p.id === player.playerId);
@@ -141,10 +143,14 @@ export function GameRoom() {
                 onTypingStop={emitTypingStop}
                 disabled={isInputDisabled}
                 disabledReason={disabledReason}
-                  characterName={me?.name || 'Aventureiro'}
+                  characterName={me?.name || 'Adventurer'}
                 turnType={turnUpdate?.type || null}
               />
             </div>
+            <UseItemButton
+              items={me?.inventory || []}
+              onUseItem={emitUseItem}
+            />
             <DiceRollButton
               onRoll={handleRoll}
               disabled={isRollDisabled}

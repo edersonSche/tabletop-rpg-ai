@@ -13,7 +13,7 @@ import { Inject } from '@nestjs/common';
 import { GameService } from './game.service';
 import { GameState } from './game.state';
 import { TurnManager } from './turn.manager';
-import { GameActionDto } from '../dto/game-action.dto';
+import { GameActionDto, UseItemDto } from '../dto/game-action.dto';
 import { AIProvider } from '../ai/ai.interface';
 import { AuthService } from '../auth/auth.service';
 import { AuthWsGuard } from '../auth/auth.guard';
@@ -157,7 +157,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
   ) {
     const rollRoom = this.gameState.getRoom(data.roomId);
     const rollPlayer = rollRoom?.players.find(p => p.id === data.playerId);
-    const skill = data.skill || rollRoom?.turnSkill || 'destreza';
+    const skill = data.skill || rollRoom?.turnSkill || 'dexterity';
     const dc = data.dc ?? rollRoom?.turnDc ?? 10;
     const modifier = rollPlayer ? this.gameState.getPlayerModifier(rollPlayer, skill) : 0;
     const roll = this.gameState.rollDice(20);
@@ -167,7 +167,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       type: 'roll',
       playerId: data.playerId,
       characterName: rollPlayer?.name || 'Unknown',
-      message: `Rolou ${roll} + modificador(${modifier}) = ${total} (DC ${dc})`,
+      message: `Rolled ${roll} + modifier(${modifier}) = ${total} (DC ${dc})`,
     });
 
     this.server.to(data.roomId).emit('game:processing', { processing: true });
@@ -322,6 +322,11 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
         return { success: false, error: result.error };
       }
 
+      const player = this.gameState.getRoom(data.roomId)?.players.find(p => p.id === data.playerId);
+      if (player) {
+        player.ac = this.gameState.computeAc(data.roomId, data.playerId);
+      }
+
       const room = this.gameState.getRoom(data.roomId);
       if (room) {
         this.server.to(data.roomId).emit('game:state', {
@@ -351,12 +356,74 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
         return { success: false, error: result.error };
       }
 
+      const player = this.gameState.getRoom(data.roomId)?.players.find(p => p.id === data.playerId);
+      if (player) {
+        player.ac = this.gameState.computeAc(data.roomId, data.playerId);
+      }
+
       const room = this.gameState.getRoom(data.roomId);
       if (room) {
         this.server.to(data.roomId).emit('game:state', {
           ...this.gameService.getState(data.roomId),
           creatorId: room.creatorId,
           history: room.history,
+        });
+      }
+
+      this.campaignStore.saveFromMemory(data.roomId);
+      return { success: true };
+    } catch (error) {
+      client.emit('game:error', { message: error.message });
+      return { success: false, error: error.message };
+    }
+  }
+
+  @SubscribeMessage('game:use_item')
+  async handleUseItem(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: UseItemDto,
+  ) {
+    try {
+      const room = this.gameState.getRoom(data.roomId);
+      const player = room?.players.find(p => p.id === data.playerId);
+      if (!player) {
+        client.emit('game:error', { message: 'Player not found' });
+        return { success: false, error: 'Player not found' };
+      }
+
+      const item = player.inventory.find(i => i.id === data.itemId);
+      if (!item) {
+        client.emit('game:error', { message: 'Item not found' });
+        return { success: false, error: 'Item not found' };
+      }
+
+      const itemName = item.name;
+
+      const result = this.gameState.useItem(data.roomId, data.playerId, data.itemId);
+      if (!result.success) {
+        client.emit('game:error', { message: result.error });
+        return { success: false, error: result.error };
+      }
+
+      const msg = result.healed && result.healed > 0
+        ? `Used ${itemName} and healed ${result.healed} HP!`
+        : `Used ${itemName}.`;
+
+      this.server.to(data.roomId).emit('game:player_action', {
+        type: 'action',
+        playerId: data.playerId,
+        characterName: player.name,
+        message: msg,
+      });
+
+      player.ac = this.gameState.computeAc(data.roomId, data.playerId);
+
+      const currentRoom = this.gameState.getRoom(data.roomId);
+      if (currentRoom) {
+        this.server.to(data.roomId).emit('game:state', {
+          ...this.gameService.getState(data.roomId),
+          creatorId: currentRoom.creatorId,
+          history: currentRoom.history,
         });
       }
 

@@ -6,12 +6,12 @@ const LANGUAGE_INSTRUCTIONS: Record<string, { narration: string; write: string }
     write: 'Write narrations in English',
   },
   portuguese: {
-    narration: 'Narre cenas de forma vívida e descritiva em Português (Brasil)',
-    write: 'Escreva as narrações em Português (Brasil)',
+    narration: 'Narrate scenes vividly and descriptively in Portuguese (Brazil)',
+    write: 'Write narrations in Portuguese (Brazil)',
   },
   spanish: {
-    narration: 'Narra escenas de forma vívida y descriptiva en Español',
-    write: 'Escribe las narraciones en Español',
+    narration: 'Narrate scenes vividly and descriptively in Spanish',
+    write: 'Write narrations in Spanish',
   },
 };
 
@@ -85,7 +85,7 @@ You MUST ALWAYS respond in valid JSON format with exactly this structure:
 ## Next Step Types
 - **group_action**: Any player can act freely. Use when the scene is open.
 - **call_player**: Call a specific player to decide or act. Use when you need someone specific.
-- **call_roll**: Request a skill check from a specific player. Include "skill" (e.g., "forca", "destreza", "percepcao", "inteligencia") and "dc" (difficulty class, 5-30).
+- **call_roll**: Request a skill check from a specific player. Include "skill" (e.g., "strength", "dexterity", "perception", "intelligence") and "dc" (difficulty class, 5-30).
 - **narration_only**: Pure narration, no player action needed. The game will immediately ask you for the next step.
 
 ## Context Format

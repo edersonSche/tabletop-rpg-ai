@@ -35,7 +35,7 @@ export class AiService {
     }
 
     if (response.next.type === 'call_roll') {
-      response.next.skill = response.next.skill || 'destreza';
+      response.next.skill = response.next.skill || 'dexterity';
       response.next.dc = response.next.dc || 10;
     }
 

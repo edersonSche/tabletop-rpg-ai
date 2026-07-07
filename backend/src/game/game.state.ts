@@ -2,6 +2,18 @@ import { v4 as uuid } from 'uuid';
 
 export type NarrativeLanguage = 'english' | 'portuguese' | 'spanish';
 
+export interface ItemModifier {
+  stat: 'ac' | 'damage' | 'strength' | 'dexterity' | 'constitution' | 'intelligence' | 'wisdom' | 'charisma' | 'maxHp';
+  value: number;
+  operation: 'add' | 'override';
+  dexCap?: number;
+}
+
+export interface ItemEffect {
+  type: 'heal_hp';
+  formula: string;
+}
+
 export interface InventoryItem {
   id: string;
   name: string;
@@ -9,6 +21,8 @@ export interface InventoryItem {
   type: 'weapon' | 'armor' | 'potion' | 'scroll' | 'key_item' | 'misc';
   quantity: number;
   slot?: 'body' | 'hand' | 'two-handed';
+  modifiers?: ItemModifier[];
+  effects?: ItemEffect[];
 }
 
 export interface Player {
@@ -37,6 +51,7 @@ export interface Player {
     mainHand?: string;
     offHand?: string;
   };
+  ac: number;
 }
 
 export interface GameStateData {
@@ -105,6 +120,10 @@ export class GameState {
     };
     this.rooms.set(data.campaignId, state);
 
+    for (const p of state.players) {
+      p.ac = this.computeAc(data.campaignId, p.id);
+    }
+
     for (const p of data.players) {
       const roomUserMap = this.playerByUserId.get(data.campaignId) || new Map();
       roomUserMap.set(p.userId, p.id);
@@ -158,6 +177,9 @@ export class GameState {
     const conMod = Math.floor((attrs.constitution - 10) / 2);
     const maxHp = 10 + conMod;
 
+    const dexMod = Math.floor((attrs.dexterity - 10) / 2);
+    const ac = 10 + dexMod;
+
     const player: Player = {
       id: uuid(),
       userId,
@@ -173,22 +195,25 @@ export class GameState {
       inventory: [
         {
           id: uuid(),
-          name: 'Adaga',
-          description: 'Uma lâmina curta e afiada, útil para combate ou tarefas cotidianas.',
+          name: 'Dagger',
+          description: 'A short, sharp blade, useful for combat or everyday tasks.',
           type: 'weapon',
           quantity: 1,
           slot: 'hand',
+          modifiers: [{ stat: 'damage', value: 1, operation: 'add' }],
         },
         {
           id: uuid(),
-          name: 'Poção de Cura',
-          description: 'Um líquido vermelho fumegante que restaura o vigor quando bebido.',
+          name: 'Healing Potion',
+          description: 'A smoking red liquid that restores vigor when drunk.',
           type: 'potion',
           quantity: 2,
+          effects: [{ type: 'heal_hp', formula: '2d4+2' }],
         },
       ],
       coins: 50,
       equipment: {},
+      ac,
     };
 
     room.players.push(player);
@@ -358,15 +383,12 @@ export class GameState {
 
   getPlayerModifier(player: Player, skill: string): number {
     const attrMap: Record<string, keyof Player['attributes']> = {
-      forca: 'strength',
-      forç: 'strength',
-      destreza: 'dexterity',
-      constituição: 'constitution',
-      constituicao: 'constitution',
-      inteligência: 'intelligence',
-      inteligencia: 'intelligence',
-      sabedoria: 'wisdom',
-      carisma: 'charisma',
+      strength: 'strength',
+      dexterity: 'dexterity',
+      constitution: 'constitution',
+      intelligence: 'intelligence',
+      wisdom: 'wisdom',
+      charisma: 'charisma',
     };
 
     const attr = attrMap[skill.toLowerCase()];
@@ -378,6 +400,85 @@ export class GameState {
 
   rollDice(sides: number = 20): number {
     return Math.floor(Math.random() * sides) + 1;
+  }
+
+  rollDiceFormula(formula: string): number {
+    const match = formula.match(/^(\d+)d(\d+)([+-]\d+)?$/i);
+    if (!match) return 0;
+    const diceCount = parseInt(match[1], 10);
+    const diceFaces = parseInt(match[2], 10);
+    const modifier = match[3] ? parseInt(match[3], 10) : 0;
+
+    let total = modifier;
+    for (let i = 0; i < diceCount; i++) {
+      total += Math.floor(Math.random() * diceFaces) + 1;
+    }
+    return Math.max(0, total);
+  }
+
+  computeAc(roomId: string, playerId: string): number {
+    const room = this.rooms.get(roomId);
+    if (!room) return 10;
+    const player = room.players.find(p => p.id === playerId);
+    if (!player) return 10;
+
+    let baseAc = 10;
+    let dexCap: number | null = null;
+    let bonusAc = 0;
+
+    const slots = ['body', 'mainHand', 'offHand'] as const;
+    for (const slot of slots) {
+      const itemId = player.equipment[slot];
+      if (!itemId) continue;
+      const item = player.inventory.find(i => i.id === itemId);
+      if (!item?.modifiers) continue;
+      for (const mod of item.modifiers) {
+        if (mod.stat !== 'ac') continue;
+        if (mod.operation === 'override') {
+          baseAc = mod.value;
+          if (mod.dexCap !== undefined) dexCap = mod.dexCap;
+        } else if (mod.operation === 'add') {
+          bonusAc += mod.value;
+        }
+      }
+    }
+
+    const dexMod = Math.floor((player.attributes.dexterity - 10) / 2);
+    const dexContrib = dexCap !== null ? Math.min(dexMod, dexCap) : dexMod;
+
+    return baseAc + dexContrib + bonusAc;
+  }
+
+  useItem(roomId: string, playerId: string, itemId: string): { success: boolean; error?: string; healed?: number } {
+    const room = this.rooms.get(roomId);
+    if (!room) return { success: false, error: 'Room not found' };
+    const player = room.players.find(p => p.id === playerId);
+    if (!player) return { success: false, error: 'Player not found' };
+
+    const itemIndex = player.inventory.findIndex(i => i.id === itemId);
+    if (itemIndex === -1) return { success: false, error: 'Item not found' };
+
+    const item = player.inventory[itemIndex];
+    if (!item.effects || item.effects.length === 0) return { success: false, error: 'This item has no effects' };
+
+    let healed = 0;
+
+    for (const effect of item.effects) {
+      if (effect.type === 'heal_hp') {
+        const amount = this.rollDiceFormula(effect.formula);
+        const beforeHp = player.hp;
+        player.hp = Math.min(player.maxHp, player.hp + amount);
+        healed = player.hp - beforeHp;
+      }
+    }
+
+    if (item.quantity <= 1) {
+      player.inventory.splice(itemIndex, 1);
+    } else {
+      item.quantity -= 1;
+    }
+
+    return { success: true, healed };
   }
 
   getXpForLevel(level: number): number {

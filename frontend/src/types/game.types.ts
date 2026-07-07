@@ -1,5 +1,17 @@
 export type NarrativeLanguage = 'english' | 'portuguese' | 'spanish';
 
+export interface ItemModifier {
+  stat: 'ac' | 'damage' | 'strength' | 'dexterity' | 'constitution' | 'intelligence' | 'wisdom' | 'charisma' | 'maxHp';
+  value: number;
+  operation: 'add' | 'override';
+  dexCap?: number;
+}
+
+export interface ItemEffect {
+  type: 'heal_hp';
+  formula: string;
+}
+
 export interface InventoryItem {
   id: string;
   name: string;
@@ -7,6 +19,8 @@ export interface InventoryItem {
   type: 'weapon' | 'armor' | 'potion' | 'scroll' | 'key_item' | 'misc';
   quantity: number;
   slot?: 'body' | 'hand' | 'two-handed';
+  modifiers?: ItemModifier[];
+  effects?: ItemEffect[];
 }
 
 export interface Player {
@@ -34,6 +48,7 @@ export interface Player {
     mainHand?: string;
     offHand?: string;
   };
+  ac: number;
 }
 
 export type TurnType = 'group_action' | 'call_player' | 'call_roll' | 'narration_only';

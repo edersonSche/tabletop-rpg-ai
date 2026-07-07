@@ -134,7 +134,7 @@ export function SavedCampaigns({ onResume }: SavedCampaignsProps) {
                 </div>
               ) : (
                 <div className="flex items-center gap-2 shrink-0">
-                  <span className="text-mono text-xs text-dungeon-400">
+                  <span className="text-mono text-xs text-dungeon-200">
                     Code: <span className="text-gold select-all">{c.campaignId}</span>
                   </span>
                 </div>

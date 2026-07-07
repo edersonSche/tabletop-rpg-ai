@@ -80,7 +80,7 @@ export class GameService {
     const player = room.players.find(p => p.id === playerId);
     if (!player) throw new Error('Player not found');
 
-    const skill = rollData?.skill ?? room.turnSkill ?? 'destreza';
+    const skill = rollData?.skill ?? room.turnSkill ?? 'dexterity';
     const dc = rollData?.dc ?? room.turnDc ?? 10;
 
     const modifier = rollData?.modifier ?? this.gameState.getPlayerModifier(player, skill);
@@ -108,7 +108,7 @@ export class GameService {
             ? {
                 playerId,
                 characterName: player.name,
-                action: `Rolou ${roll} + modificador(${modifier}) = ${total} (DC ${dc})`,
+                action: `Rolled ${roll} + modifier(${modifier}) = ${total} (DC ${dc})`,
                 rollResult: total,
                 skill,
                 dc,

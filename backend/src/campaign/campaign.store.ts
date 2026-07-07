@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import * as path from 'path';
 import * as fs from 'fs';
-import { GameState, GameStateData } from '../game/game.state';
+import { GameState, GameStateData, InventoryItem } from '../game/game.state';
 import { RoomService, RoomData } from '../room/room.service';
 import { SavedCampaign, SavedCampaignInfo } from './campaign.types';
 
@@ -121,22 +121,27 @@ export class CampaignStore {
       creatorId: saved.creatorPlayerId,
       language: saved.language,
       campaignTheme: saved.campaignTheme,
-      players: saved.players.map(p => ({
-        id: p.id,
-        userId: p.userId,
-        name: p.name,
-        active: true,
-        attributes: { ...p.attributes },
-        hp: p.hp ?? (10 + Math.floor(((p.attributes?.constitution ?? 10) - 10) / 2)),
-        maxHp: p.maxHp ?? (10 + Math.floor(((p.attributes?.constitution ?? 10) - 10) / 2)),
-        level: p.level ?? 1,
-        xp: p.xp ?? 0,
-        maxXp: p.maxXp ?? 0,
-        pendingAttributePoints: p.pendingAttributePoints ?? 0,
-        inventory: (p.inventory || []).map(i => ({ ...i })),
-        coins: p.coins ?? 0,
-        equipment: { body: p.equipment?.body, mainHand: p.equipment?.mainHand, offHand: p.equipment?.offHand },
-      })),
+      players: saved.players.map(p => {
+        const dexMod = Math.floor(((p.attributes?.dexterity ?? 10) - 10) / 2);
+        const baseAc = 10 + dexMod;
+        return {
+          id: p.id,
+          userId: p.userId,
+          name: p.name,
+          active: true,
+          attributes: { ...p.attributes },
+          hp: p.hp ?? (10 + Math.floor(((p.attributes?.constitution ?? 10) - 10) / 2)),
+          maxHp: p.maxHp ?? (10 + Math.floor(((p.attributes?.constitution ?? 10) - 10) / 2)),
+          level: p.level ?? 1,
+          xp: p.xp ?? 0,
+          maxXp: p.maxXp ?? 0,
+          pendingAttributePoints: p.pendingAttributePoints ?? 0,
+          inventory: (p.inventory || []).map(i => ({ ...i })) as InventoryItem[],
+          coins: p.coins ?? 0,
+          equipment: { body: p.equipment?.body, mainHand: p.equipment?.mainHand, offHand: p.equipment?.offHand },
+          ac: baseAc,
+        };
+      }),
       currentTurn: saved.currentTurn,
       turnType: saved.turnType as any,
       turnTarget: saved.turnTarget,

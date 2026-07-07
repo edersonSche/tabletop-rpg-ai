@@ -3,8 +3,8 @@ import type { NarrativeLanguage } from '../../types/game.types';
 
 const LANGUAGES: { value: NarrativeLanguage; label: string }[] = [
   { value: 'english', label: 'English' },
-  { value: 'portuguese', label: 'Português (Brasil)' },
-  { value: 'spanish', label: 'Español' },
+  { value: 'portuguese', label: 'Portuguese (Brazil)' },
+  { value: 'spanish', label: 'Spanish' },
 ];
 
 const THEME_PRESETS: { label: string; setting: string }[] = [

@@ -12,7 +12,10 @@ export function MyCharacterStatus({ player }: MyCharacterStatusProps) {
     <div className="p-3 pixel-border bg-dungeon-700">
       <div className="mb-2">
         <h3 className="text-mono text-sm text-magic font-bold">{player.name}</h3>
-        <p className="text-mono text-[10px] text-dungeon-100">Level {player.level}</p>
+        <div className="flex items-center justify-between">
+          <p className="text-mono text-[10px] text-dungeon-100">Level {player.level}</p>
+          <span className="text-mono text-[10px] text-gold">{player.coins} coins</span>
+        </div>
       </div>
 
       <div className="mb-1.5">

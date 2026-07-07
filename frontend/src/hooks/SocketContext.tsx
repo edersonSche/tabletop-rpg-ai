@@ -48,6 +48,7 @@ interface SocketContextValue {
   allocateAttributes: (allocations: Record<string, number>) => void;
   emitEquip: (itemId: string, slot: 'body' | 'mainHand' | 'offHand') => void;
   emitUnequip: (slot: 'body' | 'mainHand' | 'offHand') => void;
+  emitUseItem: (itemId: string) => void;
 }
 
 const SocketContext = createContext<SocketContextValue | null>(null);
@@ -103,7 +104,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
             setPlayer({ playerId: '', roomId: null });
             setGameState(null);
             setTurnUpdate(null);
-            setMessages([{ type: 'system', content: 'Campanha não está mais disponível. Voltando ao lobby.', timestamp: Date.now() }]);
+            setMessages([{ type: 'system', content: 'Campaign is no longer available. Returning to lobby.', timestamp: Date.now() }]);
             dispatch({ type: 'LEFT_ROOM' });
           }
         });
@@ -117,7 +118,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
           setPlayer({ playerId: '', roomId: null });
           setGameState(null);
           setTurnUpdate(null);
-          setMessages([{ type: 'system', content: 'Conexão perdida. Voltando ao lobby.', timestamp: Date.now() }]);
+          setMessages([{ type: 'system', content: 'Connection lost. Returning to lobby.', timestamp: Date.now() }]);
           dispatch({ type: 'DISBANDED' });
           disconnectTimerRef.current = null;
         }, 10000);
@@ -327,7 +328,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     const skill = turnUpdate?.type === 'call_roll' ? turnUpdate.skill : undefined;
     const dc = turnUpdate?.type === 'call_roll' ? turnUpdate.dc : undefined;
     socketRef.current.emit('game:roll', { roomId: player.roomId, playerId: player.playerId, skill, dc });
-    setMessages(prev => [...prev, { type: 'roll', content: 'Rolando dados...', characterName: 'You', timestamp: Date.now() }]);
+    setMessages(prev => [...prev, { type: 'roll', content: 'Rolling dice...', characterName: 'You', timestamp: Date.now() }]);
   }, [player, turnUpdate]);
 
   const startCampaign = useCallback(() => {
@@ -453,6 +454,15 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     });
   }, [player]);
 
+  const emitUseItem = useCallback((itemId: string) => {
+    if (!socketRef.current || !player.roomId || !player.playerId) return;
+    socketRef.current.emit('game:use_item', {
+      roomId: player.roomId,
+      playerId: player.playerId,
+      itemId,
+    });
+  }, [player]);
+
   const deleteSavedCampaign = useCallback((campaignId: string): Promise<boolean> => {
     return new Promise((resolve) => {
       if (!socketRef.current) return resolve(false);
@@ -476,7 +486,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
         joinRoom, joinGameRoom, sendAction, sendRoll,
         startCampaign, emitTyping, emitTypingStop, listRooms,
         listSavedCampaigns, resumeCampaign, deleteSavedCampaign, leaveRoom, backToLobby,
-        allocateAttributes, emitEquip, emitUnequip,
+        allocateAttributes, emitEquip, emitUnequip, emitUseItem,
       }}
     >
       {children}

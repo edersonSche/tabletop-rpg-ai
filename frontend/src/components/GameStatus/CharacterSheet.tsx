@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Close, Sword, Target, Heart, BookOpen, Star, Crown, Archive, Shield, Wallet, Box, Potion, Backpack, Human } from 'pixelarticons/react';
 import { Player, InventoryItem } from '../../types/game.types';
 import { useSocketContext } from '../../hooks/SocketContext';
@@ -50,13 +51,24 @@ function AttributesTab({ player }: { player: Player }) {
 
   return (
     <>
-      <div className="mb-4">
-        <div className="flex items-center justify-between mb-1">
-          <span className="text-mono text-xs text-dungeon-100">HP</span>
-          <span className="text-mono text-xs text-dungeon-100">{player.hp}/{player.maxHp}</span>
+      <div className="flex gap-2 mb-4">
+        <div className="flex-1">
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-mono text-xs text-dungeon-100">HP</span>
+            <span className="text-mono text-xs text-dungeon-100">{player.hp}/{player.maxHp}</span>
+          </div>
+          <div className="h-3 bg-dungeon-900 rounded-full overflow-hidden pixel-border">
+            <div className="h-full bg-blood rounded-full transition-all" style={{ width: `${hpPct}%` }} />
+          </div>
         </div>
-        <div className="h-3 bg-dungeon-900 rounded-full overflow-hidden pixel-border">
-          <div className="h-full bg-blood rounded-full transition-all" style={{ width: `${hpPct}%` }} />
+        <div className="w-16 flex-shrink-0">
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-mono text-xs text-dungeon-100">AC</span>
+            <span className="text-mono text-xs text-gold">{player.ac}</span>
+          </div>
+          <div className="h-3 bg-dungeon-900 rounded-full overflow-hidden pixel-border">
+            <div className="h-full bg-magic rounded-full" style={{ width: `${Math.min(100, (player.ac / 30) * 100)}%` }} />
+          </div>
         </div>
       </div>
 
@@ -90,20 +102,15 @@ function AttributesTab({ player }: { player: Player }) {
   );
 }
 
-function ItemCell({ item, onHover, onClick }: { item: InventoryItem; onHover: (item: InventoryItem | null) => void; onClick: (item: InventoryItem) => void }) {
+function ItemCell({ item }: { item: InventoryItem }) {
   const TypeIcon = ITEM_TYPE_ICONS[item.type] || Box;
 
   return (
-    <div
-      className="bg-dungeon-600 p-2 pixel-border text-center cursor-pointer hover:bg-dungeon-500 transition-all group"
-      onMouseEnter={() => onHover(item)}
-      onMouseLeave={() => onHover(null)}
-      onClick={() => onClick(item)}
-    >
-      <div className="flex items-center justify-center mb-1">
-        <TypeIcon width={18} height={18} className="text-dungeon-100" />
+    <div className="bg-dungeon-600 p-1.5 pixel-border text-center group hover:bg-dungeon-500 transition-all aspect-square flex flex-col items-center justify-center">
+      <div className="flex items-center justify-center">
+        <TypeIcon width={14} height={14} className="text-dungeon-100" />
       </div>
-      <div className="text-mono text-[10px] text-dungeon-100 truncate">{item.name}</div>
+      <div className="text-mono text-[10px] text-dungeon-100 truncate w-full mt-0.5">{item.name}</div>
       {item.quantity > 1 && (
         <div className="text-mono text-[10px] text-dungeon-200">x{item.quantity}</div>
       )}
@@ -111,7 +118,7 @@ function ItemCell({ item, onHover, onClick }: { item: InventoryItem; onHover: (i
   );
 }
 
-function EquipmentCard({ slot, item, onHover, onClick }: { slot: SlotKey; item: InventoryItem | undefined; onHover: (item: InventoryItem | null) => void; onClick: (item: InventoryItem) => void }) {
+function EquipmentCard({ slot, item }: { slot: SlotKey; item: InventoryItem | undefined }) {
   const Icon = SLOT_ICONS[slot];
 
   if (!item) {
@@ -129,12 +136,7 @@ function EquipmentCard({ slot, item, onHover, onClick }: { slot: SlotKey; item: 
   }
 
   return (
-    <div
-      className="bg-dungeon-600 p-2 pixel-border cursor-pointer hover:bg-dungeon-500 transition-all"
-      onMouseEnter={() => onHover(item)}
-      onMouseLeave={() => onHover(null)}
-      onClick={() => onClick(item)}
-    >
+    <div className="bg-dungeon-600 p-2 pixel-border group hover:bg-dungeon-500 transition-all">
       <div className="flex items-center gap-2">
         <Icon width={16} height={16} className="text-gold" />
         <div className="flex-1 min-w-0">
@@ -146,7 +148,60 @@ function EquipmentCard({ slot, item, onHover, onClick }: { slot: SlotKey; item: 
   );
 }
 
-function ItemPopup({ item, player, onEquip, onUnequip, onClose }: { item: InventoryItem; player: Player; onEquip: (itemId: string, slot: 'body' | 'mainHand' | 'offHand') => void; onUnequip: (slot: SlotKey) => void; onClose: () => void }) {
+function ConfirmUseModal({ item, onUse, onClose }: { item: InventoryItem; onUse: () => void; onClose: () => void }) {
+  const TypeIcon = ITEM_TYPE_ICONS[item.type] || Box;
+
+  return (
+    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-dungeon-900/60" onClick={onClose}>
+      <div className="pixel-border bg-dungeon-700 max-w-xs w-full mx-4 p-4" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center gap-3 mb-3">
+          <div className="w-12 h-12 bg-dungeon-900 rounded pixel-border flex items-center justify-center">
+            <TypeIcon width={24} height={24} className="text-gold" />
+          </div>
+          <div>
+            <div className="text-mono text-sm text-gold">Use {item.name}?</div>
+            {item.quantity > 1 && (
+              <div className="text-mono text-[10px] text-dungeon-200">x{item.quantity}</div>
+            )}
+          </div>
+        </div>
+
+        <div className="text-mono text-xs text-dungeon-100 mb-4">
+          {item.effects?.map((ef, i) => (
+            <div key={i} className="mb-1">
+              {ef.type === 'heal_hp' && <span>Heals <span className="text-blood">{ef.formula}</span> HP.</span>}
+            </div>
+          ))}
+        </div>
+
+        <div className="space-y-1.5">
+          <button
+            onClick={() => { onUse(); onClose(); }}
+            className="w-full bg-blood/80 border border-blood pixel-border py-2 text-mono text-xs text-white hover:brightness-110 transition-all"
+          >
+            Use
+          </button>
+          <button
+            onClick={onClose}
+            className="w-full bg-dungeon-600 pixel-border py-2 text-mono text-xs text-dungeon-100 hover:brightness-110 transition-all"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ItemPopupContent({ item, player, onEquip, onUnequip, onUseItem, onClose }: {
+  item: InventoryItem;
+  player: Player;
+  onEquip: (itemId: string, slot: 'body' | 'mainHand' | 'offHand') => void;
+  onUnequip: (slot: SlotKey) => void;
+  onUseItem: (itemId: string) => void;
+  onClose: () => void;
+}) {
+  const [confirmUse, setConfirmUse] = useState(false);
   const TypeIcon = ITEM_TYPE_ICONS[item.type] || Box;
 
   const isEquipped = player.equipment.body === item.id || player.equipment.mainHand === item.id || player.equipment.offHand === item.id;
@@ -157,34 +212,55 @@ function ItemPopup({ item, player, onEquip, onUnequip, onClose }: { item: Invent
       : 'offHand'
     : null;
 
+  const MODIFIER_LABELS: Record<string, string> = {
+    ac: 'AC', damage: 'Damage', strength: 'Strength', dexterity: 'Dexterity',
+    constitution: 'Constitution', intelligence: 'Intelligence',
+    wisdom: 'Wisdom', charisma: 'Charisma', maxHp: 'Max HP',
+  };
+
   return (
-    <div
-      className="fixed inset-0 z-[60] flex items-center justify-center bg-dungeon-900/60"
-      onClick={onClose}
-    >
-      <div
-        className="pixel-border bg-dungeon-700 max-w-xs w-full mx-4 p-4"
-        onClick={(e) => e.stopPropagation()}
-      >
+    <>
+      <div className="p-3">
         <div className="flex items-center gap-3 mb-3">
-          <div className="w-12 h-12 bg-dungeon-900 rounded pixel-border flex items-center justify-center">
-            <TypeIcon width={24} height={24} className="text-gold" />
+          <div className="w-10 h-10 bg-dungeon-900 rounded pixel-border flex items-center justify-center">
+            <TypeIcon width={20} height={20} className="text-gold" />
           </div>
           <div>
             <div className="text-mono text-sm text-gold">{item.name}</div>
             {item.quantity > 1 && (
-              <div className="text-mono text-[10px] text-dungeon-400">x{item.quantity}</div>
+              <div className="text-mono text-[10px] text-dungeon-200">x{item.quantity}</div>
             )}
           </div>
         </div>
 
-        <div className="text-mono text-xs text-dungeon-100 mb-4">{item.description}</div>
+        <div className="text-mono text-xs text-dungeon-100 mb-3">{item.description}</div>
 
-        <div className="space-y-1.5">
+        {item.modifiers && item.modifiers.length > 0 && (
+          <div className="mb-3 p-2 bg-dungeon-900 pixel-border">
+            <div className="text-mono text-[10px] text-dungeon-200 mb-1 tracking-wider">MODIFIERS</div>
+            {item.modifiers.map((mod, i) => (
+              <div key={i} className="text-mono text-xs text-gold flex justify-between">
+                <span>{MODIFIER_LABELS[mod.stat] || mod.stat}</span>
+                <span>{mod.operation === 'override' ? 'Base ' : ''}{mod.value > 0 ? '+' : ''}{mod.value}{mod.dexCap !== undefined ? ` (DEX max ${mod.dexCap})` : ''}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className="space-y-1">
+          {item.effects && item.effects.length > 0 && (
+            <button
+              onClick={() => setConfirmUse(true)}
+              className="w-full bg-blood/20 border border-blood pixel-border py-1.5 text-mono text-xs text-blood hover:brightness-110 transition-all"
+            >
+              Use
+            </button>
+          )}
+
           {isEquipped ? (
             <button
               onClick={() => { onUnequip(equippedSlot!); onClose(); }}
-              className="w-full bg-blood/20 border border-blood pixel-border py-2 text-mono text-xs text-blood hover:brightness-110 transition-all"
+              className="w-full bg-gold/20 border border-gold pixel-border py-1.5 text-mono text-xs text-gold hover:brightness-110 transition-all"
             >
               Unequip ({SLOT_LABELS[equippedSlot!]})
             </button>
@@ -193,7 +269,7 @@ function ItemPopup({ item, player, onEquip, onUnequip, onClose }: { item: Invent
               {item.slot === 'body' && (
                 <button
                   onClick={() => { onEquip(item.id, 'body'); onClose(); }}
-                  className="w-full bg-gold/20 border border-gold pixel-border py-2 text-mono text-xs text-gold hover:brightness-110 transition-all"
+                  className="w-full bg-gold/20 border border-gold pixel-border py-1.5 text-mono text-xs text-gold hover:brightness-110 transition-all"
                 >
                   Equip (Body)
                 </button>
@@ -201,7 +277,7 @@ function ItemPopup({ item, player, onEquip, onUnequip, onClose }: { item: Invent
               {item.slot === 'two-handed' && (
                 <button
                   onClick={() => { onEquip(item.id, 'mainHand'); onClose(); }}
-                  className="w-full bg-gold/20 border border-gold pixel-border py-2 text-mono text-xs text-gold hover:brightness-110 transition-all"
+                  className="w-full bg-gold/20 border border-gold pixel-border py-1.5 text-mono text-xs text-gold hover:brightness-110 transition-all"
                 >
                   Equip (2-Handed)
                 </button>
@@ -210,13 +286,13 @@ function ItemPopup({ item, player, onEquip, onUnequip, onClose }: { item: Invent
                 <>
                   <button
                     onClick={() => { onEquip(item.id, 'mainHand'); onClose(); }}
-                    className="w-full bg-gold/20 border border-gold pixel-border py-2 text-mono text-xs text-gold hover:brightness-110 transition-all"
+                    className="w-full bg-gold/20 border border-gold pixel-border py-1.5 text-mono text-xs text-gold hover:brightness-110 transition-all"
                   >
                     Equip (Main Hand)
                   </button>
                   <button
                     onClick={() => { onEquip(item.id, 'offHand'); onClose(); }}
-                    className="w-full bg-gold/20 border border-gold pixel-border py-2 text-mono text-xs text-gold hover:brightness-110 transition-all"
+                    className="w-full bg-gold/20 border border-gold pixel-border py-1.5 text-mono text-xs text-gold hover:brightness-110 transition-all"
                   >
                     Equip (Off Hand)
                   </button>
@@ -224,90 +300,141 @@ function ItemPopup({ item, player, onEquip, onUnequip, onClose }: { item: Invent
               )}
             </>
           )}
-
-          <button
-            onClick={onClose}
-            className="w-full bg-dungeon-600 pixel-border py-2 text-mono text-xs text-dungeon-100 hover:brightness-110 transition-all"
-          >
-            Close
-          </button>
         </div>
       </div>
-    </div>
-  );
-}
-
-function InventoryTab({ player, onEquip, onUnequip }: { player: Player; onEquip: (itemId: string, slot: 'body' | 'mainHand' | 'offHand') => void; onUnequip: (slot: SlotKey) => void }) {
-  const [hoveredItem, setHoveredItem] = useState<InventoryItem | null>(null);
-  const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null);
-
-  const equipItem = (slot: SlotKey): InventoryItem | undefined => {
-    const id = player.equipment[slot];
-    return id ? player.inventory.find(i => i.id === id) : undefined;
-  };
-
-  return (
-    <>
-      <div className="flex gap-3 min-h-0 mb-2">
-        {/* Inventory Items Grid */}
-        <div className="flex-1 min-w-0">
-          <h3 className="text-mono text-xs text-dungeon-100 mb-2 tracking-wider">ITEMS</h3>
-          {player.inventory.length === 0 ? (
-            <p className="text-mono text-xs text-dungeon-400 text-center py-4">No items</p>
-          ) : (
-            <div className="grid grid-cols-3 gap-1.5 max-h-48 overflow-y-auto">
-              {player.inventory.map(item => (
-                <ItemCell
-                  key={item.id}
-                  item={item}
-                  onHover={setHoveredItem}
-                  onClick={(i) => setSelectedItem(i)}
-                />
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Equipment Panel */}
-        <div className="w-36 flex-shrink-0">
-          <h3 className="text-mono text-xs text-dungeon-100 mb-2 tracking-wider">EQUIPPED</h3>
-          <div className="space-y-1.5">
-            <EquipmentCard slot="body" item={equipItem('body')} onHover={setHoveredItem} onClick={(i) => setSelectedItem(i)} />
-            <EquipmentCard slot="mainHand" item={equipItem('mainHand')} onHover={setHoveredItem} onClick={(i) => setSelectedItem(i)} />
-            <EquipmentCard slot="offHand" item={equipItem('offHand')} onHover={setHoveredItem} onClick={(i) => setSelectedItem(i)} />
-          </div>
-        </div>
-      </div>
-
-      {/* Hover Info Panel */}
-      {hoveredItem ? (
-        <div className="p-2 bg-dungeon-900 pixel-border">
-          <div className="text-mono text-xs text-gold">{hoveredItem.name}</div>
-          <div className="text-mono text-[10px] text-dungeon-100 mt-0.5">{hoveredItem.description}</div>
-        </div>
-      ) : (
-        <div className="p-2 bg-dungeon-900 pixel-border">
-          <div className="text-mono text-[10px] text-dungeon-400 text-center">Hover over an item to see details</div>
-        </div>
-      )}
-
-      {/* Item Action Popup */}
-      {selectedItem && (
-        <ItemPopup
-          item={selectedItem}
-          player={player}
-          onEquip={onEquip}
-          onUnequip={onUnequip}
-          onClose={() => setSelectedItem(null)}
+      {confirmUse && (
+        <ConfirmUseModal
+          item={item}
+          onUse={() => { onUseItem(item.id); onClose(); }}
+          onClose={() => setConfirmUse(false)}
         />
       )}
     </>
   );
 }
 
+function HoverItemPopup({ item, player, onEquip, onUnequip, onUseItem, children }: {
+  item: InventoryItem;
+  player: Player;
+  onEquip: (itemId: string, slot: 'body' | 'mainHand' | 'offHand') => void;
+  onUnequip: (slot: SlotKey) => void;
+  onUseItem: (itemId: string) => void;
+  children: React.ReactNode;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [pos, setPos] = useState({ top: 0, left: 0 });
+  const popupRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const popup = popupRef.current;
+    const trigger = triggerRef.current;
+    if (!popup || !trigger) return;
+
+    const onMouseMove = (e: MouseEvent) => {
+      const tr = trigger.getBoundingClientRect();
+      const pr = popup.getBoundingClientRect();
+      const x = e.clientX, y = e.clientY;
+
+      const insideTrigger = x >= tr.left && x <= tr.right && y >= tr.top && y <= tr.bottom;
+      const insidePopup = x >= pr.left && x <= pr.right && y >= pr.top && y <= pr.bottom;
+
+      if (!insideTrigger && !insidePopup) {
+        setIsOpen(false);
+      }
+    };
+
+    document.addEventListener('mousemove', onMouseMove);
+    return () => document.removeEventListener('mousemove', onMouseMove);
+  }, [isOpen]);
+
+  const handleMouseEnter = () => {
+    const el = triggerRef.current;
+    if (el) {
+      const rect = el.getBoundingClientRect();
+      setPos({ top: rect.bottom, left: rect.left });
+    }
+    setIsOpen(true);
+  };
+
+  return (
+    <div ref={triggerRef} onMouseEnter={handleMouseEnter}>
+      {children}
+      {isOpen && createPortal(
+        <div
+          ref={popupRef}
+          className="fixed z-[60]"
+          style={{ top: pos.top, left: pos.left, width: '256px' }}
+        >
+          <div className="pixel-border bg-dungeon-700 shadow-lg border border-dungeon-500">
+            <ItemPopupContent
+              item={item}
+              player={player}
+              onEquip={onEquip}
+              onUnequip={onUnequip}
+              onUseItem={onUseItem}
+              onClose={() => setIsOpen(false)}
+            />
+          </div>
+        </div>,
+        document.body
+      )}
+    </div>
+  );
+}
+
+function InventoryTab({ player, onEquip, onUnequip, onUseItem }: { player: Player; onEquip: (itemId: string, slot: 'body' | 'mainHand' | 'offHand') => void; onUnequip: (slot: SlotKey) => void; onUseItem: (itemId: string) => void }) {
+  const equipItem = (slot: SlotKey): InventoryItem | undefined => {
+    const id = player.equipment[slot];
+    return id ? player.inventory.find(i => i.id === id) : undefined;
+  };
+
+  const bodyItem = equipItem('body');
+  const mainHandItem = equipItem('mainHand');
+  const offHandItem = equipItem('offHand');
+
+  const wrapHover = (item: InventoryItem | undefined, card: React.ReactNode) => {
+    if (!item) return card;
+    return (
+      <HoverItemPopup item={item} player={player} onEquip={onEquip} onUnequip={onUnequip} onUseItem={onUseItem}>
+        {card}
+      </HoverItemPopup>
+    );
+  };
+
+  return (
+    <div className="flex gap-3 min-h-0 mb-2">
+      <div className="flex-1 min-w-0">
+        <h3 className="text-mono text-xs text-dungeon-100 mb-2 tracking-wider">ITEMS</h3>
+        {player.inventory.length === 0 ? (
+          <p className="text-mono text-xs text-dungeon-200 text-center py-4">No items</p>
+        ) : (
+          <div className="grid grid-cols-4 gap-1.5">
+            {player.inventory.map(item => (
+              <HoverItemPopup key={item.id} item={item} player={player} onEquip={onEquip} onUnequip={onUnequip} onUseItem={onUseItem}>
+                <ItemCell item={item} />
+              </HoverItemPopup>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="w-36 flex-shrink-0">
+        <h3 className="text-mono text-xs text-dungeon-100 mb-2 tracking-wider">EQUIPPED</h3>
+        <div className="space-y-1.5">
+          {wrapHover(bodyItem, <EquipmentCard slot="body" item={bodyItem} />)}
+          {wrapHover(mainHandItem, <EquipmentCard slot="mainHand" item={mainHandItem} />)}
+          {wrapHover(offHandItem, <EquipmentCard slot="offHand" item={offHandItem} />)}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function CharacterSheet({ player, isOpen, onClose }: CharacterSheetProps) {
   const [tab, setTab] = useState<Tab>('attributes');
-  const { emitEquip, emitUnequip } = useSocketContext();
+  const { emitEquip, emitUnequip, emitUseItem } = useSocketContext();
 
   if (!isOpen || !player) return null;
 
@@ -319,17 +446,21 @@ export function CharacterSheet({ player, isOpen, onClose }: CharacterSheetProps)
     emitUnequip(slot);
   };
 
+  const handleUseItem = (itemId: string) => {
+    emitUseItem(itemId);
+  };
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-dungeon-900/80"
       onClick={onClose}
     >
       <div
-        className="pixel-border bg-dungeon-700 w-full max-w-lg mx-4 relative"
+        className="pixel-border bg-dungeon-700 w-full max-w-lg mx-4 relative max-h-[80vh] flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="p-4 pb-0">
+        <div className="p-4 pb-0 flex-shrink-0">
           <div className="flex items-center justify-between mb-1">
             <h2 className="text-mono text-lg text-gold">{player.name}</h2>
             <div className="flex items-center gap-3">
@@ -375,13 +506,14 @@ export function CharacterSheet({ player, isOpen, onClose }: CharacterSheetProps)
         </div>
 
         {/* Tab Content */}
-        <div className="p-4">
+        <div className="p-4 overflow-y-auto">
           {tab === 'attributes' && <AttributesTab player={player} />}
           {tab === 'inventory' && (
             <InventoryTab
               player={player}
               onEquip={handleEquip}
               onUnequip={handleUnequip}
+              onUseItem={handleUseItem}
             />
           )}
         </div>

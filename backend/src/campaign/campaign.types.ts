@@ -25,6 +25,8 @@ export interface SavedPlayer {
     type: 'weapon' | 'armor' | 'potion' | 'scroll' | 'key_item' | 'misc';
     quantity: number;
     slot?: 'body' | 'hand' | 'two-handed';
+    modifiers?: Array<{ stat: string; value: number; operation: 'add' | 'override'; dexCap?: number }>;
+    effects?: Array<{ type: string; formula: string }>;
   }>;
   coins: number;
   equipment: {
