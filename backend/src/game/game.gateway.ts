@@ -207,8 +207,22 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
   ) {
     this.server.to(data.roomId).emit('game:processing', { processing: true });
     try {
-      const response = await this.gameService.startCampaign(data.roomId);
       const room = this.gameState.getRoom(data.roomId);
+      if (room) {
+        await this.aiProvider.onRoomReady?.(data.roomId, {
+          roomId: data.roomId,
+          campaignName: room.campaignName,
+          campaignTheme: room.campaignTheme,
+          language: room.language,
+          players: room.players,
+          scene: room.scene,
+          currentLocation: room.currentLocation,
+          history: room.history,
+          currentAction: null,
+        });
+      }
+
+      const response = await this.gameService.startCampaign(data.roomId);
 
       if (response.narration) {
         this.server.to(data.roomId).emit('game:narration', {

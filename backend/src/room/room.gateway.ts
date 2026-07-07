@@ -73,20 +73,6 @@ export class RoomGateway {
     }
     this.roomService.join(data.roomId, player.id, data.name);
 
-    const gs = this.gameState.getRoom(data.roomId);
-    await this.aiProvider.onRoomReady?.(data.roomId, {
-      roomId: data.roomId,
-      campaignName: gs?.campaignName || '',
-      campaignTheme: gs?.campaignTheme || '',
-
-      language: gs?.language || 'english',
-      players: gs?.players || [],
-      scene: gs?.scene || '',
-      currentLocation: gs?.currentLocation || null,
-      history: gs?.history || [],
-      currentAction: null,
-    });
-
     client.join(data.roomId);
 
     this.authService.registerPlayer(client.id, player.id, data.name, data.roomId);
@@ -318,20 +304,6 @@ export class RoomGateway {
     this.authService.registerPlayer(client.id, creatorPlayer.id, creatorPlayer.name, savedCampaign.campaignId);
     client.join(savedCampaign.campaignId);
     client.emit('player:registered', { playerId: creatorPlayer.id });
-
-    const restoredStateForAi = this.gameState.getRoom(savedCampaign.campaignId);
-    await this.aiProvider.onRoomReady?.(savedCampaign.campaignId, {
-      roomId: savedCampaign.campaignId,
-      campaignName: savedCampaign.campaignName,
-      campaignTheme: restoredStateForAi?.campaignTheme || savedCampaign.campaignTheme || '',
-
-      language: savedCampaign.language,
-      players: savedCampaign.players,
-      scene: savedCampaign.scene,
-      currentLocation: savedCampaign.currentLocation,
-      history: savedCampaign.history,
-      currentAction: null,
-    });
 
     const state = this.gameState.getRoom(savedCampaign.campaignId);
     if (state) {
