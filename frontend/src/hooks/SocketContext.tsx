@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback, useRef, useReducer, ReactNode } from 'react';
 import { io, Socket } from 'socket.io-client';
-import { GameState, TurnUpdate, Player, SavedCampaignInfo } from '../types/game.types';
+import { GameState, TurnUpdate, Player, SavedCampaignInfo, CharacterKit } from '../types/game.types';
 import { Page, pageReducer } from '../routing/pageRouter';
 
 interface PlayerInfo {
@@ -30,7 +30,7 @@ interface SocketContextValue {
   isAiProcessing: boolean;
   login: (userId: string) => Promise<boolean>;
   createRoom: (name: string, language?: string, campaignTheme?: string) => Promise<void>;
-  createCharacter: (roomId: string, name: string, attributes?: Player['attributes']) => Promise<void>;
+  createCharacter: (roomId: string, name: string, attributes?: Player['attributes'], kitId?: string) => Promise<void>;
   createCharacterOnJoin: (roomId: string, name: string) => void;
   joinRoom: (roomId: string) => Promise<void>;
   joinGameRoom: (roomId: string) => void;
@@ -49,6 +49,8 @@ interface SocketContextValue {
   emitEquip: (itemId: string, slot: 'body' | 'mainHand' | 'offHand') => void;
   emitUnequip: (slot: 'body' | 'mainHand' | 'offHand') => void;
   emitUseItem: (itemId: string) => void;
+  availableKits: CharacterKit[];
+  fetchKits: (roomId: string) => Promise<CharacterKit[]>;
 }
 
 const SocketContext = createContext<SocketContextValue | null>(null);
@@ -71,6 +73,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
   const [typingPlayers, setTypingPlayers] = useState<Map<string, string>>(new Map());
   const [messages, setMessages] = useState<MessageEntry[]>([]);
   const [isAiProcessing, setIsAiProcessing] = useState(false);
+  const [availableKits, setAvailableKits] = useState<CharacterKit[]>([]);
 
   useEffect(() => {
     const s = io(window.location.origin, {
@@ -256,10 +259,10 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  const createCharacter = useCallback((roomId: string, name: string, attributes?: Player['attributes']): Promise<void> => {
+  const createCharacter = useCallback((roomId: string, name: string, attributes?: Player['attributes'], kitId?: string): Promise<void> => {
     return new Promise((resolve, reject) => {
       if (!socketRef.current) { reject(new Error('No socket')); return; }
-      socketRef.current.emit('lobby:create_character', { roomId, name, attributes }, (response: any) => {
+      socketRef.current.emit('lobby:create_character', { roomId, name, attributes, kitId }, (response: any) => {
         if (response.success) {
           setPlayer(prev => ({ ...prev, playerId: response.playerId }));
           if (response.campaignStarted) {
@@ -463,6 +466,17 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     });
   }, [player]);
 
+  const fetchKits = useCallback((roomId: string): Promise<CharacterKit[]> => {
+    return new Promise((resolve) => {
+      if (!socketRef.current) return resolve([]);
+      socketRef.current.emit('game:get_kits', { roomId }, (response: any) => {
+        const kits: CharacterKit[] = response?.kits || [];
+        setAvailableKits(kits);
+        resolve(kits);
+      });
+    });
+  }, []);
+
   const deleteSavedCampaign = useCallback((campaignId: string): Promise<boolean> => {
     return new Promise((resolve) => {
       if (!socketRef.current) return resolve(false);
@@ -487,6 +501,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
         startCampaign, emitTyping, emitTypingStop, listRooms,
         listSavedCampaigns, resumeCampaign, deleteSavedCampaign, leaveRoom, backToLobby,
         allocateAttributes, emitEquip, emitUnequip, emitUseItem,
+        availableKits, fetchKits,
       }}
     >
       {children}

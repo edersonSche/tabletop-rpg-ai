@@ -115,6 +115,14 @@ export interface TurnUpdate {
   dc?: number;
 }
 
+export interface CharacterKit {
+  id: string;
+  name: string;
+  description: string;
+  recommendedStats: string[];
+  items: Array<{ name: string; quantity: number }>;
+}
+
 export interface Room {
   id: string;
   name: string;

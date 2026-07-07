@@ -14,6 +14,7 @@ import { AIProvider } from '../ai/ai.interface';
 import { AuthService } from '../auth/auth.service';
 import { AuthWsGuard } from '../auth/auth.guard';
 import { CampaignStore } from '../campaign/campaign.store';
+import { getKitsForTheme } from '../data/theme-kits';
 
 @WebSocketGateway({
   cors: {
@@ -57,12 +58,13 @@ export class RoomGateway {
   @SubscribeMessage('lobby:create_character')
   async handleCreateCharacter(
     @ConnectedSocket() client: Socket,
-    @MessageBody() data: { roomId: string; name: string; attributes?: Player['attributes'] },
+    @MessageBody() data: { roomId: string; name: string; attributes?: Player['attributes']; kitId?: string },
   ) {
     const userId = this.authService.getUserId(client.id);
     if (!userId) return { success: false, error: 'Not authenticated' };
 
-    const player = this.gameState.addPlayer(data.roomId, userId, data.name, data.attributes);
+    const gs = this.gameState.getRoom(data.roomId);
+    const player = this.gameState.addPlayer(data.roomId, userId, data.name, data.attributes, data.kitId, gs?.language);
     const roomData = this.roomService.get(data.roomId);
     if (roomData && !roomData.creatorId) {
       roomData.creatorId = player.id;
@@ -72,6 +74,19 @@ export class RoomGateway {
       gameRoom.creatorId = player.id;
     }
     this.roomService.join(data.roomId, player.id, data.name);
+
+    const gsForAi = this.gameState.getRoom(data.roomId);
+    await this.aiProvider.onRoomReady?.(data.roomId, {
+      roomId: data.roomId,
+      campaignName: gsForAi?.campaignName || '',
+      campaignTheme: gsForAi?.campaignTheme || '',
+      language: gsForAi?.language || 'english',
+      players: gsForAi?.players || [],
+      scene: gsForAi?.scene || '',
+      currentLocation: gsForAi?.currentLocation || null,
+      history: gsForAi?.history || [],
+      currentAction: null,
+    });
 
     client.join(data.roomId);
 
@@ -118,6 +133,18 @@ export class RoomGateway {
     this.campaignStore.saveFromMemory(data.roomId);
 
     return { success: true, playerId: player.id, campaignStarted: !!(state && state.gameStarted) };
+  }
+
+  @SubscribeMessage('game:get_kits')
+  handleGetKits(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { roomId: string },
+  ) {
+    const state = this.gameState.getRoom(data.roomId);
+    if (!state) return { kits: [] };
+
+    const kits = getKitsForTheme(state.campaignTheme, state.language);
+    return { kits };
   }
 
   @SubscribeMessage('lobby:list')

@@ -102,15 +102,18 @@ function AttributesTab({ player }: { player: Player }) {
   );
 }
 
-function ItemCell({ item }: { item: InventoryItem }) {
+function ItemCell({ item, isEquipped }: { item: InventoryItem; isEquipped?: boolean }) {
   const TypeIcon = ITEM_TYPE_ICONS[item.type] || Box;
 
   return (
-    <div className="bg-dungeon-600 p-1.5 pixel-border text-center group hover:bg-dungeon-500 transition-all aspect-square flex flex-col items-center justify-center">
+    <div className={`bg-dungeon-600 p-1.5 pixel-border text-center group hover:bg-dungeon-500 transition-all aspect-square flex flex-col items-center justify-center relative ${isEquipped ? 'border-gold' : ''}`}>
+      {isEquipped && (
+        <div className="absolute top-1 right-1 w-2 h-2 bg-gold rounded-full" />
+      )}
       <div className="flex items-center justify-center">
-        <TypeIcon width={14} height={14} className="text-dungeon-100" />
+        <TypeIcon width={14} height={14} className={isEquipped ? 'text-gold' : 'text-dungeon-100'} />
       </div>
-      <div className="text-mono text-[10px] text-dungeon-100 truncate w-full mt-0.5">{item.name}</div>
+      <div className={`text-mono text-[10px] truncate w-full mt-0.5 ${isEquipped ? 'text-gold' : 'text-dungeon-100'}`}>{item.name}</div>
       {item.quantity > 1 && (
         <div className="text-mono text-[10px] text-dungeon-200">x{item.quantity}</div>
       )}
@@ -403,6 +406,10 @@ function InventoryTab({ player, onEquip, onUnequip, onUseItem }: { player: Playe
     );
   };
 
+  const equippedIds = new Set(
+    Object.values(player.equipment).filter(Boolean) as string[]
+  );
+
   return (
     <div className="flex gap-3 min-h-0 mb-2">
       <div className="flex-1 min-w-0">
@@ -413,7 +420,7 @@ function InventoryTab({ player, onEquip, onUnequip, onUseItem }: { player: Playe
           <div className="grid grid-cols-4 gap-1.5">
             {player.inventory.map(item => (
               <HoverItemPopup key={item.id} item={item} player={player} onEquip={onEquip} onUnequip={onUnequip} onUseItem={onUseItem}>
-                <ItemCell item={item} />
+                <ItemCell item={item} isEquipped={equippedIds.has(item.id)} />
               </HoverItemPopup>
             ))}
           </div>

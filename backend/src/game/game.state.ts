@@ -1,4 +1,6 @@
 import { v4 as uuid } from 'uuid';
+import { getLocalizedItem } from '../data/items.catalog';
+import { getKitItemEntries } from '../data/theme-kits';
 
 export type NarrativeLanguage = 'english' | 'portuguese' | 'spanish';
 
@@ -161,7 +163,14 @@ export class GameState {
 
   private playerByUserId: Map<string, Map<string, string>> = new Map();
 
-  addPlayer(roomId: string, userId: string, name: string, attributes?: Player['attributes']): Player {
+  addPlayer(
+    roomId: string,
+    userId: string,
+    name: string,
+    attributes?: Player['attributes'],
+    kitId?: string,
+    language?: NarrativeLanguage,
+  ): Player {
     const room = this.rooms.get(roomId);
     if (!room) throw new Error('Room not found');
 
@@ -180,6 +189,35 @@ export class GameState {
     const dexMod = Math.floor((attrs.dexterity - 10) / 2);
     const ac = 10 + dexMod;
 
+    const lang = language || room.language || 'english';
+
+    const inventory: InventoryItem[] = [];
+    let coins = 50;
+
+    if (kitId) {
+      const itemEntries = getKitItemEntries(room.campaignTheme, kitId);
+      for (const entry of itemEntries) {
+        const localized = getLocalizedItem(entry.key, lang, entry.quantity);
+        if (localized) {
+          inventory.push({
+            id: uuid(),
+            ...localized,
+          });
+        }
+      }
+    }
+
+    if (inventory.length === 0) {
+      const dagger = getLocalizedItem('dagger', lang, 1);
+      if (dagger) {
+        inventory.push({ id: uuid(), ...dagger });
+      }
+      const potion = getLocalizedItem('healing_potion', lang, 2);
+      if (potion) {
+        inventory.push({ id: uuid(), ...potion });
+      }
+    }
+
     const player: Player = {
       id: uuid(),
       userId,
@@ -192,26 +230,8 @@ export class GameState {
       xp: 0,
       maxXp: XP_THRESHOLDS[1] ?? 300,
       pendingAttributePoints: 0,
-      inventory: [
-        {
-          id: uuid(),
-          name: 'Dagger',
-          description: 'A short, sharp blade, useful for combat or everyday tasks.',
-          type: 'weapon',
-          quantity: 1,
-          slot: 'hand',
-          modifiers: [{ stat: 'damage', value: 1, operation: 'add' }],
-        },
-        {
-          id: uuid(),
-          name: 'Healing Potion',
-          description: 'A smoking red liquid that restores vigor when drunk.',
-          type: 'potion',
-          quantity: 2,
-          effects: [{ type: 'heal_hp', formula: '2d4+2' }],
-        },
-      ],
-      coins: 50,
+      inventory,
+      coins,
       equipment: {},
       ac,
     };
@@ -224,6 +244,8 @@ export class GameState {
 
     return player;
   }
+
+
 
   findPlayerByUserId(roomId: string, userId: string): Player | undefined {
     const roomUserMap = this.playerByUserId.get(roomId);
