@@ -6,9 +6,10 @@ interface UseGameTurnOptions {
   turnUpdate: TurnUpdate | null;
   playerId: string;
   isAiProcessing: boolean;
+  isTradeLocked?: boolean;
 }
 
-export function useGameTurn({ gameState, turnUpdate, playerId, isAiProcessing }: UseGameTurnOptions) {
+export function useGameTurn({ gameState, turnUpdate, playerId, isAiProcessing, isTradeLocked = false }: UseGameTurnOptions) {
   const currentPlayer = useMemo(() => {
     if (!gameState) return null;
     const targetId = turnUpdate?.target || gameState.currentTurn;
@@ -28,10 +29,11 @@ export function useGameTurn({ gameState, turnUpdate, playerId, isAiProcessing }:
   }, [turnUpdate, playerId]);
 
   const disabledReason = useMemo(() => {
+    if (isTradeLocked) return 'Trade in progress';
     if (!isMyTurn) return 'Not your turn';
-    if (isAiProcessing) return 'AI is processing...';
+    //if (isAiProcessing) return 'AI is processing...';
     return undefined;
-  }, [isMyTurn, isAiProcessing]);
+  }, [isMyTurn, isAiProcessing, isTradeLocked]);
 
   const isInputDisabled = useMemo(() => {
     return !!disabledReason || isRollRequest;

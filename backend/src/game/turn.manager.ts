@@ -23,6 +23,10 @@ export class TurnManager {
     const room = this.gameState.getRoom(roomId);
     if (!room) return { allowed: false, reason: 'Room not found' };
 
+    if (room.isTradeLocked) {
+      return { allowed: false, reason: 'Trade in progress' };
+    }
+
     if (this.isLocked(roomId)) {
       return { allowed: false, reason: 'AI is processing an action...' };
     }

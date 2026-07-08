@@ -44,6 +44,28 @@ export interface SavedHistoryEntry {
 
 export type SavedTurnType = 'group_action' | 'call_player' | 'call_roll' | 'narration_only' | null;
 
+export interface SavedMerchantItem {
+  id: string;
+  name: string;
+  description: string;
+  type: string;
+  slot?: string;
+  buyPrice: number;
+  sellPrice: number;
+  quantity: number;
+  modifiers?: Array<{ stat: string; value: number; operation: string; dexCap?: number }>;
+  effects?: Array<{ type: string; formula: string }>;
+}
+
+export interface SavedMerchant {
+  id: string;
+  name: string;
+  type: string;
+  greeting: string;
+  coins: number;
+  inventory: SavedMerchantItem[];
+}
+
 export interface SavedCampaign {
   campaignId: string;
   campaignName: string;
@@ -60,6 +82,11 @@ export interface SavedCampaign {
   currentLocation: string | null;
   scene: string;
   gameStarted: boolean;
+  merchants?: SavedMerchant[];
+  merchantsLocation?: string;
+  isTradeLocked?: boolean;
+  tradeParticipants?: string[];
+  tradeDone?: string[];
   history: SavedHistoryEntry[];
   summary?: string;
   lastSummarizedAt?: number;

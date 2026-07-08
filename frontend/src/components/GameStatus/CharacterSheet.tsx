@@ -106,16 +106,16 @@ function ItemCell({ item, isEquipped }: { item: InventoryItem; isEquipped?: bool
   const TypeIcon = ITEM_TYPE_ICONS[item.type] || Box;
 
   return (
-    <div className={`bg-dungeon-600 p-1.5 pixel-border text-center group hover:bg-dungeon-500 transition-all aspect-square flex flex-col items-center justify-center relative ${isEquipped ? 'border-gold' : ''}`}>
-      {isEquipped && (
-        <div className="absolute top-1 right-1 w-2 h-2 bg-gold rounded-full" />
-      )}
-      <div className="flex items-center justify-center">
+    <div className={`bg-dungeon-600 px-2 py-1.5 pixel-border flex items-center gap-2 hover:bg-dungeon-500 transition-all ${isEquipped ? 'border-l-2 border-gold' : ''}`}>
+      <div className="flex items-center justify-center flex-shrink-0">
         <TypeIcon width={14} height={14} className={isEquipped ? 'text-gold' : 'text-dungeon-100'} />
       </div>
-      <div className={`text-mono text-[10px] truncate w-full mt-0.5 ${isEquipped ? 'text-gold' : 'text-dungeon-100'}`}>{item.name}</div>
+      <div className={`text-mono text-xs flex-1 min-w-0 truncate ${isEquipped ? 'text-gold' : 'text-dungeon-100'}`}>{item.name}</div>
       {item.quantity > 1 && (
-        <div className="text-mono text-[10px] text-dungeon-200">x{item.quantity}</div>
+        <div className="text-mono text-[10px] text-dungeon-200 flex-shrink-0">x{item.quantity}</div>
+      )}
+      {isEquipped && (
+        <div className="w-2 h-2 bg-gold rounded-full flex-shrink-0" title="Equipped" />
       )}
     </div>
   );
@@ -417,7 +417,7 @@ function InventoryTab({ player, onEquip, onUnequip, onUseItem }: { player: Playe
         {player.inventory.length === 0 ? (
           <p className="text-mono text-xs text-dungeon-200 text-center py-4">No items</p>
         ) : (
-          <div className="grid grid-cols-4 gap-1.5">
+          <div className="space-y-1 max-h-64 overflow-y-auto pr-1">
             {player.inventory.map(item => (
               <HoverItemPopup key={item.id} item={item} player={player} onEquip={onEquip} onUnequip={onUnequip} onUseItem={onUseItem}>
                 <ItemCell item={item} isEquipped={equippedIds.has(item.id)} />

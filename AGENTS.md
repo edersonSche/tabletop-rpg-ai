@@ -38,10 +38,10 @@ Actions: `LOGGED_IN`, `LOGGED_OUT`, `CREATED_ROOM`, `JOIN_NEEDS_CHARACTER`, `CHA
 
 **Backend** — all under `backend/src/`:
 - `auth/` — `AuthGateway` (auth:login, disconnect), `AuthService` (userId↔socketId + playerId↔socketId), `AuthWsGuard`
-- `game/` — `GameGateway` (action/roll/start/typing/get_state/room:join/allocate_attributes/equip/unequip), `GameService` (turn orchestration, AI target validation, `buildSceneContext()`, `maybeSummarize()` history summarization), `GameState` (in-memory Map with HP/XP/level engine, XP thresholds, ASI levels, inventory/coins/equipment system), `TurnManager` (lock-per-room, stores `turnSkill`/`turnDc`)
+- `game/` — `GameGateway` (action/roll/start/typing/get_state/room:join/allocate_attributes/equip/unequip/initiate_trade/buy_item/sell_item/end_trade), `GameService` (turn orchestration, AI target validation, `buildSceneContext()`, `maybeSummarize()` history summarization, `initiateTrade()` AI-driven merchant generation), `GameState` (in-memory Map with HP/XP/level engine, XP thresholds, ASI levels, inventory/coins/equipment system, merchant/trade state with `buyFromMerchant()`/`sellToMerchant()`/`adjustMerchantPrices()` charisma modifiers), `TurnManager` (lock-per-room, stores `turnSkill`/`turnDc`, blocks actions during active trade)
 - `room/` — `RoomGateway` (lobby:create/join/list/list_saved/resume/delete_saved/create_character, room:leave), `RoomService` (in-memory room registry, IDs = first 8 UUID chars, tracks `creatorId`)
-- `campaign/` — `CampaignStore` (persist/restore to `data/campaigns.json`, 1s debounced write; stores HP/XP/level/summary/campaignTheme/inventory/coins/equipment)
-- `dto/` — `ai-response.dto.ts`, `game-action.dto.ts` (incl. `EquipItemDto`, `UnequipItemDto`)
+- `campaign/` — `CampaignStore` (persist/restore to `data/campaigns.json`, 1s debounced write; stores HP/XP/level/summary/campaignTheme/inventory/coins/equipment/merchants/trade state)
+- `dto/` — `ai-response.dto.ts` (incl. `MerchantSeed`/`MerchantSeedItem`), `game-action.dto.ts` (incl. `InitiateTradeDto`, `BuyItemDto`, `SellItemDto`, `EndTradeDto`)
 - `ai/` — Provider pattern: `AiService` → `OpencodeProvider` (raw HTTP with per-room sessions). `summarizeHistory()` for long-term memory. Empty `AI_API_KEY` → fallback narration. `onRoomReady()`/`onRoomEmpty()` lifecycle for session create/delete
 
 **Frontend** — under `frontend/src/`:
@@ -50,7 +50,7 @@ Actions: `LOGGED_IN`, `LOGGED_OUT`, `CREATED_ROOM`, `JOIN_NEEDS_CHARACTER`, `CHA
 - `hooks/useGameTurn.ts` — derives `isMyTurn`, `isRollRequest`, `canAct`, etc. from `gameState` + `turnUpdate`
 - `types/game.types.ts` — TS interfaces mirroring backend DTOs
 - `pages/` — `Login`, `Lobby`, `CharacterCreation`, `WaitingRoom`, `GameRoom`
-- `components/` — `Chat/` (MessageList, MessageInput, DiceRollButton), `GameStatus/` (LocationBadge, TurnIndicator, PlayerList, PlayerCard, CharacterSheet, TypingIndicator, CampaignStatusBar, MyCharacterStatus, PlayerCircles, AttributeAllocationModal, CharacterListModal, OptionsModal), `Layout/` (Header, Toast), `Lobby/` (CreateRoom, RoomList, SavedCampaigns)
+- `components/` — `Chat/` (MessageList, MessageInput, DiceRollButton), `GameStatus/` (LocationBadge, TurnIndicator, PlayerList, PlayerCard, CharacterSheet, TypingIndicator, CampaignStatusBar, MyCharacterStatus, PlayerCircles, AttributeAllocationModal, CharacterListModal, OptionsModal), `Trade/` (TradeModal), `Layout/` (Header, Toast), `Lobby/` (CreateRoom, RoomList, SavedCampaigns)
 
 ## AI integration
 
@@ -87,3 +87,6 @@ System prompt (`system.prompt.ts`) documents: Markdown narration, two-tier memor
 - **GameRoom layout** — Left sidebar (48px) with `MyCharacterStatus` (HP/XP bars, name, level) + modal navigation buttons (Sheet, Characters, Options, Leave). Main area has `CampaignStatusBar` at top, Chat in center, TypingIndicator + MessageInput + DiceRollButton at bottom. All panels (CharacterSheet, CharacterList, Options, AttributeAllocation) are modals.
 - **Campaign themes** — 18 preset themes (Medieval Fantasy, Lovecraftian Horror, Cyberpunk, Dark Souls, Pirate, Steampunk, Sci-Fi, Weird West, Post-Apocalyptic, Norse, Arabian Nights, Wuxia, Superhero, Arthurian, Zombie, Japanese Folklore, Space Horror, Post-Magic Apocalypse) + Custom free-form text. Set at room creation via `lobby:create { campaignTheme }`.
 - **Markdown narration** — AI narration rendered with `react-markdown` + `remark-gfm`. Bold, blockquotes, code, lists, tables, horizontal rules supported.
+- **Trade system** — `game:initiate_trade` triggers AI to generate merchants with 3-8 items each. Merchants are locked per location; moving clears them. Charisma modifier adjusts prices (±5% per mod point). `game:buy_item`/`game:sell_item` handle transactions; `game:end_trade` finalizes when all participants agree. Trading blocks all other actions via `isTradeLocked`.
+- **Location field now mandatory** — AI must always include a `location` in responses. `"unknown location"` disables trading entirely (no merchants).
+- **TradeModal** — `TradeModal` component renders merchant list, per-player price adjustments based on charisma, and buy/sell/end-trade controls. Participants and completion status are synced via `game:trade_state`.

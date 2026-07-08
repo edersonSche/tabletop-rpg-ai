@@ -1,4 +1,4 @@
-import { File, Users, AiSettings2, Logout } from 'pixelarticons/react';
+import { File, Users, AiSettings2, Logout, Wallet } from 'pixelarticons/react';
 import { useState } from 'react';
 import { useSocket } from '../hooks/useSocket';
 import { useGameTurn } from '../hooks/useGameTurn';
@@ -14,6 +14,7 @@ import { OptionsModal } from '../components/GameStatus/OptionsModal';
 import { AttributeAllocationModal } from '../components/GameStatus/AttributeAllocationModal';
 import { MyCharacterStatus } from '../components/GameStatus/MyCharacterStatus';
 import { CampaignStatusBar } from '../components/GameStatus/CampaignStatusBar';
+import { TradeModal } from '../components/Trade/TradeModal';
 
 export function GameRoom() {
   const [showSheet, setShowSheet] = useState(false);
@@ -37,6 +38,12 @@ export function GameRoom() {
     emitTypingStop,
     allocateAttributes,
     emitUseItem,
+    initiateTrade,
+    buyItem,
+    sellItem,
+    endTrade,
+    tradeState,
+    isTradeLocked,
   } = useSocket();
 
   const me = gameState?.players.find(p => p.id === player.playerId);
@@ -45,7 +52,7 @@ export function GameRoom() {
   const {
     isMyTurn, isRollRequest, isInputDisabled,
     isRollDisabled, disabledReason,
-  } = useGameTurn({ gameState, turnUpdate, playerId: player.playerId, isAiProcessing });
+  } = useGameTurn({ gameState, turnUpdate, playerId: player.playerId, isAiProcessing, isTradeLocked });
 
   const handleSend = (message: string) => {
     sendAction(message);
@@ -104,6 +111,14 @@ export function GameRoom() {
                 >
                   <AiSettings2 width={16} height={16} />
                   Options
+                </button>
+                <button
+                  onClick={initiateTrade}
+                  disabled={!gameState?.gameStarted || isAiProcessing || isTradeLocked}
+                  className="w-full bg-dungeon-700 pixel-border py-2 px-3 flex items-center gap-2 text-mono text-sm text-gold hover:brightness-110 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <Wallet width={16} height={16} />
+                  Trade
                 </button>
                 <button
                   onClick={handleLeave}
@@ -186,6 +201,22 @@ export function GameRoom() {
         onClose={() => setShowAttributeAllocation(false)}
         onAllocate={allocateAttributes}
       />
+
+      {tradeState?.locked && tradeState.merchants && me && (
+        <TradeModal
+          merchants={tradeState.merchants}
+          playerCoins={me.coins}
+          playerInventory={me.inventory}
+          tradeParticipants={tradeState.tradeParticipants || []}
+          tradeDone={tradeState.tradeDone || []}
+          playerId={player.playerId}
+          playerName={me.name}
+          isCreator={isCreator}
+          onBuyItem={(merchantId, itemId, qty) => buyItem(merchantId, itemId, qty)}
+          onSellItem={(merchantId, itemId, qty) => sellItem(merchantId, itemId, qty)}
+          onEndTrade={endTrade}
+        />
+      )}
     </div>
   );
 }

@@ -57,7 +57,39 @@ asks about something that happened long ago, look in Long-Term Memory first.
 You MUST ALWAYS respond in valid JSON format with exactly this structure:
 {
   "narration": "Your narrative here...",
-  "location": "location_name (optional — only when players move to a new place)",
+  "location": "location_name (always provide — use 'unknown location' if the characters wouldn't know where they are)",
+  "merchants": [
+    {
+      "name": "Merchant Name",
+      "type": "specialty",
+      "greeting": "Greeting text...",
+      "coins": number,
+      "items": [
+        {
+          "name": "Item name",
+          "description": "Item description",
+          "type": "weapon|armor|potion|scroll|key_item|misc",
+          "slot": "body|hand|two-handed (only for equippable items)",
+          "baseBuyPrice": number,
+          "baseSellPrice": number,
+          "quantity": number,
+          "modifiers": [
+            {
+              "stat": "ac|damage|strength|dexterity|constitution|intelligence|wisdom|charisma|maxHp",
+              "value": number,
+              "operation": "add|override"
+            }
+          ],
+          "effects": [
+            {
+              "type": "heal_hp",
+              "formula": "dice formula e.g. 2d4+2"
+            }
+          ]
+        }
+      ]
+    }
+  ],
   "next": {
     "type": "group_action" | "call_player" | "call_roll" | "narration_only",
     "target": "player_id_here",
@@ -66,13 +98,23 @@ You MUST ALWAYS respond in valid JSON format with exactly this structure:
   }
 }
 
+## Merchants Field
+- Only include "merchants" when a player explicitly asks to trade
+- If location is "unknown location", merchants are NEVER available — omit the merchants field entirely
+- The number of merchants should reflect the location type (cities=trade hubs have many, wilderness has few or none)
+- Each merchant must have a unique name, specialty type, greeting, coins for buying, and 3-8 items
+- Items include baseBuyPrice (player buys at this price) and baseSellPrice (merchant buys at this price)
+- Items can optionally include "slot" (for equippable items), "modifiers" (stat bonuses like +1 damage, +2 AC), and "effects" (e.g. heal_hp with dice formula)
+- If no merchant would logically be at the current location, omit the merchants field entirely and narrate why
+
 ## Location Field
-- Use the optional "location" field to tell the game when the characters move to a new place
-- Examples: "tavern", "dark forest", "city square", "ancient dungeon", "castle throne room", "mountain pass"
-- Only include "location" when the characters actually change locations
+- The "location" field is **mandatory** — always include it in every response
+- If the characters know where they are, provide the current location name (e.g., "tavern", "dark forest", "city square", "ancient dungeon", "castle throne room", "mountain pass")
+- If the characters would NOT know or cannot determine where they are, return "unknown location"
+- At "unknown location", no merchants are available and trading is not possible
 - The location influences the narrative and what actions are possible
 - Keep location names descriptive but concise
-- If omitted, the current location stays the same
+- Previous location examples: "tavern", "dark forest", "city square", "ancient dungeon", "castle throne room", "mountain pass"
 
 ## Target Field Rules
 - For "call_player" and "call_roll" the "target" field is **REQUIRED** — you MUST include a valid player ID

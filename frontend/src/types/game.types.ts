@@ -97,6 +97,35 @@ export interface GameState {
   }>;
 }
 
+export interface MerchantItem {
+  id: string;
+  name: string;
+  description: string;
+  type: 'weapon' | 'armor' | 'potion' | 'scroll' | 'key_item' | 'misc';
+  slot?: 'body' | 'hand' | 'two-handed';
+  buyPrice: number;
+  sellPrice: number;
+  quantity: number;
+  modifiers?: ItemModifier[];
+  effects?: ItemEffect[];
+}
+
+export interface Merchant {
+  id: string;
+  name: string;
+  type: string;
+  greeting: string;
+  coins: number;
+  inventory: MerchantItem[];
+}
+
+export interface TradeState {
+  locked: boolean;
+  merchants?: Merchant[];
+  tradeParticipants?: string[];
+  tradeDone?: string[];
+}
+
 export interface SavedCampaignInfo {
   campaignId: string;
   campaignName: string;

@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback, useRef, useReducer, ReactNode } from 'react';
 import { io, Socket } from 'socket.io-client';
-import { GameState, TurnUpdate, Player, SavedCampaignInfo, CharacterKit } from '../types/game.types';
+import { GameState, TurnUpdate, Player, SavedCampaignInfo, CharacterKit, TradeState } from '../types/game.types';
 import { Page, pageReducer } from '../routing/pageRouter';
 
 interface PlayerInfo {
@@ -49,6 +49,12 @@ interface SocketContextValue {
   emitEquip: (itemId: string, slot: 'body' | 'mainHand' | 'offHand') => void;
   emitUnequip: (slot: 'body' | 'mainHand' | 'offHand') => void;
   emitUseItem: (itemId: string) => void;
+  initiateTrade: () => void;
+  buyItem: (merchantId: string, merchantItemId: string, quantity?: number) => void;
+  sellItem: (merchantId: string, itemId: string, quantity?: number) => void;
+  endTrade: () => void;
+  tradeState: TradeState | null;
+  isTradeLocked: boolean;
   availableKits: CharacterKit[];
   fetchKits: (roomId: string) => Promise<CharacterKit[]>;
 }
@@ -73,6 +79,8 @@ export function SocketProvider({ children }: { children: ReactNode }) {
   const [typingPlayers, setTypingPlayers] = useState<Map<string, string>>(new Map());
   const [messages, setMessages] = useState<MessageEntry[]>([]);
   const [isAiProcessing, setIsAiProcessing] = useState(false);
+  const [tradeState, setTradeState] = useState<TradeState | null>(null);
+  const isTradeLocked = tradeState?.locked === true;
   const [availableKits, setAvailableKits] = useState<CharacterKit[]>([]);
 
   useEffect(() => {
@@ -214,6 +222,14 @@ export function SocketProvider({ children }: { children: ReactNode }) {
 
     s.on('game:processing', (data: { processing: boolean }) => {
       setIsAiProcessing(data.processing);
+    });
+
+    s.on('game:trade_state', (data: TradeState) => {
+      if (data.locked) {
+        setTradeState(data);
+      } else {
+        setTradeState(null);
+      }
     });
 
     s.on('game:level_up', (data: { playerId: string; newLevel: number; gainedPoints: number }) => {
@@ -466,6 +482,44 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     });
   }, [player]);
 
+  const initiateTrade = useCallback(() => {
+    if (!socketRef.current || !player.roomId || !player.playerId) return;
+    socketRef.current.emit('game:initiate_trade', {
+      roomId: player.roomId,
+      playerId: player.playerId,
+    });
+  }, [player]);
+
+  const buyItem = useCallback((merchantId: string, merchantItemId: string, quantity = 1) => {
+    if (!socketRef.current || !player.roomId || !player.playerId) return;
+    socketRef.current.emit('game:buy_item', {
+      roomId: player.roomId,
+      playerId: player.playerId,
+      merchantId,
+      merchantItemId,
+      quantity,
+    });
+  }, [player]);
+
+  const sellItem = useCallback((merchantId: string, itemId: string, quantity = 1) => {
+    if (!socketRef.current || !player.roomId || !player.playerId) return;
+    socketRef.current.emit('game:sell_item', {
+      roomId: player.roomId,
+      playerId: player.playerId,
+      merchantId,
+      itemId,
+      quantity,
+    });
+  }, [player]);
+
+  const endTrade = useCallback(() => {
+    if (!socketRef.current || !player.roomId || !player.playerId) return;
+    socketRef.current.emit('game:end_trade', {
+      roomId: player.roomId,
+      playerId: player.playerId,
+    });
+  }, [player]);
+
   const fetchKits = useCallback((roomId: string): Promise<CharacterKit[]> => {
     return new Promise((resolve) => {
       if (!socketRef.current) return resolve([]);
@@ -501,6 +555,8 @@ export function SocketProvider({ children }: { children: ReactNode }) {
         startCampaign, emitTyping, emitTypingStop, listRooms,
         listSavedCampaigns, resumeCampaign, deleteSavedCampaign, leaveRoom, backToLobby,
         allocateAttributes, emitEquip, emitUnequip, emitUseItem,
+        initiateTrade, buyItem, sellItem, endTrade,
+        tradeState, isTradeLocked,
         availableKits, fetchKits,
       }}
     >

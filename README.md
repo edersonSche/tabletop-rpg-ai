@@ -117,6 +117,10 @@ cd frontend && npm run preview     # vite preview
 | `game:allocate_attributes` | `GameGateway` | `{ roomId, playerId, allocations }` |
 | `game:equip` | `GameGateway` | `{ roomId, playerId, itemId, slot }` |
 | `game:unequip` | `GameGateway` | `{ roomId, playerId, slot }` |
+| `game:initiate_trade` | `GameGateway` | `{ roomId, playerId }` |
+| `game:buy_item` | `GameGateway` | `{ roomId, playerId, merchantId, merchantItemId, quantity? }` |
+| `game:sell_item` | `GameGateway` | `{ roomId, playerId, merchantId, itemId, quantity? }` |
+| `game:end_trade` | `GameGateway` | `{ roomId, playerId }` |
 
 ### Server → Client
 
@@ -134,6 +138,7 @@ cd frontend && npm run preview     # vite preview
 | `game:processing` | `{ processing: boolean }` |
 | `game:disband` | `{ reason }` |
 | `game:level_up` | `{ playerId, newLevel, gainedPoints }` (frontend-ready, server not yet emitting) |
+| `game:trade_state` | `{ locked, merchants, tradeParticipants, tradeDone }` |
 
 ## AI Integration
 
@@ -143,11 +148,13 @@ The backend uses a **provider pattern**:
 - **`OpencodeProvider`** — raw HTTP fetch to a local Opencode session; manages sessions per room.
 - **Fallback** — if `AI_API_KEY` is empty, `AiService.generate()` returns a static narration without calling any provider.
 
-The system prompt supports **English**, **Portuguese (Brazil)**, and **Spanish** narration. The AI responds in strict JSON with `narration`, optional `location`, and `next` (with `type`, `target`, `skill`, `dc`). Narration supports **Markdown** formatting rendered via `react-markdown`.
+The system prompt supports **English**, **Portuguese (Brazil)**, and **Spanish** narration. The AI responds in strict JSON with `narration`, mandatory `location`, optional `merchants` (array of merchants with items/prices), and `next` (with `type`, `target`, `skill`, `dc`). Narration supports **Markdown** formatting rendered via `react-markdown`.
 
 The AI has a **two-tier memory system**: a running history of narration text (for immediate context) and a periodic **summarization** that condenses old entries into a persistent summary every 50 actions — saving tokens vs. storing full history.
 
 Invalid AI targets (`call_player`/`call_roll` pointing to missing players) are coerced to `group_action` by `GameService.validateAiResponseTarget()`.
+
+When a player initiates trade via `game:initiate_trade`, the AI generates merchant data in the `merchants` field of the response. Each merchant includes an inventory of 3-8 items with prices, modifiers, and effects. Location must be known — `"unknown location"` disables trading.
 
 The provider manages **per-room sessions**: created when a character is made or campaign is resumed (`onRoomReady()`), and deleted when the last player leaves or the campaign is deleted (`onRoomEmpty()`). 404/410 errors auto-recreate sessions.
 
@@ -179,6 +186,18 @@ Items have **types** (`weapon`, `armor`, `potion`, `scroll`, `key_item`, `misc`)
 | `offHand` | Items with `hand` slot |
 
 Two-handed weapons block the off-hand slot when equipped. Equipment is managed via `game:equip` / `game:unequip` events and is persisted in saved campaigns.
+
+## Trading
+
+Players can trade with AI-generated merchants at known locations:
+
+- **Initiate trade** — `game:initiate_trade` sends a request to the AI, which generates 1–10 merchants depending on location type (cities have many, wilderness has few). Each merchant has a unique name, specialty, greeting, coins, and 3–8 items.
+- **Location‑gated** — if the current location is `"unknown location"`, no merchants are available. Changing locations clears the merchant state.
+- **Price adjustments** — prices are modified per player by Charisma modifier (±5% per mod point). Each player sees their own adjusted prices via `game:trade_state`.
+- **Buying** — `game:buy_item` deducts coins and adds the item to the player's inventory. Merchant stock decreases.
+- **Selling** — `game:sell_item` removes the item from inventory and adds coins. Merchants have a coin pool that limits buybacks.
+- **Ending trade** — `game:end_trade` marks that player as done. When all participants are done, the trade lock is released and normal actions resume. Trading blocks all other player actions (`isTradeLocked`).
+- **Merchant persistence** — merchant state (inventory, coins, location) is saved in campaign data and survives restarts.
 
 ## Campaign Themes
 
@@ -272,6 +291,8 @@ frontend/src/
 │   │   ├── AttributeAllocationModal.tsx
 │   │   ├── CharacterListModal.tsx
 │   │   └── OptionsModal.tsx
+│   ├── Trade/
+│   │   └── TradeModal.tsx
 │   ├── Layout/
 │   │   ├── Header.tsx
 │   │   └── Toast.tsx

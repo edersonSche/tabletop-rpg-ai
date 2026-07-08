@@ -11,9 +11,9 @@ import {
 import { Server, Socket } from 'socket.io';
 import { Inject } from '@nestjs/common';
 import { GameService } from './game.service';
-import { GameState } from './game.state';
+import { GameState, GameStateData } from './game.state';
 import { TurnManager } from './turn.manager';
-import { GameActionDto, UseItemDto } from '../dto/game-action.dto';
+import { GameActionDto, UseItemDto, InitiateTradeDto, BuyItemDto, SellItemDto, EndTradeDto } from '../dto/game-action.dto';
 import { AIProvider } from '../ai/ai.interface';
 import { AuthService } from '../auth/auth.service';
 import { AuthWsGuard } from '../auth/auth.guard';
@@ -55,6 +55,18 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
     const room = this.gameState.getRoom(roomId);
     if (room) {
+      if (room.isTradeLocked) {
+        room.tradeParticipants = room.tradeParticipants.filter(id => id !== playerId);
+        room.tradeDone = room.tradeDone.filter(id => id !== playerId);
+
+        if (room.tradeParticipants.length === 0 || room.tradeDone.length >= room.tradeParticipants.length) {
+          room.isTradeLocked = false;
+          room.tradeParticipants = [];
+          room.tradeDone = [];
+          this.server.to(roomId).emit('game:trade_state', { locked: false });
+        }
+      }
+
       this.server.to(roomId).emit('game:state', this.gameService.getState(roomId));
       this.server.to(roomId).emit('game:message', {
         type: 'system',
@@ -462,4 +474,241 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       history: room.history,
     };
   }
+
+  @SubscribeMessage('game:initiate_trade')
+  async handleInitiateTrade(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: InitiateTradeDto,
+  ) {
+    const room = this.gameState.getRoom(data.roomId);
+
+    if (room && room.merchants && room.merchants.length > 0 && room.merchantsLocation == room.currentLocation) {
+      this.emitTradeState(room, data.roomId);
+      this.campaignStore.saveFromMemory(data.roomId);
+      return { success: true };
+    }
+
+    if (!room || isUnknownLocation(room.currentLocation)) {
+      client.emit('game:message', {
+        type: 'system',
+        content: "You don't know where you are. There are no merchants here.",
+      });
+      return { success: true };
+    }
+
+    this.server.to(data.roomId).emit('game:processing', { processing: true });
+    try {
+      const response = await this.gameService.initiateTrade(data.roomId, data.playerId);
+      const updatedRoom = this.gameState.getRoom(data.roomId);
+
+      if (response.narration) {
+        this.server.to(data.roomId).emit('game:narration', {
+          narration: response.narration,
+          next: response.next,
+          state: this.gameService.getState(data.roomId),
+        });
+      }
+
+      if (updatedRoom && updatedRoom.merchants && updatedRoom.merchants.length > 0) {
+        this.emitTradeState(updatedRoom, data.roomId);
+      } else {
+        client.emit('game:message', {
+          type: 'system',
+          content: 'No merchants available at this location.',
+        });
+      }
+
+      this.campaignStore.saveFromMemory(data.roomId);
+      return { success: true };
+    } catch (error) {
+      client.emit('game:error', { message: error.message });
+      return { success: false, error: error.message };
+    } finally {
+      this.server.to(data.roomId).emit('game:processing', { processing: false });
+    }
+  }
+
+  private emitTradeState(room: GameStateData, roomId: string): void {
+    room.isTradeLocked = true;
+    room.tradeParticipants = room.players.filter(p => p.active).map(p => p.id);
+    room.tradeDone = [];
+
+    const roomSockets = this.authService.getSocketsByRoomId(roomId);
+    for (const sid of roomSockets) {
+      const conn = this.authService.getPlayerBySocket(sid);
+      if (!conn) continue;
+      const player = room.players.find(p => p.id === conn.playerId);
+      if (!player) continue;
+
+      const chaMod = Math.floor((player.attributes.charisma - 10) / 2);
+      const adjustedMerchants = this.gameState.adjustMerchantPrices(room.merchants!, chaMod);
+
+      this.server.to(sid).emit('game:trade_state', {
+        locked: true,
+        merchants: adjustedMerchants,
+        tradeParticipants: room.tradeParticipants,
+        tradeDone: room.tradeDone,
+      });
+    }
+  }
+
+  @SubscribeMessage('game:buy_item')
+  async handleBuyItem(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: BuyItemDto,
+  ) {
+    try {
+      const result = this.gameState.buyFromMerchant(
+        data.roomId, data.playerId, data.merchantId,
+        data.merchantItemId, data.quantity || 1,
+      );
+
+      if (!result.success) {
+        client.emit('game:error', { message: result.error });
+        return { success: false, error: result.error };
+      }
+
+      const room = this.gameState.getRoom(data.roomId);
+      if (room && room.merchants) {
+        const roomSockets = this.authService.getSocketsByRoomId(data.roomId);
+        for (const sid of roomSockets) {
+          const conn = this.authService.getPlayerBySocket(sid);
+          if (!conn) continue;
+          const player = room.players.find(p => p.id === conn.playerId);
+          if (!player) continue;
+
+          const chaMod = Math.floor((player.attributes.charisma - 10) / 2);
+          const adjustedMerchants = this.gameState.adjustMerchantPrices(room.merchants, chaMod);
+
+          this.server.to(sid).emit('game:trade_state', {
+            locked: true,
+            merchants: adjustedMerchants,
+            tradeParticipants: room.tradeParticipants,
+            tradeDone: room.tradeDone,
+          });
+        }
+
+        this.server.to(data.roomId).emit('game:state', this.gameService.getState(data.roomId));
+      }
+
+      this.campaignStore.saveFromMemory(data.roomId);
+      return { success: true };
+    } catch (error) {
+      client.emit('game:error', { message: error.message });
+      return { success: false, error: error.message };
+    }
+  }
+
+  @SubscribeMessage('game:sell_item')
+  async handleSellItem(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: SellItemDto,
+  ) {
+    try {
+      const result = this.gameState.sellToMerchant(
+        data.roomId, data.playerId, data.merchantId,
+        data.itemId, data.quantity || 1,
+      );
+
+      if (!result.success) {
+        client.emit('game:error', { message: result.error });
+        return { success: false, error: result.error };
+      }
+
+      const room = this.gameState.getRoom(data.roomId);
+      if (room && room.merchants) {
+        const roomSockets = this.authService.getSocketsByRoomId(data.roomId);
+        for (const sid of roomSockets) {
+          const conn = this.authService.getPlayerBySocket(sid);
+          if (!conn) continue;
+          const player = room.players.find(p => p.id === conn.playerId);
+          if (!player) continue;
+
+          const chaMod = Math.floor((player.attributes.charisma - 10) / 2);
+          const adjustedMerchants = this.gameState.adjustMerchantPrices(room.merchants, chaMod);
+
+          this.server.to(sid).emit('game:trade_state', {
+            locked: true,
+            merchants: adjustedMerchants,
+            tradeParticipants: room.tradeParticipants,
+            tradeDone: room.tradeDone,
+          });
+        }
+
+        this.server.to(data.roomId).emit('game:state', this.gameService.getState(data.roomId));
+      }
+
+      this.campaignStore.saveFromMemory(data.roomId);
+      return { success: true };
+    } catch (error) {
+      client.emit('game:error', { message: error.message });
+      return { success: false, error: error.message };
+    }
+  }
+
+  @SubscribeMessage('game:end_trade')
+  async handleEndTrade(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: EndTradeDto,
+  ) {
+    try {
+      const room = this.gameState.getRoom(data.roomId);
+      if (!room) return { success: false, error: 'Room not found' };
+
+      if (!room.tradeDone.includes(data.playerId)) {
+        room.tradeDone.push(data.playerId);
+      }
+
+      const allDone = room.tradeParticipants.length > 0 &&
+        room.tradeDone.length >= room.tradeParticipants.length;
+
+      if (allDone) {
+        room.isTradeLocked = false;
+        room.tradeParticipants = [];
+        room.tradeDone = [];
+
+        this.server.to(data.roomId).emit('game:trade_state', { locked: false });
+
+        if (room.merchants) {
+          this.server.to(data.roomId).emit('game:narration', {
+            narration: 'The party finishes their business with the local merchants.',
+            next: { type: 'group_action' },
+            state: this.gameService.getState(data.roomId),
+          });
+        }
+      } else {
+        const roomSockets = this.authService.getSocketsByRoomId(data.roomId);
+        for (const sid of roomSockets) {
+          const conn = this.authService.getPlayerBySocket(sid);
+          if (!conn) continue;
+          const player = room.players.find(p => p.id === conn.playerId);
+          if (!player) continue;
+
+          const chaMod = Math.floor((player.attributes.charisma - 10) / 2);
+          const adjustedMerchants = room.merchants
+            ? this.gameState.adjustMerchantPrices(room.merchants, chaMod)
+            : [];
+
+          this.server.to(sid).emit('game:trade_state', {
+            locked: true,
+            merchants: adjustedMerchants,
+            tradeParticipants: room.tradeParticipants,
+            tradeDone: room.tradeDone,
+          });
+        }
+      }
+
+      this.campaignStore.saveFromMemory(data.roomId);
+      return { success: true };
+    } catch (error) {
+      client.emit('game:error', { message: error.message });
+      return { success: false, error: error.message };
+    }
+  }
+}
+
+function isUnknownLocation(location: string | null | undefined): boolean {
+  if (!location) return true;
+  const normalized = location.toLowerCase().trim();
+  return normalized === 'unknown location' || normalized === 'local desconhecido';
 }

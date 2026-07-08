@@ -36,3 +36,29 @@ export class UseItemDto {
   playerId: string;
   itemId: string;
 }
+
+export class InitiateTradeDto {
+  roomId: string;
+  playerId: string;
+}
+
+export class BuyItemDto {
+  roomId: string;
+  playerId: string;
+  merchantId: string;
+  merchantItemId: string;
+  quantity?: number;
+}
+
+export class SellItemDto {
+  roomId: string;
+  playerId: string;
+  merchantId: string;
+  itemId: string;
+  quantity?: number;
+}
+
+export class EndTradeDto {
+  roomId: string;
+  playerId: string;
+}

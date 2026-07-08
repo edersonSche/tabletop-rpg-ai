@@ -1,8 +1,9 @@
 import { Injectable } from '@nestjs/common';
-import { GameState, Player } from './game.state';
+import { v4 as uuid } from 'uuid';
+import { GameState, Player, Merchant, MerchantItem } from './game.state';
 import { TurnManager } from './turn.manager';
 import { AiService } from '../ai/ai.service';
-import { AIResponse } from '../dto/ai-response.dto';
+import { AIResponse, MerchantSeed } from '../dto/ai-response.dto';
 
 const MAX_NARRATION_DEPTH = 5;
 const SUMMARY_THRESHOLD = 50;
@@ -179,6 +180,97 @@ export class GameService {
     }
   }
 
+  async initiateTrade(roomId: string, playerId: string): Promise<AIResponse> {
+    const room = this.gameState.getRoom(roomId);
+    if (!room) throw new Error('Room not found');
+
+    const player = room.players.find(p => p.id === playerId);
+    if (!player) throw new Error('Player not found');
+
+    if (room.merchants && room.merchantsLocation == room.currentLocation) {
+      return {
+        narration: '',
+        next: { type: 'group_action' },
+      };
+    }
+
+    if (!room.currentLocation || this.isUnknownLocation(room.currentLocation)) {
+      return {
+        narration: '',
+        next: { type: 'group_action' },
+      };
+    }
+
+    this.turnManager.lock(roomId);
+
+    try {
+      const response = await this.aiService.generate({
+        roomId,
+        campaignName: room.campaignName,
+        campaignTheme: room.campaignTheme,
+        language: room.language,
+        players: room.players,
+        scene: room.scene,
+        currentLocation: room.currentLocation,
+        history: room.history,
+        summary: room.summary || undefined,
+        currentAction: {
+          playerId,
+          characterName: player.name,
+          action: 'initiate_trade',
+        },
+      });
+
+      if (response.merchants && response.merchants.length > 0) {
+        const merchants = response.merchants.map((seed: MerchantSeed) => this.seedToMerchant(seed));
+        room.merchants = merchants;
+        room.merchantsLocation = room.currentLocation ?? undefined;
+      }
+
+      if (response.narration) {
+        room.scene = this.buildSceneContext(response, room.currentLocation);
+        this.gameState.addHistory(roomId, {
+          role: 'assistant',
+          content: response.narration,
+        });
+      }
+
+      return response;
+    } finally {
+      this.turnManager.unlock(roomId);
+    }
+  }
+
+  private seedToMerchant(seed: MerchantSeed): Merchant {
+    return {
+      id: uuid(),
+      name: seed.name,
+      type: seed.type || 'general_goods',
+      greeting: seed.greeting || '',
+      coins: seed.coins || 50,
+      inventory: (seed.items || []).map(item => ({
+        id: uuid(),
+        name: item.name,
+        description: item.description || '',
+        type: item.type as MerchantItem['type'],
+        slot: item.slot as MerchantItem['slot'],
+        modifiers: item.modifiers ? item.modifiers.map(m => ({
+          stat: m.stat as any,
+          value: m.value,
+          operation: m.operation as 'add' | 'override',
+          dexCap: m.dexCap,
+        })) : undefined,
+        effects: item.effects ? item.effects.map(e => ({
+          type: e.type as 'heal_hp',
+          formula: e.formula,
+        })) : undefined,
+        buyPrice: item.baseBuyPrice,
+        sellPrice: item.baseSellPrice,
+        quantity: item.quantity,
+      })),
+    };
+  }
+
   private processAiResponse(roomId: string, response: AIResponse): void {
     const room = this.gameState.getRoom(roomId);
     if (!room) return;
@@ -187,6 +279,8 @@ export class GameService {
 
     if (response.location) {
       room.currentLocation = response.location;
+      room.merchants = undefined;
+      room.merchantsLocation = undefined;
     }
 
     this.turnManager.processTurn(roomId, room, response);
@@ -309,5 +403,11 @@ export class GameService {
     allocations: Partial<Record<keyof Player['attributes'], number>>,
   ) {
     return this.gameState.allocateAttributes(roomId, playerId, allocations);
+  }
+
+  private isUnknownLocation(location: string | null | undefined): boolean {
+    if (!location) return true;
+    const normalized = location.toLowerCase().trim();
+    return normalized === 'unknown location' || normalized === 'local desconhecido';
   }
 }
