@@ -243,7 +243,7 @@ export class OpencodeProvider implements AIProvider {
       lines.push('- baseBuyPrice: what the merchant charges TO SELL (higher price)');
       lines.push('- baseSellPrice: what the merchant pays TO BUY (lower, roughly 40-60% of baseBuyPrice)');
       lines.push('- quantity: stock amount');
-      lines.push('- effects: optional array of { type, duration?, stat?, value?, operation?, dexCap?, hpFormula?, hpType? }');
+      lines.push('- effects: optional array of { type, duration?, stat?, statValue?, statOperation?, dexCap?, hpFormula?, hpType? }');
       lines.push('');
       lines.push('IMPORTANT: Return ONLY the "merchants" field in your JSON. Do NOT include a "narration" or any other field.');
       lines.push('If no merchant would be at this location, return an empty merchants array.');

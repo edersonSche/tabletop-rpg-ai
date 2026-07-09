@@ -38,10 +38,10 @@ Actions: `LOGGED_IN`, `LOGGED_OUT`, `CREATED_ROOM`, `JOIN_NEEDS_CHARACTER`, `CHA
 
 **Backend** — all under `backend/src/`:
 - `auth/` — `AuthGateway` (auth:login, disconnect), `AuthService` (userId↔socketId + playerId↔socketId), `AuthWsGuard`
-- `game/` — `GameGateway` (action/roll/start/typing/get_state/room:join/allocate_attributes/equip/unequip/use_item/use_antidote/initiate_trade/buy_item/sell_item/end_trade, emits `game:condition_tick`), `GameService` (turn orchestration, AI target validation, `buildSceneContext()`, `maybeSummarize()` history summarization, `initiateTrade()` AI-driven merchant generation, `useAntidote()` condition cure, calls `tickEffects()` at end of `processAiResponse`), `GameState` (in-memory Map with HP/XP/level engine, XP thresholds, ASI levels, `activeConditions`, `Effect` engine for stat modifiers/hp changes, condition lifecycle: `applyConditionToPlayer`/`removeConditionFromPlayer`/`tickEffects`, `recomputePlayer` for AC recalculation from equipment+conditions, inventory/coins/equipment system, merchant/trade state; `useItem` handles immediate/temporary/permanent effects; `equipItem` auto-unequips existing slot items and calls `recomputePlayer`), `TurnManager` (lock-per-room, stores `turnSkill`/`turnDc`, blocks actions during active trade)
+- `game/` — `GameGateway` (action/roll/start/typing/get_state/room:join/allocate_attributes/equip/unequip/use_item/use_antidote/initiate_trade/buy_item/sell_item/end_trade, emits `game:condition_tick`), `GameService` (turn orchestration, AI target validation, `processConditions()`/`seedToEffect()` for AI-generated narrative conditions, `buildSceneContext()` with active conditions, `maybeSummarize()` history summarization, `initiateTrade()` AI-driven merchant generation, `useAntidote()` condition cure, calls `tickEffects()` at end of `processAiResponse`), `GameState` (in-memory Map with HP/XP/level engine, XP thresholds, ASI levels, `activeConditions`, `Effect` engine for stat modifiers/hp changes, condition lifecycle: `applyConditionToPlayer`/`removeConditionFromPlayer`/`tickEffects`, `recomputePlayer` for AC recalculation from equipment+conditions, inventory/coins/equipment system, merchant/trade state; `useItem` handles immediate/temporary/permanent effects; `equipItem` auto-unequips existing slot items and calls `recomputePlayer`), `TurnManager` (lock-per-room, stores `turnSkill`/`turnDc`, blocks actions during active trade)
 - `room/` — `RoomGateway` (lobby:create/join/list/list_saved/resume/delete_saved/create_character, room:leave), `RoomService` (in-memory room registry, IDs = first 8 UUID chars, tracks `creatorId`)
 - `campaign/` — `CampaignStore` (persist/restore to `data/campaigns.json`, 1s debounced write; stores HP/XP/level/summary/campaignTheme/inventory/coins/equipment/merchants/trade state)
-- `dto/` — `ai-response.dto.ts` (incl. `MerchantSeed`/`MerchantSeedItem`/`ConditionSeed`), `game-action.dto.ts` (incl. `InitiateTradeDto`, `BuyItemDto`, `SellItemDto`, `EndTradeDto`, `UseAntidoteDto`)
+- `dto/` — `ai-response.dto.ts` (incl. `MerchantSeed`/`MerchantSeedItem`/`ConditionSeed`/`ConditionEffectSeed` with unified `statValue`/`statOperation`), `game-action.dto.ts` (incl. `InitiateTradeDto`, `BuyItemDto`, `SellItemDto`, `EndTradeDto`, `UseAntidoteDto`)
 - `ai/` — Provider pattern: `AiService` → `OpencodeProvider` (raw HTTP with per-room sessions). `summarizeHistory()` for long-term memory. Empty `AI_API_KEY` → fallback narration. `onRoomReady()`/`onRoomEmpty()` lifecycle for session create/delete
 
 **Frontend** — under `frontend/src/`:
@@ -62,7 +62,7 @@ Actions: `LOGGED_IN`, `LOGGED_OUT`, `CREATED_ROOM`, `JOIN_NEEDS_CHARACTER`, `CHA
 
 Repo `.env` defaults: `AI_PROVIDER=opencode`, `AI_API_KEY=none`, `AI_BASE_URL=http://localhost:4096`. Config loaded in `app.module.ts:27-30` via `ConfigModule.forRoot()`.
 
-Opencode provider uses inline JSON prompt + regex extraction. Invalid `call_player`/`call_roll` targets get coerced to `group_action` by `GameService.validateAiResponseTarget()`.
+Opencode provider uses inline JSON prompt + regex extraction. Invalid `call_player`/`call_roll` targets get coerced to `group_action` by `GameService.validateAiResponseTarget()` (also warns on invalid `conditions[].targetPlayerId`).
 
 System prompt (`system.prompt.ts`) documents: Markdown narration, two-tier memory (history + summary), player levels, location/target rules, and out-of-game question handling.
 
@@ -76,7 +76,7 @@ System prompt (`system.prompt.ts`) documents: Markdown narration, two-tier memor
 - **Campaign theme** — `campaignTheme` (free-form setting description) is a per-room param set at creation, persisted in saved campaigns, and injected into the system prompt.
 - **Player model**: `id`, `userId`, `name`, `active` bool, 6 attributes, HP/XP/level, `activeConditions`, inventory (items with `effects: Effect[]`), coins, and equipment (body/mainHand/offHand slots).
 - **History stores only narration text** (no JSON overhead) — saves tokens vs. storing full `AIResponse`.
-- **Scene context** (`buildSceneContext()`) built from complete sentences + location + next-action. Stored as `room.scene`, sent to AI every turn.
+- **Scene context** (`buildSceneContext()`) built from complete sentences + location + next-action + active conditions. Stored as `room.scene`, sent to AI every turn.
 - **Cold restore** (`lobby:resume` when room not in memory) forces `gameStarted = false` — creator lands in waiting room and must click START. Warm restore (room in memory) preserves actual `gameStarted`.
 - **Never use emoji/unicode characters to represent icons** — always use pixelarticons React components (`pixelarticons/react`) instead of characters like ▶, ✓, ✕, ⏳, etc.
 - **HP/XP/Leveling** — Player model includes `hp`, `maxHp`, `level` (1-20), `xp`, `maxXp`, `pendingAttributePoints`. HP = `10 + CON mod`. XP thresholds from D&D 5e SRD. ASI levels (4/8/12/16/19) grant +2 attribute points. Backend engine is complete; XP gain is not yet triggered by game actions (no server-side `game:level_up` emit).

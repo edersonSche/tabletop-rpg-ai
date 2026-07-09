@@ -151,7 +151,7 @@ The backend uses a **provider pattern**:
 - **`OpencodeProvider`** — raw HTTP fetch to a local Opencode session; manages sessions per room.
 - **Fallback** — if `AI_API_KEY` is empty, `AiService.generate()` returns a static narration without calling any provider.
 
-The system prompt supports **English**, **Portuguese (Brazil)**, and **Spanish** narration. The AI responds in strict JSON with `narration`, mandatory `location`, optional `merchants` (array of merchants with items/prices), and `next` (with `type`, `target`, `skill`, `dc`). Narration supports **Markdown** formatting rendered via `react-markdown`.
+The system prompt supports **English**, **Portuguese (Brazil)**, and **Spanish** narration. The AI responds in strict JSON with `narration`, mandatory `location`, optional `conditions` (narrative conditions with effects on players), optional `merchants` (array of merchants with items/prices using unified `statValue`/`statOperation`), and `next` (with `type`, `target`, `skill`, `dc`). Narration supports **Markdown** formatting rendered via `react-markdown`.
 
 The AI has a **two-tier memory system**: a running history of narration text (for immediate context) and a periodic **summarization** that condenses old entries into a persistent summary every 50 actions — saving tokens vs. storing full history.
 
@@ -244,7 +244,7 @@ backend/src/
 │   ├── ai.interface.ts      # AIConfig / AIProvider interface (includes summarize)
 │   ├── ai.service.ts        # Provider dispatcher + response validation + summarizeHistory()
 │   ├── prompts/
-│   │   └── system.prompt.ts # Multilingual system prompt builder (memory, markdown, levels)
+│   │   └── system.prompt.ts # Multilingual system prompt builder (memory, markdown, levels, conditions, merchants with effects)
 │   └── providers/
 │       └── opencode.provider.ts  # Per-room sessions, summarization, error recovery
 ├── campaign/
@@ -258,7 +258,7 @@ backend/src/
 ├── room/
 │   ├── room.gateway.ts      # Lobby WebSocket handlers
 │   └── room.service.ts      # In-memory Room registry
-└── dto/                     # Data transfer objects
+└── dto/                     # Data transfer objects (unified ConditionEffectSeed/MerchantSeedItem effects with statValue/statOperation)
 
 frontend/src/
 ├── main.tsx                 # React entry point

@@ -1,5 +1,16 @@
 export type TurnType = 'group_action' | 'call_player' | 'call_roll' | 'narration_only';
 
+export interface ConditionEffectSeed {
+  type: 'immediate' | 'temporary' | 'permanent';
+  duration?: number;
+  stat?: string;
+  statValue?: number;
+  statOperation?: 'add' | 'override';
+  dexCap?: number;
+  hpFormula?: string;
+  hpType?: 'heal' | 'damage';
+}
+
 export interface MerchantSeedItem {
   name: string;
   description: string;
@@ -8,32 +19,15 @@ export interface MerchantSeedItem {
   baseBuyPrice: number;
   baseSellPrice: number;
   quantity: number;
-  effects?: Array<{
-    type: 'immediate' | 'temporary' | 'permanent';
-    duration?: number;
-    stat?: string;
-    value?: number;
-    operation?: string;
-    dexCap?: number;
-    hpFormula?: string;
-    hpType?: 'heal' | 'damage';
-  }>;
+  effects?: ConditionEffectSeed[];
   antidoteFor?: string;
 }
 
 export interface ConditionSeed {
+  targetPlayerId: string;
   name: string;
   description: string;
-  effects?: Array<{
-    type: 'immediate' | 'temporary' | 'permanent';
-    duration?: number;
-    stat?: string;
-    value?: number;
-    operation?: string;
-    dexCap?: number;
-    hpFormula?: string;
-    hpType?: 'heal' | 'damage';
-  }>;
+  effects: ConditionEffectSeed[];
 }
 
 export interface MerchantSeed {
@@ -48,6 +42,7 @@ export interface AIResponse {
   narration: string;
   location?: string;
   merchants?: MerchantSeed[];
+  conditions?: ConditionSeed[];
   next: {
     type: TurnType;
     target?: string;
