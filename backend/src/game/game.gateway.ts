@@ -390,11 +390,6 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
         return { success: false, error: result.error };
       }
 
-      const player = this.gameState.getRoom(data.roomId)?.players.find(p => p.id === data.playerId);
-      if (player) {
-        player.ac = this.gameState.computeAc(data.roomId, data.playerId);
-      }
-
       const room = this.gameState.getRoom(data.roomId);
       if (room) {
         this.server.to(data.roomId).emit('game:state', {
@@ -422,11 +417,6 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       if (!result.success) {
         client.emit('game:error', { message: result.error });
         return { success: false, error: result.error };
-      }
-
-      const player = this.gameState.getRoom(data.roomId)?.players.find(p => p.id === data.playerId);
-      if (player) {
-        player.ac = this.gameState.computeAc(data.roomId, data.playerId);
       }
 
       const room = this.gameState.getRoom(data.roomId);
@@ -473,18 +463,22 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
         return { success: false, error: result.error };
       }
 
-      const msg = result.healed && result.healed > 0
-        ? `Used ${itemName} and healed ${result.healed} HP!`
-        : `Used ${itemName}.`;
+      const parts: string[] = [`Used ${itemName}.`];
+      if (result.hpChange > 0) {
+        parts.push(`Healed ${result.hpChange} HP!`);
+      } else if (result.hpChange < 0) {
+        parts.push(`Took ${Math.abs(result.hpChange)} damage.`);
+      }
+      for (const ac of result.appliedConditions) {
+        parts.push(`Applied ${ac.name} (${ac.duration} turn${ac.duration !== 1 ? 's' : ''}).`);
+      }
 
       this.server.to(data.roomId).emit('game:player_action', {
         type: 'action',
         playerId: data.playerId,
         characterName: player.name,
-        message: msg,
+        message: parts.join(' '),
       });
-
-      player.ac = this.gameState.computeAc(data.roomId, data.playerId);
 
       const currentRoom = this.gameState.getRoom(data.roomId);
       if (currentRoom) {

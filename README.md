@@ -117,6 +117,7 @@ cd frontend && npm run preview     # vite preview
 | `game:allocate_attributes` | `GameGateway` | `{ roomId, playerId, allocations }` |
 | `game:equip` | `GameGateway` | `{ roomId, playerId, itemId, slot }` |
 | `game:unequip` | `GameGateway` | `{ roomId, playerId, slot }` |
+| `game:use_item` | `GameGateway` | `{ roomId, playerId, itemId }` |
 | `game:initiate_trade` | `GameGateway` | `{ roomId, playerId }` |
 | `game:buy_item` | `GameGateway` | `{ roomId, playerId, merchantId, merchantItemId, quantity? }` |
 | `game:sell_item` | `GameGateway` | `{ roomId, playerId, merchantId, itemId, quantity? }` |
@@ -187,7 +188,7 @@ Items have **types** (`weapon`, `armor`, `potion`, `scroll`, `key_item`, `misc`)
 | `mainHand` | Items with `hand` or `two-handed` slot |
 | `offHand` | Items with `hand` slot |
 
-Two-handed weapons block the off-hand slot when equipped. Equipment is managed via `game:equip` / `game:unequip` events and is persisted in saved campaigns.
+Two-handed weapons block the off-hand slot when equipped. `game:equip` auto-unequips any existing item in the target slot and recalculates AC/effects via `recomputePlayer()`. `game:unequip` also triggers recalculation. `game:use_item` handles all effect types — `immediate` (heal/damage via `applyHpChange`), `temporary` (synthetic `Condition` via `applyConditionToPlayer`), and `permanent` (fallback as temporary with duration 1). Equipment and items are persisted in saved campaigns.
 
 ## Trading
 

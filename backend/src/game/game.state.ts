@@ -138,6 +138,13 @@ export interface TickResult {
   }>;
 }
 
+export interface UseItemResult {
+  success: boolean;
+  error?: string;
+  hpChange: number;
+  appliedConditions: Array<{ name: string; duration: number }>;
+}
+
 export interface ServiceActionResult {
   response: { narration: string; location?: string; merchants?: any[]; next: { type: string; target?: string; skill?: string; dc?: number } };
   tickResults: TickResult[];
@@ -449,6 +456,11 @@ export class GameState {
     if (slot === 'mainHand' && item.slot !== 'hand' && item.slot !== 'two-handed') return { success: false, error: 'This item cannot be held in the main hand' };
     if (slot === 'offHand' && item.slot !== 'hand') return { success: false, error: 'This item cannot be held in the off hand' };
 
+    const currentItemId = player.equipment[slot];
+    if (currentItemId && currentItemId !== itemId) {
+      this.unequipItem(roomId, playerId, slot);
+    }
+
     if (item.slot === 'two-handed' && slot === 'mainHand') {
       player.equipment.offHand = undefined;
     }
@@ -462,6 +474,7 @@ export class GameState {
     else if (slot === 'mainHand') player.equipment.mainHand = itemId;
     else if (slot === 'offHand') player.equipment.offHand = itemId;
 
+    this.recomputePlayer(player);
     return { success: true };
   }
 
@@ -475,6 +488,7 @@ export class GameState {
     else if (slot === 'mainHand') player.equipment.mainHand = undefined;
     else if (slot === 'offHand') player.equipment.offHand = undefined;
 
+    this.recomputePlayer(player);
     return { success: true };
   }
 
@@ -819,26 +833,70 @@ export class GameState {
     return player.ac;
   }
 
-  useItem(roomId: string, playerId: string, itemId: string): { success: boolean; error?: string; healed?: number } {
+  useItem(roomId: string, playerId: string, itemId: string): UseItemResult {
     const room = this.rooms.get(roomId);
-    if (!room) return { success: false, error: 'Room not found' };
+    if (!room) return { success: false, error: 'Room not found', hpChange: 0, appliedConditions: [] };
     const player = room.players.find(p => p.id === playerId);
-    if (!player) return { success: false, error: 'Player not found' };
+    if (!player) return { success: false, error: 'Player not found', hpChange: 0, appliedConditions: [] };
 
     const itemIndex = player.inventory.findIndex(i => i.id === itemId);
-    if (itemIndex === -1) return { success: false, error: 'Item not found' };
+    if (itemIndex === -1) return { success: false, error: 'Item not found', hpChange: 0, appliedConditions: [] };
 
     const item = player.inventory[itemIndex];
-    if (!item.effects || item.effects.length === 0) return { success: false, error: 'This item has no effects' };
+    if (!item.effects || item.effects.length === 0) {
+      return { success: false, error: 'This item has no effects', hpChange: 0, appliedConditions: [] };
+    }
 
-    let healed = 0;
+    const result: UseItemResult = {
+      success: true,
+      hpChange: 0,
+      appliedConditions: [],
+    };
 
     for (const effect of item.effects) {
-      if (effect.type === 'immediate' && effect.hpChange?.type === 'heal') {
-        const amount = this.rollDiceFormula(effect.hpChange.formula);
-        const beforeHp = player.hp;
-        player.hp = Math.min(player.maxHp, player.hp + amount);
-        healed = player.hp - beforeHp;
+      switch (effect.type) {
+        case 'immediate': {
+          if (effect.hpChange) {
+            const amount = this.applyHpChange(player, effect.hpChange);
+            result.hpChange += amount;
+          }
+          break;
+        }
+
+        case 'temporary': {
+          const syntheticCondition: Condition = {
+            id: uuid(),
+            name: item.name,
+            description: `Effect from ${item.name}`,
+            effects: [effect],
+            origin: 'item',
+            originId: item.id,
+          };
+          this.applyConditionToPlayer(player, syntheticCondition, room);
+          result.appliedConditions.push({
+            name: syntheticCondition.name,
+            duration: effect.duration ?? 0,
+          });
+          break;
+        }
+
+        case 'permanent': {
+          const fallbackEffect = { ...effect, type: 'temporary' as const, duration: 1 };
+          const syntheticCondition: Condition = {
+            id: uuid(),
+            name: item.name,
+            description: `Effect from ${item.name}`,
+            effects: [fallbackEffect],
+            origin: 'item',
+            originId: item.id,
+          };
+          this.applyConditionToPlayer(player, syntheticCondition, room);
+          result.appliedConditions.push({
+            name: syntheticCondition.name,
+            duration: 1,
+          });
+          break;
+        }
       }
     }
 
@@ -848,7 +906,8 @@ export class GameState {
       item.quantity -= 1;
     }
 
-    return { success: true, healed };
+    this.recomputePlayer(player);
+    return result;
   }
 
   adjustMerchantPrices(merchants: Merchant[], chaMod: number): Merchant[] {
