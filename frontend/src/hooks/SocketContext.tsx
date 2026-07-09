@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback, useRef, useReducer, ReactNode } from 'react';
 import { io, Socket } from 'socket.io-client';
-import { GameState, TurnUpdate, Player, SavedCampaignInfo, CharacterKit, TradeState, ConditionTickPayload } from '../types/game.types';
+import { GameState, TurnUpdate, Player, SavedCampaignInfo, CharacterKit, TradeState, ConditionTickPayload, UseAntidoteResult } from '../types/game.types';
 import { Page, pageReducer } from '../routing/pageRouter';
 
 interface PlayerInfo {
@@ -55,6 +55,7 @@ interface SocketContextValue {
   endTrade: () => void;
   tradeState: TradeState | null;
   isTradeLocked: boolean;
+  emitUseAntidote: (itemId: string, targetConditionName?: string) => void;
   availableKits: CharacterKit[];
   fetchKits: (roomId: string) => Promise<CharacterKit[]>;
 }
@@ -270,6 +271,16 @@ export function SocketProvider({ children }: { children: ReactNode }) {
       }
       if (newMessages.length > 0) {
         setMessages(prev => [...prev, ...newMessages]);
+      }
+    });
+
+    s.on('game:antidote_result', (data: UseAntidoteResult) => {
+      if (data.success && data.conditionRemoved) {
+        setMessages(prev => [...prev, {
+          type: 'system',
+          content: `Antidote cured: ${data.conditionRemoved}`,
+          timestamp: Date.now(),
+        }]);
       }
     });
 
@@ -561,6 +572,16 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     });
   }, [player]);
 
+  const emitUseAntidote = useCallback((itemId: string, targetConditionName?: string) => {
+    if (!socketRef.current || !player.roomId || !player.playerId) return;
+    socketRef.current.emit('game:use_antidote', {
+      roomId: player.roomId,
+      playerId: player.playerId,
+      itemId,
+      targetConditionName,
+    });
+  }, [player]);
+
   const fetchKits = useCallback((roomId: string): Promise<CharacterKit[]> => {
     return new Promise((resolve) => {
       if (!socketRef.current) return resolve([]);
@@ -597,7 +618,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
         listSavedCampaigns, resumeCampaign, deleteSavedCampaign, leaveRoom, backToLobby,
         allocateAttributes, emitEquip, emitUnequip, emitUseItem,
         initiateTrade, buyItem, sellItem, endTrade,
-        tradeState, isTradeLocked,
+        tradeState, isTradeLocked, emitUseAntidote,
         availableKits, fetchKits,
       }}
     >

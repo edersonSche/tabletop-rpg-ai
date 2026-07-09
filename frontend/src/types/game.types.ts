@@ -227,6 +227,12 @@ export interface ConditionTickPayload {
   }>;
 }
 
+export interface UseAntidoteResult {
+  success: boolean;
+  error?: string;
+  conditionRemoved?: string;
+}
+
 export interface CharacterKit {
   id: string;
   name: string;

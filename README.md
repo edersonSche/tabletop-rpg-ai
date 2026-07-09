@@ -266,7 +266,7 @@ frontend/src/
 ├── App.tsx                  # Page router (state machine via useReducer)
 ├── index.css                # Tailwind + custom layers (pixel fonts, colors)
 ├── hooks/
-│   ├── SocketContext.tsx    # Socket.IO context provider + state (incl. emitEquip, emitUnequip)
+│   ├── SocketContext.tsx    # Socket.IO context provider + state (incl. emitEquip, emitUnequip, emitUseAntidote, game:condition_tick, game:antidote_result)
 │   ├── useSocket.ts         # Context re-export
 │   └── useGameTurn.ts       # Turn logic hook (isMyTurn, isRollRequest, etc.)
 ├── routing/
@@ -287,10 +287,10 @@ frontend/src/
 │   │   ├── TurnIndicator.tsx
 │   │   ├── PlayerList.tsx
 │   │   ├── PlayerCard.tsx
-│   │   ├── CharacterSheet.tsx   # Attributes + Inventory tabs, equip/unequip UI
+│   │   ├── CharacterSheet.tsx   # Attributes + Inventory tabs, equip/unequip UI, active conditions section with antidote button, EffectRow (exported)
 │   │   ├── TypingIndicator.tsx
 │   │   ├── CampaignStatusBar.tsx
-│   │   ├── MyCharacterStatus.tsx
+│   │   ├── MyCharacterStatus.tsx   # HP/XP bars + condition indicators with hover tooltip
 │   │   ├── PlayerCircles.tsx
 │   │   ├── AttributeAllocationModal.tsx
 │   │   ├── CharacterListModal.tsx
@@ -305,7 +305,7 @@ frontend/src/
 │       ├── RoomList.tsx
 │       └── SavedCampaigns.tsx
 └── types/
-    └── game.types.ts        # Shared TypeScript interfaces (Player incl. activeConditions, Effect, inventory/coins/equipment)
+    └── game.types.ts        # Shared TypeScript interfaces (Player incl. activeConditions, Effect, inventory/coins/equipment, UseAntidoteResult, ConditionTickPayload)
 ```
 
 ## Limitations
