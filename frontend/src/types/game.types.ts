@@ -68,6 +68,7 @@ export interface InventoryItem {
   quantity: number;
   slot?: 'body' | 'hand' | 'two-handed';
   effects: Effect[];
+  antidoteFor?: string;
 }
 
 export interface Player {
@@ -155,6 +156,7 @@ export interface MerchantItem {
   sellPrice: number;
   quantity: number;
   effects: Effect[];
+  antidoteFor?: string;
 }
 
 export interface Merchant {

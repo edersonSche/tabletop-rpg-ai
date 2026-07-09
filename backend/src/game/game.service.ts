@@ -270,6 +270,7 @@ export class GameService {
         buyPrice: item.baseBuyPrice,
         sellPrice: item.baseSellPrice,
         quantity: item.quantity,
+        antidoteFor: item.antidoteFor,
       })),
     };
   }

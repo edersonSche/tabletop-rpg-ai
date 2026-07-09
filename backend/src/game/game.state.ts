@@ -72,6 +72,7 @@ export interface InventoryItem {
   quantity: number;
   slot?: 'body' | 'hand' | 'two-handed';
   effects: Effect[];
+  antidoteFor?: string;
 }
 
 export interface MerchantItem {
@@ -84,6 +85,7 @@ export interface MerchantItem {
   buyPrice: number;
   sellPrice: number;
   quantity: number;
+  antidoteFor?: string;
 }
 
 export interface Merchant {
@@ -143,6 +145,12 @@ export interface UseItemResult {
   error?: string;
   hpChange: number;
   appliedConditions: Array<{ name: string; duration: number }>;
+}
+
+export interface UseAntidoteResult {
+  success: boolean;
+  error?: string;
+  conditionRemoved?: string;
 }
 
 export interface ServiceActionResult {
@@ -908,6 +916,23 @@ export class GameState {
 
     this.recomputePlayer(player);
     return result;
+  }
+
+  useAntidote(player: Player, antidoteItem: InventoryItem, targetConditionName?: string): UseAntidoteResult {
+    const targetName = targetConditionName || antidoteItem.antidoteFor;
+    if (!targetName) {
+      return { success: false, error: 'This item is not an antidote' };
+    }
+
+    const activeCondition = player.activeConditions.find(
+      ac => ac.condition.name === targetName && !ac.isSuppressed
+    );
+    if (!activeCondition) {
+      return { success: false, error: `No active condition named "${targetName}" found` };
+    }
+
+    this.removeConditionFromPlayer(player, activeCondition.id);
+    return { success: true, conditionRemoved: targetName };
   }
 
   adjustMerchantPrices(merchants: Merchant[], chaMod: number): Merchant[] {

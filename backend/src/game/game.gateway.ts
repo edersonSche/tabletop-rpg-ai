@@ -13,7 +13,7 @@ import { Inject } from '@nestjs/common';
 import { GameService } from './game.service';
 import { GameState, GameStateData } from './game.state';
 import { TurnManager } from './turn.manager';
-import { GameActionDto, UseItemDto, InitiateTradeDto, BuyItemDto, SellItemDto, EndTradeDto } from '../dto/game-action.dto';
+import { GameActionDto, UseItemDto, InitiateTradeDto, BuyItemDto, SellItemDto, EndTradeDto, UseAntidoteDto } from '../dto/game-action.dto';
 import { AIProvider } from '../ai/ai.interface';
 import { AuthService } from '../auth/auth.service';
 import { AuthWsGuard } from '../auth/auth.guard';
@@ -494,6 +494,59 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     } catch (error) {
       client.emit('game:error', { message: error.message });
       return { success: false, error: error.message };
+    }
+  }
+
+  @SubscribeMessage('game:use_antidote')
+  async handleUseAntidote(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: UseAntidoteDto,
+  ) {
+    try {
+      const player = this.gameState.findPlayerByUserId(data.roomId, client.data.userId);
+      if (!player) {
+        client.emit('game:error', { message: 'Player not found' });
+        return { success: false, error: 'Player not found' };
+      }
+
+      const item = player.inventory.find(i => i.id === data.itemId);
+      if (!item) {
+        client.emit('game:error', { message: 'Item not found in inventory' });
+        return { success: false, error: 'Item not found' };
+      }
+
+      const itemName = item.name;
+      const result = this.gameState.useAntidote(player, item, data.targetConditionName);
+
+      if (result.success) {
+        this.gameState.removeItem(data.roomId, player.id, data.itemId);
+
+        const room = this.gameState.getRoom(data.roomId);
+        if (room) {
+          this.server.to(data.roomId).emit('game:state', {
+            ...this.gameService.getState(data.roomId),
+            creatorId: room.creatorId,
+            history: room.history,
+          });
+        }
+
+        client.emit('game:antidote_result', result);
+        this.server.to(data.roomId).emit('game:player_action', {
+          type: 'action',
+          playerId: player.id,
+          characterName: player.name,
+          message: `used ${itemName}`,
+        });
+
+        this.campaignStore.saveFromMemory(data.roomId);
+      } else {
+        client.emit('game:error', { message: result.error });
+      }
+
+      return { success: result.success };
+    } catch (err) {
+      client.emit('game:error', { message: err.message });
+      return { success: false, error: err.message };
     }
   }
 

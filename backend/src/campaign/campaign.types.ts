@@ -82,6 +82,7 @@ export interface SavedMerchantItem {
     origin: string;
     originId?: string;
   }>;
+  antidoteFor?: string;
 }
 
 export interface SavedMerchant {

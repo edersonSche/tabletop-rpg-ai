@@ -67,5 +67,5 @@ export class UseAntidoteDto {
   roomId: string;
   playerId: string;
   itemId: string;
-  targetCondition: string;
+  targetConditionName?: string;
 }

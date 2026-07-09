@@ -365,6 +365,7 @@ export function getLocalizedItem(key: string, language: NarrativeLanguage, quant
     quantity,
     slot: def.slot,
     effects: def.effects,
+    antidoteFor: def.antidoteFor,
   };
 }
 

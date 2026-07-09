@@ -122,7 +122,7 @@ cd frontend && npm run preview     # vite preview
 | `game:buy_item` | `GameGateway` | `{ roomId, playerId, merchantId, merchantItemId, quantity? }` |
 | `game:sell_item` | `GameGateway` | `{ roomId, playerId, merchantId, itemId, quantity? }` |
 | `game:end_trade` | `GameGateway` | `{ roomId, playerId }` |
-| `game:use_antidote` | `GameGateway` | `{ roomId, playerId, itemId, targetCondition }` |
+| `game:use_antidote` | `GameGateway` | `{ roomId, playerId, itemId, targetConditionName? }` |
 
 ### Server → Client
 
@@ -142,6 +142,7 @@ cd frontend && npm run preview     # vite preview
 | `game:level_up` | `{ playerId, newLevel, gainedPoints }` (frontend-ready, server not yet emitting) |
 | `game:trade_state` | `{ locked, merchants, tradeParticipants, tradeDone }` |
 | `game:condition_tick` | `{ players: [{ id, hp, maxHp, ac, activeConditions, tickResult }] }` |
+| `game:antidote_result` | `{ success, conditionRemoved? }` |
 
 ## AI Integration
 
