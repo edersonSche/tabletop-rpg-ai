@@ -249,8 +249,8 @@ backend/src/
 │   └── providers/
 │       └── opencode.provider.ts  # Per-room sessions, summarization, error recovery
 ├── campaign/
-│   ├── campaign.store.ts    # Persist/restore to data/campaigns.json (stores HP/XP/level/summary/inventory/coins/equipment)
-│   └── campaign.types.ts    # SavedCampaign, SavedCampaignInfo (incl. inventory/coins/equipment)
+│   ├── campaign.store.ts    # Persist/restore to data/campaigns.json (schema v2, flattened SavedEffect format, auto-migrates v1 saves)
+│   └── campaign.types.ts    # SavedCampaign, SavedCampaignInfo (schemaVersion, SavedEffect, SavedMerchantItem)
 ├── game/
 │   ├── game.gateway.ts      # Game WebSocket handlers (incl. allocate_attributes, equip, unequip)
 │   ├── game.service.ts      # Turn orchestration + AI response processing + maybeSummarize()
@@ -310,5 +310,5 @@ frontend/src/
 
 ## Limitations
 
-- **Active rooms are in-memory** — restarting the backend wipes active rooms, but saved campaigns persist in `data/campaigns.json` and can be resumed.
+- **Active rooms are in-memory** — restarting the backend wipes active rooms, but saved campaigns persist in `data/campaigns.json` (schema v2) and can be resumed. Old v1 saves (with nested `modifiers`/`effects`) are auto-migrated to v2 on restore via `migrateV1ToV2()`.
 - **XP gain not yet wired** — the HP/XP/leveling engine is structurally complete (levels 1-20, D&D 5e SRD XP thresholds, ASI at levels 4/8/12/16/19), but no server-side game action triggers XP gain yet. `game:level_up` is frontend-ready but not emitted by the backend.
