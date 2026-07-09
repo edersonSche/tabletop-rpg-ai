@@ -140,6 +140,7 @@ cd frontend && npm run preview     # vite preview
 | `game:disband` | `{ reason }` |
 | `game:level_up` | `{ playerId, newLevel, gainedPoints }` (frontend-ready, server not yet emitting) |
 | `game:trade_state` | `{ locked, merchants, tradeParticipants, tradeDone }` |
+| `game:condition_tick` | `{ players: [{ id, hp, maxHp, ac, activeConditions, tickResult }] }` |
 
 ## AI Integration
 

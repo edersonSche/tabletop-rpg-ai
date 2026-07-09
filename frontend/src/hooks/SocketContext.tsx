@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback, useRef, useReducer, ReactNode } from 'react';
 import { io, Socket } from 'socket.io-client';
-import { GameState, TurnUpdate, Player, SavedCampaignInfo, CharacterKit, TradeState } from '../types/game.types';
+import { GameState, TurnUpdate, Player, SavedCampaignInfo, CharacterKit, TradeState, ConditionTickPayload } from '../types/game.types';
 import { Page, pageReducer } from '../routing/pageRouter';
 
 interface PlayerInfo {
@@ -229,6 +229,47 @@ export function SocketProvider({ children }: { children: ReactNode }) {
         setTradeState(data);
       } else {
         setTradeState(null);
+      }
+    });
+
+    s.on('game:condition_tick', (data: ConditionTickPayload) => {
+      setGameState(prev => {
+        if (!prev) return prev;
+        const updatedMap = new Map(data.players.map(p => [p.id, p]));
+        return {
+          ...prev,
+          players: prev.players.map(p => {
+            const updated = updatedMap.get(p.id);
+            if (!updated) return p;
+            return {
+              ...p,
+              hp: updated.hp,
+              maxHp: updated.maxHp,
+              ac: updated.ac,
+              activeConditions: updated.activeConditions,
+            };
+          }),
+        };
+      });
+
+      const newMessages: MessageEntry[] = [];
+      for (const p of data.players) {
+        const tr = p.tickResult;
+        if (tr.hpChange < 0) {
+          newMessages.push({ type: 'system', content: `${p.tickResult.playerName || 'Unknown'} took ${Math.abs(tr.hpChange)} damage.`, timestamp: Date.now() });
+        } else if (tr.hpChange > 0) {
+          newMessages.push({ type: 'system', content: `${p.tickResult.playerName || 'Unknown'} healed ${tr.hpChange} HP.`, timestamp: Date.now() });
+        }
+        for (const name of tr.conditionsExpired) {
+          newMessages.push({ type: 'system', content: `${name} has ended.`, timestamp: Date.now() });
+        }
+        for (const dot of tr.dotDetails) {
+          const typeLabel = dot.type === 'damage' ? 'damage' : 'healing';
+          newMessages.push({ type: 'system', content: `${p.tickResult.playerName || 'Unknown'} received ${typeLabel} from ${dot.conditionName} (${dot.formula}).`, timestamp: Date.now() });
+        }
+      }
+      if (newMessages.length > 0) {
+        setMessages(prev => [...prev, ...newMessages]);
       }
     });
 

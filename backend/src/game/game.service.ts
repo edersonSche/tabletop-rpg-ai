@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { v4 as uuid } from 'uuid';
-import { GameState, Player, Merchant, MerchantItem } from './game.state';
+import { GameState, Player, Merchant, MerchantItem, TickResult } from './game.state';
 import { TurnManager } from './turn.manager';
 import { AiService } from '../ai/ai.service';
 import { AIResponse, MerchantSeed } from '../dto/ai-response.dto';
@@ -18,7 +18,7 @@ export class GameService {
     private aiService: AiService,
   ) {}
 
-  async handleAction(roomId: string, playerId: string, message: string): Promise<AIResponse> {
+  async handleAction(roomId: string, playerId: string, message: string): Promise<{ response: AIResponse; tickResults: TickResult[] }> {
     const room = this.gameState.getRoom(roomId);
     if (!room) throw new Error('Room not found');
 
@@ -37,6 +37,7 @@ export class GameService {
 
     try {
       let response: AIResponse = { narration: '', next: { type: 'group_action' } };
+      let allTickResults: TickResult[] = [];
 
       for (let depth = 0; depth <= MAX_NARRATION_DEPTH; depth++) {
         const currentRoom = this.gameState.getRoom(roomId);
@@ -57,19 +58,19 @@ export class GameService {
             : null,
         });
 
-        this.processAiResponse(roomId, response);
+        allTickResults = allTickResults.concat(this.processAiResponse(roomId, response));
 
         if (response.next?.type !== 'narration_only') break;
       }
 
-      return response;
+      return { response, tickResults: allTickResults };
     } finally {
       this.turnManager.unlock(roomId);
       this.maybeSummarize(roomId).catch(() => {});
     }
   }
 
-  async handleRoll(roomId: string, playerId: string, rollData?: { roll: number; modifier: number; total: number; skill: string; dc: number }): Promise<AIResponse> {
+  async handleRoll(roomId: string, playerId: string, rollData?: { roll: number; modifier: number; total: number; skill: string; dc: number }): Promise<{ response: AIResponse; tickResults: TickResult[] }> {
     const room = this.gameState.getRoom(roomId);
     if (!room) throw new Error('Room not found');
 
@@ -90,6 +91,7 @@ export class GameService {
 
     try {
       let response: AIResponse = { narration: '', next: { type: 'group_action' } };
+      let allTickResults: TickResult[] = [];
 
       for (let depth = 0; depth <= MAX_NARRATION_DEPTH; depth++) {
         const currentRoom = this.gameState.getRoom(roomId);
@@ -117,30 +119,33 @@ export class GameService {
             : null,
         });
 
-        this.processAiResponse(roomId, response);
+        allTickResults = allTickResults.concat(this.processAiResponse(roomId, response));
 
         if (response.next?.type !== 'narration_only') break;
       }
 
-      return response;
+      return { response, tickResults: allTickResults };
     } finally {
       this.turnManager.unlock(roomId);
       this.maybeSummarize(roomId).catch(() => {});
     }
   }
 
-  async startCampaign(roomId: string): Promise<AIResponse> {
+  async startCampaign(roomId: string): Promise<{ response: AIResponse; tickResults: TickResult[] }> {
     const room = this.gameState.getRoom(roomId);
     if (!room) throw new Error('Room not found');
 
     if (room.history.length > 0) {
       room.gameStarted = true;
       return {
-        narration: '',
-        next: {
-          type: room.turnType || 'group_action',
-          target: room.turnTarget || undefined,
+        response: {
+          narration: '',
+          next: {
+            type: room.turnType || 'group_action',
+            target: room.turnTarget || undefined,
+          },
         },
+        tickResults: [],
       };
     }
 
@@ -148,6 +153,7 @@ export class GameService {
 
     try {
       let response: AIResponse = { narration: '', next: { type: 'group_action' } };
+      let allTickResults: TickResult[] = [];
 
       for (let depth = 0; depth <= MAX_NARRATION_DEPTH; depth++) {
         const currentRoom = this.gameState.getRoom(roomId);
@@ -168,12 +174,12 @@ export class GameService {
 
         currentRoom.gameStarted = true;
 
-        this.processAiResponse(roomId, response);
+        allTickResults = allTickResults.concat(this.processAiResponse(roomId, response));
 
         if (response.next?.type !== 'narration_only') break;
       }
 
-      return response;
+      return { response, tickResults: allTickResults };
     } finally {
       this.turnManager.unlock(roomId);
       this.maybeSummarize(roomId).catch(() => {});
@@ -268,9 +274,9 @@ export class GameService {
     };
   }
 
-  private processAiResponse(roomId: string, response: AIResponse): void {
+  private processAiResponse(roomId: string, response: AIResponse): TickResult[] {
     const room = this.gameState.getRoom(roomId);
-    if (!room) return;
+    if (!room) return [];
 
     this.validateAiResponseTarget(response, room.players);
 
@@ -289,6 +295,9 @@ export class GameService {
         content: response.narration,
       });
     }
+
+    const tickResults = this.gameState.tickEffects(room);
+    return tickResults;
   }
 
   private extractSummary(narration: string, maxChars: number = 300): string {

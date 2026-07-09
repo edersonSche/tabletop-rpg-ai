@@ -191,6 +191,40 @@ export interface TurnUpdate {
   dc?: number;
 }
 
+export interface TickResult {
+  playerId: string;
+  playerName: string;
+  hpChange: number;
+  conditionsExpired: string[];
+  dotDetails: Array<{
+    conditionName: string;
+    formula: string;
+    type: 'heal' | 'damage';
+    durationLeft: number;
+  }>;
+}
+
+export interface ConditionTickPayload {
+  players: Array<{
+    id: string;
+    hp: number;
+    maxHp: number;
+    ac: number;
+    activeConditions: ActiveCondition[];
+    tickResult: {
+      playerName?: string;
+      hpChange: number;
+      conditionsExpired: string[];
+      dotDetails: Array<{
+        conditionName: string;
+        formula: string;
+        type: 'heal' | 'damage';
+        durationLeft: number;
+      }>;
+    };
+  }>;
+}
+
 export interface CharacterKit {
   id: string;
   name: string;

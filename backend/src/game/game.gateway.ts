@@ -134,7 +134,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
     this.server.to(data.roomId).emit('game:processing', { processing: true });
     try {
-      const response = await this.gameService.handleAction(data.roomId, data.playerId, data.message);
+      const { response, tickResults } = await this.gameService.handleAction(data.roomId, data.playerId, data.message);
       const room = this.gameState.getRoom(data.roomId);
 
       this.campaignStore.saveFromMemory(data.roomId);
@@ -151,6 +151,20 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
           type: room.turnType,
           target: room.turnTarget,
         });
+
+        if (tickResults.length > 0) {
+          const payload = {
+            players: room.players.filter(p => p.active).map(p => ({
+              id: p.id,
+              hp: p.hp,
+              maxHp: p.maxHp,
+              ac: p.ac,
+              activeConditions: p.activeConditions,
+              tickResult: tickResults.find(t => t.playerId === p.id) || { playerName: p.name, hpChange: 0, conditionsExpired: [], dotDetails: [] },
+            })),
+          };
+          this.server.to(data.roomId).emit('game:condition_tick', payload);
+        }
       }
 
       return { success: true };
@@ -184,7 +198,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
     this.server.to(data.roomId).emit('game:processing', { processing: true });
     try {
-      const response = await this.gameService.handleRoll(data.roomId, data.playerId, { roll, modifier, total, skill, dc });
+      const { response, tickResults } = await this.gameService.handleRoll(data.roomId, data.playerId, { roll, modifier, total, skill, dc });
       const room = this.gameState.getRoom(data.roomId);
 
       this.campaignStore.saveFromMemory(data.roomId);
@@ -201,6 +215,20 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
           type: room.turnType,
           target: room.turnTarget,
         });
+
+        if (tickResults.length > 0) {
+          const payload = {
+            players: room.players.filter(p => p.active).map(p => ({
+              id: p.id,
+              hp: p.hp,
+              maxHp: p.maxHp,
+              ac: p.ac,
+              activeConditions: p.activeConditions,
+              tickResult: tickResults.find(t => t.playerId === p.id) || { playerName: p.name, hpChange: 0, conditionsExpired: [], dotDetails: [] },
+            })),
+          };
+          this.server.to(data.roomId).emit('game:condition_tick', payload);
+        }
       }
 
       return { success: true };
@@ -234,7 +262,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
         });
       }
 
-      const response = await this.gameService.startCampaign(data.roomId);
+      const { response, tickResults } = await this.gameService.startCampaign(data.roomId);
 
       if (response.narration) {
         this.server.to(data.roomId).emit('game:narration', {
@@ -256,6 +284,20 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
           type: room.turnType,
           target: room.turnTarget,
         });
+
+        if (tickResults.length > 0) {
+          const payload = {
+            players: room.players.filter(p => p.active).map(p => ({
+              id: p.id,
+              hp: p.hp,
+              maxHp: p.maxHp,
+              ac: p.ac,
+              activeConditions: p.activeConditions,
+              tickResult: tickResults.find(t => t.playerId === p.id) || { playerName: p.name, hpChange: 0, conditionsExpired: [], dotDetails: [] },
+            })),
+          };
+          this.server.to(data.roomId).emit('game:condition_tick', payload);
+        }
       }
 
       this.campaignStore.saveFromMemory(data.roomId);
