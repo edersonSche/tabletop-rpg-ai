@@ -172,7 +172,8 @@ function ConfirmUseModal({ item, onUse, onClose }: { item: InventoryItem; onUse:
         <div className="text-mono text-xs text-dungeon-100 mb-4">
           {item.effects?.map((ef, i) => (
             <div key={i} className="mb-1">
-              {ef.type === 'heal_hp' && <span>Heals <span className="text-blood">{ef.formula}</span> HP.</span>}
+              {ef.hpChange?.type === 'heal' && <span>Heals <span className="text-blood">{ef.hpChange.formula}</span> HP.</span>}
+              {ef.hpChange?.type === 'damage' && <span>Deals <span className="text-blood">{ef.hpChange.formula}</span> damage.</span>}
             </div>
           ))}
         </div>
@@ -238,20 +239,30 @@ function ItemPopupContent({ item, player, onEquip, onUnequip, onUseItem, onClose
 
         <div className="text-mono text-xs text-dungeon-100 mb-3">{item.description}</div>
 
-        {item.modifiers && item.modifiers.length > 0 && (
+        {item.effects && item.effects.length > 0 && (
           <div className="mb-3 p-2 bg-dungeon-900 pixel-border">
-            <div className="text-mono text-[10px] text-dungeon-200 mb-1 tracking-wider">MODIFIERS</div>
-            {item.modifiers.map((mod, i) => (
-              <div key={i} className="text-mono text-xs text-gold flex justify-between">
-                <span>{MODIFIER_LABELS[mod.stat] || mod.stat}</span>
-                <span>{mod.operation === 'override' ? 'Base ' : ''}{mod.value > 0 ? '+' : ''}{mod.value}{mod.dexCap !== undefined ? ` (DEX max ${mod.dexCap})` : ''}</span>
+            <div className="text-mono text-[10px] text-dungeon-200 mb-1 tracking-wider">EFFECTS</div>
+            {item.effects.map((ef, i) => (
+              <div key={i}>
+                {ef.statModifiers?.map((mod, j) => (
+                  <div key={j} className="text-mono text-xs text-gold flex justify-between">
+                    <span>{MODIFIER_LABELS[mod.target] || mod.target}</span>
+                    <span>{mod.operation === 'override' ? 'Base ' : ''}{mod.value > 0 ? '+' : ''}{mod.value}{mod.dexCap !== undefined ? ` (DEX max ${mod.dexCap})` : ''}</span>
+                  </div>
+                ))}
+                {ef.hpChange && (
+                  <div className="text-mono text-xs text-dungeon-100">
+                    {ef.hpChange.type === 'heal' && <>Heals <span className="text-blood">{ef.hpChange.formula}</span> HP.</>}
+                    {ef.hpChange.type === 'damage' && <>Deals <span className="text-blood">{ef.hpChange.formula}</span> damage.</>}
+                  </div>
+                )}
               </div>
             ))}
           </div>
         )}
 
         <div className="space-y-1">
-          {item.effects && item.effects.length > 0 && (
+          {item.effects && item.effects.some(e => e.type === 'immediate') && (
             <button
               onClick={() => setConfirmUse(true)}
               className="w-full bg-blood/20 border border-blood pixel-border py-1.5 text-mono text-xs text-blood hover:brightness-110 transition-all"

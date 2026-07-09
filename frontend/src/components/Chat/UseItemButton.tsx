@@ -12,7 +12,7 @@ export function UseItemButton({ items, onUseItem }: UseItemButtonProps) {
   const [confirmItem, setConfirmItem] = useState<InventoryItem | null>(null);
   const ref = useRef<HTMLDivElement>(null);
 
-  const usableItems = items.filter(i => i.effects && i.effects.length > 0);
+  const usableItems = items.filter(i => i.effects?.some(e => e.hpChange));
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
@@ -61,7 +61,8 @@ export function UseItemButton({ items, onUseItem }: UseItemButtonProps) {
             <div className="text-mono text-xs text-dungeon-100 mb-3">
               {confirmItem.effects?.map((ef, i) => (
                 <div key={i}>
-                  {ef.type === 'heal_hp' && <span>Heals <span className="text-blood">{ef.formula}</span> HP.</span>}
+                  {ef.hpChange?.type === 'heal' && <span>Heals <span className="text-blood">{ef.hpChange.formula}</span> HP.</span>}
+                  {ef.hpChange?.type === 'damage' && <span>Deals <span className="text-blood">{ef.hpChange.formula}</span> damage.</span>}
                 </div>
               ))}
             </div>

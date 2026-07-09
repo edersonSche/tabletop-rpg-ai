@@ -120,24 +120,23 @@ function MerchantItemDetail({ item, playerCoins, onClose }: {
 
       <div className="text-mono text-xs text-dungeon-100 mb-3">{item.description}</div>
 
-      {item.modifiers && item.modifiers.length > 0 && (
-        <div className="mb-3 p-2 bg-dungeon-900 pixel-border">
-          <div className="text-mono text-[10px] text-dungeon-200 mb-1 tracking-wider">MODIFIERS</div>
-          {item.modifiers.map((mod, i) => (
-            <div key={i} className="text-mono text-xs text-gold flex justify-between">
-              <span>{MODIFIER_LABELS[mod.stat] || mod.stat}</span>
-              <span>{mod.operation === 'override' ? 'Base ' : ''}{mod.value > 0 ? '+' : ''}{mod.value}</span>
-            </div>
-          ))}
-        </div>
-      )}
-
       {item.effects && item.effects.length > 0 && (
         <div className="mb-3 p-2 bg-dungeon-900 pixel-border">
           <div className="text-mono text-[10px] text-dungeon-200 mb-1 tracking-wider">EFFECTS</div>
           {item.effects.map((ef, i) => (
-            <div key={i} className="text-mono text-xs text-dungeon-100">
-              {ef.type === 'heal_hp' && <>Heals <span className="text-blood">{ef.formula}</span> HP.</>}
+            <div key={i}>
+              {ef.statModifiers?.map((mod, j) => (
+                <div key={j} className="text-mono text-xs text-gold flex justify-between">
+                  <span>{MODIFIER_LABELS[mod.target] || mod.target}</span>
+                  <span>{mod.operation === 'override' ? 'Base ' : ''}{mod.value > 0 ? '+' : ''}{mod.value}</span>
+                </div>
+              ))}
+              {ef.hpChange && (
+                <div className="text-mono text-xs text-dungeon-100">
+                  {ef.hpChange.type === 'heal' && <>Heals <span className="text-blood">{ef.hpChange.formula}</span> HP.</>}
+                  {ef.hpChange.type === 'damage' && <>Deals <span className="text-blood">{ef.hpChange.formula}</span> damage.</>}
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -175,24 +174,23 @@ function PlayerItemDetail({ item, sellPrice, merchantCoins, onClose }: {
 
       <div className="text-mono text-xs text-dungeon-100 mb-3">{item.description}</div>
 
-      {item.modifiers && item.modifiers.length > 0 && (
-        <div className="mb-3 p-2 bg-dungeon-900 pixel-border">
-          <div className="text-mono text-[10px] text-dungeon-200 mb-1 tracking-wider">MODIFIERS</div>
-          {item.modifiers.map((mod, i) => (
-            <div key={i} className="text-mono text-xs text-gold flex justify-between">
-              <span>{MODIFIER_LABELS[mod.stat] || mod.stat}</span>
-              <span>{mod.operation === 'override' ? 'Base ' : ''}{mod.value > 0 ? '+' : ''}{mod.value}</span>
-            </div>
-          ))}
-        </div>
-      )}
-
       {item.effects && item.effects.length > 0 && (
         <div className="mb-3 p-2 bg-dungeon-900 pixel-border">
           <div className="text-mono text-[10px] text-dungeon-200 mb-1 tracking-wider">EFFECTS</div>
           {item.effects.map((ef, i) => (
-            <div key={i} className="text-mono text-xs text-dungeon-100">
-              {ef.type === 'heal_hp' && <>Heals <span className="text-blood">{ef.formula}</span> HP.</>}
+            <div key={i}>
+              {ef.statModifiers?.map((mod, j) => (
+                <div key={j} className="text-mono text-xs text-gold flex justify-between">
+                  <span>{MODIFIER_LABELS[mod.target] || mod.target}</span>
+                  <span>{mod.operation === 'override' ? 'Base ' : ''}{mod.value > 0 ? '+' : ''}{mod.value}</span>
+                </div>
+              ))}
+              {ef.hpChange && (
+                <div className="text-mono text-xs text-dungeon-100">
+                  {ef.hpChange.type === 'heal' && <>Heals <span className="text-blood">{ef.hpChange.formula}</span> HP.</>}
+                  {ef.hpChange.type === 'damage' && <>Deals <span className="text-blood">{ef.hpChange.formula}</span> damage.</>}
+                </div>
+              )}
             </div>
           ))}
         </div>

@@ -62,3 +62,10 @@ export class EndTradeDto {
   roomId: string;
   playerId: string;
 }
+
+export class UseAntidoteDto {
+  roomId: string;
+  playerId: string;
+  itemId: string;
+  targetCondition: string;
+}

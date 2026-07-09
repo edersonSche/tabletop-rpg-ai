@@ -3,13 +3,37 @@ export type TurnType = 'group_action' | 'call_player' | 'call_roll' | 'narration
 export interface MerchantSeedItem {
   name: string;
   description: string;
-  type: 'weapon' | 'armor' | 'potion' | 'scroll' | 'key_item' | 'misc';
-  slot?: 'body' | 'hand' | 'two-handed';
+  type: string;
+  slot?: string;
   baseBuyPrice: number;
   baseSellPrice: number;
   quantity: number;
-  modifiers?: Array<{ stat: string; value: number; operation: string; dexCap?: number }>;
-  effects?: Array<{ type: string; formula: string }>;
+  effects?: Array<{
+    type: 'immediate' | 'temporary' | 'permanent';
+    duration?: number;
+    stat?: string;
+    value?: number;
+    operation?: string;
+    dexCap?: number;
+    hpFormula?: string;
+    hpType?: 'heal' | 'damage';
+  }>;
+  antidoteFor?: string;
+}
+
+export interface ConditionSeed {
+  name: string;
+  description: string;
+  effects?: Array<{
+    type: 'immediate' | 'temporary' | 'permanent';
+    duration?: number;
+    stat?: string;
+    value?: number;
+    operation?: string;
+    dexCap?: number;
+    hpFormula?: string;
+    hpType?: 'heal' | 'damage';
+  }>;
 }
 
 export interface MerchantSeed {

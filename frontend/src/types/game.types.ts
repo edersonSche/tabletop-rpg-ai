@@ -1,15 +1,63 @@
 export type NarrativeLanguage = 'english' | 'portuguese' | 'spanish';
 
-export interface ItemModifier {
-  stat: 'ac' | 'damage' | 'strength' | 'dexterity' | 'constitution' | 'intelligence' | 'wisdom' | 'charisma' | 'maxHp';
-  value: number;
-  operation: 'add' | 'override';
-  dexCap?: number;
+export type EffectTarget =
+  | 'ac'
+  | 'damage'
+  | 'strength'
+  | 'dexterity'
+  | 'constitution'
+  | 'intelligence'
+  | 'wisdom'
+  | 'charisma'
+  | 'maxHp';
+
+export interface HpChange {
+  formula: string;
+  type: 'heal' | 'damage';
 }
 
-export interface ItemEffect {
-  type: 'heal_hp';
-  formula: string;
+export interface Effect {
+  type: 'immediate' | 'temporary' | 'permanent';
+  duration?: number;
+  statModifiers?: Array<{
+    target: EffectTarget;
+    value: number;
+    operation: 'add' | 'override';
+    dexCap?: number;
+  }>;
+  hpChange?: HpChange;
+  origin: 'item' | 'condition' | 'narrative';
+  originId?: string;
+}
+
+export interface Condition {
+  id: string;
+  name: string;
+  description: string;
+  effects?: Effect[];
+  antidote?: {
+    targetCondition: string;
+    type: 'immediate' | 'temporary';
+    duration?: number;
+  };
+  origin: 'item' | 'narrative';
+  originId?: string;
+}
+
+export interface ActiveCondition {
+  id: string;
+  condition: {
+    name: string;
+    description: string;
+    effects: Effect[];
+    antidote?: Condition['antidote'];
+    origin: 'item' | 'narrative';
+    originId?: string;
+  };
+  appliedAt: number;
+  remainingDurations: number[];
+  isSuppressed: boolean;
+  suppressRemaining?: number;
 }
 
 export interface InventoryItem {
@@ -19,8 +67,7 @@ export interface InventoryItem {
   type: 'weapon' | 'armor' | 'potion' | 'scroll' | 'key_item' | 'misc';
   quantity: number;
   slot?: 'body' | 'hand' | 'two-handed';
-  modifiers?: ItemModifier[];
-  effects?: ItemEffect[];
+  effects: Effect[];
 }
 
 export interface Player {
@@ -49,6 +96,7 @@ export interface Player {
     offHand?: string;
   };
   ac: number;
+  activeConditions: ActiveCondition[];
 }
 
 export type TurnType = 'group_action' | 'call_player' | 'call_roll' | 'narration_only';
@@ -106,8 +154,7 @@ export interface MerchantItem {
   buyPrice: number;
   sellPrice: number;
   quantity: number;
-  modifiers?: ItemModifier[];
-  effects?: ItemEffect[];
+  effects: Effect[];
 }
 
 export interface Merchant {

@@ -73,17 +73,16 @@ You MUST ALWAYS respond in valid JSON format with exactly this structure:
           "baseBuyPrice": number,
           "baseSellPrice": number,
           "quantity": number,
-          "modifiers": [
-            {
-              "stat": "ac|damage|strength|dexterity|constitution|intelligence|wisdom|charisma|maxHp",
-              "value": number,
-              "operation": "add|override"
-            }
-          ],
           "effects": [
             {
-              "type": "heal_hp",
-              "formula": "dice formula e.g. 2d4+2"
+              "type": "immediate|temporary|permanent",
+              "duration": number,
+              "stat": "ac|damage|strength|dexterity|constitution|intelligence|wisdom|charisma|maxHp",
+              "value": number,
+              "operation": "add|override",
+              "dexCap": number,
+              "hpFormula": "dice formula e.g. 2d4+2",
+              "hpType": "heal|damage"
             }
           ]
         }
@@ -104,7 +103,7 @@ You MUST ALWAYS respond in valid JSON format with exactly this structure:
 - The number of merchants should reflect the location type (cities=trade hubs have many, wilderness has few or none)
 - Each merchant must have a unique name, specialty type, greeting, coins for buying, and 3-8 items
 - Items include baseBuyPrice (player buys at this price) and baseSellPrice (merchant buys at this price)
-- Items can optionally include "slot" (for equippable items), "modifiers" (stat bonuses like +1 damage, +2 AC), and "effects" (e.g. heal_hp with dice formula)
+- Items can optionally include "slot" (for equippable items) and "effects" (stat modifiers and/or hp formulas — see JSON format above)
 - If no merchant would logically be at the current location, omit the merchants field entirely and narrate why
 
 ## Location Field

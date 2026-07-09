@@ -243,7 +243,7 @@ export class OpencodeProvider implements AIProvider {
       lines.push('- baseBuyPrice: what the merchant charges TO SELL (higher price)');
       lines.push('- baseSellPrice: what the merchant pays TO BUY (lower, roughly 40-60% of baseBuyPrice)');
       lines.push('- quantity: stock amount');
-      lines.push('- modifiers and effects: optional, same format as other items');
+      lines.push('- effects: optional array of { type, duration?, stat?, value?, operation?, dexCap?, hpFormula?, hpType? }');
       lines.push('');
       lines.push('IMPORTANT: Return ONLY the "merchants" field in your JSON. Do NOT include a "narration" or any other field.');
       lines.push('If no merchant would be at this location, return an empty merchants array.');
@@ -325,7 +325,7 @@ export class OpencodeProvider implements AIProvider {
       lines.push('- coins: how much coin they have to buy from players');
       lines.push('- items: 3-8 items for sale');
       lines.push('');
-      lines.push('For each item: name, description, type, slot (if equippable), baseBuyPrice, baseSellPrice, quantity, modifiers, effects.');
+      lines.push('For each item: name, description, type, slot (if equippable), baseBuyPrice, baseSellPrice, quantity, effects.');
       lines.push('IMPORTANT: Return ONLY the "merchants" field in your JSON. Do NOT include a "narration" or any other field.');
       lines.push('If no merchant would be at this location, return an empty merchants array.');
       lines.push('');

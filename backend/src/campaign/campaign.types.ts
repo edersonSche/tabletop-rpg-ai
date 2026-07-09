@@ -25,8 +25,14 @@ export interface SavedPlayer {
     type: 'weapon' | 'armor' | 'potion' | 'scroll' | 'key_item' | 'misc';
     quantity: number;
     slot?: 'body' | 'hand' | 'two-handed';
-    modifiers?: Array<{ stat: string; value: number; operation: 'add' | 'override'; dexCap?: number }>;
-    effects?: Array<{ type: string; formula: string }>;
+    effects: Array<{
+      type: string;
+      duration?: number;
+      statModifiers?: Array<{ target: string; value: number; operation: string; dexCap?: number }>;
+      hpChange?: { formula: string; type: string };
+      origin: string;
+      originId?: string;
+    }>;
   }>;
   coins: number;
   equipment: {
@@ -34,6 +40,21 @@ export interface SavedPlayer {
     mainHand?: string;
     offHand?: string;
   };
+  activeConditions?: Array<{
+    id: string;
+    condition: {
+      name: string;
+      description: string;
+      effects: Array<any>;
+      antidote?: { targetCondition: string; type: string; duration?: number };
+      origin: string;
+      originId?: string;
+    };
+    appliedAt: number;
+    remainingDurations: number[];
+    isSuppressed: boolean;
+    suppressRemaining?: number;
+  }>;
 }
 
 export interface SavedHistoryEntry {
@@ -53,8 +74,14 @@ export interface SavedMerchantItem {
   buyPrice: number;
   sellPrice: number;
   quantity: number;
-  modifiers?: Array<{ stat: string; value: number; operation: string; dexCap?: number }>;
-  effects?: Array<{ type: string; formula: string }>;
+  effects: Array<{
+    type: string;
+    duration?: number;
+    statModifiers?: Array<{ target: string; value: number; operation: string; dexCap?: number }>;
+    hpChange?: { formula: string; type: string };
+    origin: string;
+    originId?: string;
+  }>;
 }
 
 export interface SavedMerchant {

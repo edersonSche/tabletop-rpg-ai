@@ -4,16 +4,64 @@ import { getKitItemEntries } from '../data/theme-kits';
 
 export type NarrativeLanguage = 'english' | 'portuguese' | 'spanish';
 
-export interface ItemModifier {
-  stat: 'ac' | 'damage' | 'strength' | 'dexterity' | 'constitution' | 'intelligence' | 'wisdom' | 'charisma' | 'maxHp';
-  value: number;
-  operation: 'add' | 'override';
-  dexCap?: number;
+export type EffectTarget =
+  | 'ac'
+  | 'damage'
+  | 'strength'
+  | 'dexterity'
+  | 'constitution'
+  | 'intelligence'
+  | 'wisdom'
+  | 'charisma'
+  | 'maxHp';
+
+export interface HpChange {
+  formula: string;
+  type: 'heal' | 'damage';
 }
 
-export interface ItemEffect {
-  type: 'heal_hp';
-  formula: string;
+export interface Effect {
+  type: 'immediate' | 'temporary' | 'permanent';
+  duration?: number;
+  statModifiers?: Array<{
+    target: EffectTarget;
+    value: number;
+    operation: 'add' | 'override';
+    dexCap?: number;
+  }>;
+  hpChange?: HpChange;
+  origin: 'item' | 'condition' | 'narrative';
+  originId?: string;
+}
+
+export interface Condition {
+  id: string;
+  name: string;
+  description: string;
+  effects?: Effect[];
+  antidote?: {
+    targetCondition: string;
+    type: 'immediate' | 'temporary';
+    duration?: number;
+  };
+  origin: 'item' | 'narrative';
+  originId?: string;
+}
+
+export interface ActiveCondition {
+  id: string;
+  condition: {
+    name: string;
+    description: string;
+    effects: Effect[];
+    antidote?: Condition['antidote'];
+    origin: 'item' | 'narrative';
+    originId?: string;
+  };
+  appliedAt: number;
+  remainingDurations: number[];
+  isSuppressed: boolean;
+  suppressRemaining?: number;
 }
 
 export interface InventoryItem {
@@ -23,8 +71,7 @@ export interface InventoryItem {
   type: 'weapon' | 'armor' | 'potion' | 'scroll' | 'key_item' | 'misc';
   quantity: number;
   slot?: 'body' | 'hand' | 'two-handed';
-  modifiers?: ItemModifier[];
-  effects?: ItemEffect[];
+  effects: Effect[];
 }
 
 export interface MerchantItem {
@@ -33,8 +80,7 @@ export interface MerchantItem {
   description: string;
   type: 'weapon' | 'armor' | 'potion' | 'scroll' | 'key_item' | 'misc';
   slot?: 'body' | 'hand' | 'two-handed';
-  modifiers?: ItemModifier[];
-  effects?: ItemEffect[];
+  effects: Effect[];
   buyPrice: number;
   sellPrice: number;
   quantity: number;
@@ -76,6 +122,7 @@ export interface Player {
     offHand?: string;
   };
   ac: number;
+  activeConditions: ActiveCondition[];
 }
 
 export interface GameStateData {
@@ -276,6 +323,7 @@ export class GameState {
       coins,
       equipment: {},
       ac,
+      activeConditions: [],
     };
 
     room.players.push(player);
@@ -467,17 +515,22 @@ export class GameState {
   }
 
   rollDiceFormula(formula: string): number {
-    const match = formula.match(/^(\d+)d(\d+)([+-]\d+)?$/i);
-    if (!match) return 0;
-    const diceCount = parseInt(match[1], 10);
-    const diceFaces = parseInt(match[2], 10);
-    const modifier = match[3] ? parseInt(match[3], 10) : 0;
+    const diceMatch = formula.match(/^(\d+)d(\d+)([+-]\d+)?$/i);
+    if (diceMatch) {
+      const diceCount = parseInt(diceMatch[1], 10);
+      const diceFaces = parseInt(diceMatch[2], 10);
+      const modifier = diceMatch[3] ? parseInt(diceMatch[3], 10) : 0;
 
-    let total = modifier;
-    for (let i = 0; i < diceCount; i++) {
-      total += Math.floor(Math.random() * diceFaces) + 1;
+      let total = modifier;
+      for (let i = 0; i < diceCount; i++) {
+        total += Math.floor(Math.random() * diceFaces) + 1;
+      }
+      return Math.max(0, total);
     }
-    return Math.max(0, total);
+
+    const fixed = parseInt(formula, 10);
+    if (!isNaN(fixed)) return Math.max(0, fixed);
+    return 0;
   }
 
   computeAc(roomId: string, playerId: string): number {
@@ -495,14 +548,17 @@ export class GameState {
       const itemId = player.equipment[slot];
       if (!itemId) continue;
       const item = player.inventory.find(i => i.id === itemId);
-      if (!item?.modifiers) continue;
-      for (const mod of item.modifiers) {
-        if (mod.stat !== 'ac') continue;
-        if (mod.operation === 'override') {
-          baseAc = mod.value;
-          if (mod.dexCap !== undefined) dexCap = mod.dexCap;
-        } else if (mod.operation === 'add') {
-          bonusAc += mod.value;
+      if (!item?.effects) continue;
+      for (const effect of item.effects) {
+        if (!effect.statModifiers) continue;
+        for (const mod of effect.statModifiers) {
+          if (mod.target !== 'ac') continue;
+          if (mod.operation === 'override') {
+            baseAc = mod.value;
+            if (mod.dexCap !== undefined) dexCap = mod.dexCap;
+          } else if (mod.operation === 'add') {
+            bonusAc += mod.value;
+          }
         }
       }
     }
@@ -528,8 +584,8 @@ export class GameState {
     let healed = 0;
 
     for (const effect of item.effects) {
-      if (effect.type === 'heal_hp') {
-        const amount = this.rollDiceFormula(effect.formula);
+      if (effect.type === 'immediate' && effect.hpChange?.type === 'heal') {
+        const amount = this.rollDiceFormula(effect.hpChange.formula);
         const beforeHp = player.hp;
         player.hp = Math.min(player.maxHp, player.hp + amount);
         healed = player.hp - beforeHp;
@@ -597,8 +653,7 @@ export class GameState {
         type: merchantItem.type,
         quantity,
         slot: merchantItem.slot,
-        modifiers: merchantItem.modifiers ? JSON.parse(JSON.stringify(merchantItem.modifiers)) : undefined,
-        effects: merchantItem.effects ? JSON.parse(JSON.stringify(merchantItem.effects)) : undefined,
+        effects: merchantItem.effects ? JSON.parse(JSON.stringify(merchantItem.effects)) : [],
       });
     }
 
@@ -671,8 +726,7 @@ export class GameState {
         type: item.type,
         quantity,
         slot: item.slot,
-        modifiers: item.modifiers ? JSON.parse(JSON.stringify(item.modifiers)) : undefined,
-        effects: item.effects ? JSON.parse(JSON.stringify(item.effects)) : undefined,
+        effects: item.effects ? JSON.parse(JSON.stringify(item.effects)) : [],
         buyPrice: Math.round(unitPrice * 2),
         sellPrice: unitPrice,
       });

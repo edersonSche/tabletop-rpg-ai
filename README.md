@@ -121,6 +121,7 @@ cd frontend && npm run preview     # vite preview
 | `game:buy_item` | `GameGateway` | `{ roomId, playerId, merchantId, merchantItemId, quantity? }` |
 | `game:sell_item` | `GameGateway` | `{ roomId, playerId, merchantId, itemId, quantity? }` |
 | `game:end_trade` | `GameGateway` | `{ roomId, playerId }` |
+| `game:use_antidote` | `GameGateway` | `{ roomId, playerId, itemId, targetCondition }` |
 
 ### Server → Client
 
@@ -154,7 +155,7 @@ The AI has a **two-tier memory system**: a running history of narration text (fo
 
 Invalid AI targets (`call_player`/`call_roll` pointing to missing players) are coerced to `group_action` by `GameService.validateAiResponseTarget()`.
 
-When a player initiates trade via `game:initiate_trade`, the AI generates merchant data in the `merchants` field of the response. Each merchant includes an inventory of 3-8 items with prices, modifiers, and effects. Location must be known — `"unknown location"` disables trading.
+When a player initiates trade via `game:initiate_trade`, the AI generates merchant data in the `merchants` field of the response. Each merchant includes an inventory of 3-8 items with prices and effects (stat modifiers and/or hp formulas). Location must be known — `"unknown location"` disables trading.
 
 The provider manages **per-room sessions**: created when a character is made or campaign is resumed (`onRoomReady()`), and deleted when the last player leaves or the campaign is deleted (`onRoomEmpty()`). 404/410 errors auto-recreate sessions.
 
@@ -173,11 +174,11 @@ Players build characters using a **point-buy system**:
 
 Players start each campaign with basic equipment:
 
-- **Dagger** (hand slot) — a melee weapon
-- **2 Healing Potions** (potion type)
+- **Dagger** (hand slot, +1 damage permanent effect)
+- **2 Healing Potions** (immediate heal effect: `2d4+2`)
 - **50 coins**
 
-Items have **types** (`weapon`, `armor`, `potion`, `scroll`, `key_item`, `misc`) and **slots** (`body`, `hand`, `two-handed`). Each player has three equipment slots:
+Items have **types** (`weapon`, `armor`, `potion`, `scroll`, `key_item`, `misc`), **slots** (`body`, `hand`, `two-handed`), and **`effects: Effect[]`** (unified stat modifiers and hp changes per item). Each player has three equipment slots:
 
 | Slot | Accepts |
 |------|---------|
@@ -301,7 +302,7 @@ frontend/src/
 │       ├── RoomList.tsx
 │       └── SavedCampaigns.tsx
 └── types/
-    └── game.types.ts        # Shared TypeScript interfaces (Player incl. inventory/coins/equipment)
+    └── game.types.ts        # Shared TypeScript interfaces (Player incl. activeConditions, Effect, inventory/coins/equipment)
 ```
 
 ## Limitations
