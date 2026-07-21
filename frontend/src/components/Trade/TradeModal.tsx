@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Close, Wallet, Sword, Archive, Potion, BookOpen, Star, Box } from 'pixelarticons/react';
 import { Merchant, MerchantItem, InventoryItem } from '../../types/game.types';
+import { EffectRow } from '../GameStatus/CharacterSheet';
 
 interface TradeModalProps {
   merchants: Merchant[];
@@ -25,12 +26,6 @@ const ITEM_TYPE_ICONS: Record<string, React.ComponentType<{ width?: number; heig
   scroll: BookOpen,
   key_item: Star,
   misc: Box,
-};
-
-const MODIFIER_LABELS: Record<string, string> = {
-  ac: 'AC', damage: 'Damage', strength: 'Strength', dexterity: 'Dexterity',
-  constitution: 'Constitution', intelligence: 'Intelligence',
-  wisdom: 'Wisdom', charisma: 'Charisma', maxHp: 'Max HP',
 };
 
 function TradeHoverPopup({ content, children }: {
@@ -120,25 +115,19 @@ function MerchantItemDetail({ item, playerCoins, onClose }: {
 
       <div className="text-mono text-xs text-dungeon-100 mb-3">{item.description}</div>
 
-      {item.modifiers && item.modifiers.length > 0 && (
-        <div className="mb-3 p-2 bg-dungeon-900 pixel-border">
-          <div className="text-mono text-[10px] text-dungeon-200 mb-1 tracking-wider">MODIFIERS</div>
-          {item.modifiers.map((mod, i) => (
-            <div key={i} className="text-mono text-xs text-gold flex justify-between">
-              <span>{MODIFIER_LABELS[mod.stat] || mod.stat}</span>
-              <span>{mod.operation === 'override' ? 'Base ' : ''}{mod.value > 0 ? '+' : ''}{mod.value}</span>
-            </div>
-          ))}
+      {item.antidoteFor && (
+        <div className="mb-2 p-1 bg-green-900/30 border border-green-700 pixel-border">
+          <span className="text-mono text-[10px] text-green-400">
+            Antidote: {item.antidoteFor}
+          </span>
         </div>
       )}
 
       {item.effects && item.effects.length > 0 && (
-        <div className="mb-3 p-2 bg-dungeon-900 pixel-border">
+        <div className="mb-2">
           <div className="text-mono text-[10px] text-dungeon-200 mb-1 tracking-wider">EFFECTS</div>
           {item.effects.map((ef, i) => (
-            <div key={i} className="text-mono text-xs text-dungeon-100">
-              {ef.type === 'heal_hp' && <>Heals <span className="text-blood">{ef.formula}</span> HP.</>}
-            </div>
+            <EffectRow key={i} effect={ef} />
           ))}
         </div>
       )}
@@ -175,25 +164,11 @@ function PlayerItemDetail({ item, sellPrice, merchantCoins, onClose }: {
 
       <div className="text-mono text-xs text-dungeon-100 mb-3">{item.description}</div>
 
-      {item.modifiers && item.modifiers.length > 0 && (
-        <div className="mb-3 p-2 bg-dungeon-900 pixel-border">
-          <div className="text-mono text-[10px] text-dungeon-200 mb-1 tracking-wider">MODIFIERS</div>
-          {item.modifiers.map((mod, i) => (
-            <div key={i} className="text-mono text-xs text-gold flex justify-between">
-              <span>{MODIFIER_LABELS[mod.stat] || mod.stat}</span>
-              <span>{mod.operation === 'override' ? 'Base ' : ''}{mod.value > 0 ? '+' : ''}{mod.value}</span>
-            </div>
-          ))}
-        </div>
-      )}
-
       {item.effects && item.effects.length > 0 && (
-        <div className="mb-3 p-2 bg-dungeon-900 pixel-border">
+        <div className="mb-2">
           <div className="text-mono text-[10px] text-dungeon-200 mb-1 tracking-wider">EFFECTS</div>
           {item.effects.map((ef, i) => (
-            <div key={i} className="text-mono text-xs text-dungeon-100">
-              {ef.type === 'heal_hp' && <>Heals <span className="text-blood">{ef.formula}</span> HP.</>}
-            </div>
+            <EffectRow key={i} effect={ef} />
           ))}
         </div>
       )}

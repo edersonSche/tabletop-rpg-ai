@@ -4,16 +4,64 @@ import { getKitItemEntries } from '../data/theme-kits';
 
 export type NarrativeLanguage = 'english' | 'portuguese' | 'spanish';
 
-export interface ItemModifier {
-  stat: 'ac' | 'damage' | 'strength' | 'dexterity' | 'constitution' | 'intelligence' | 'wisdom' | 'charisma' | 'maxHp';
-  value: number;
-  operation: 'add' | 'override';
-  dexCap?: number;
+export type EffectTarget =
+  | 'ac'
+  | 'damage'
+  | 'strength'
+  | 'dexterity'
+  | 'constitution'
+  | 'intelligence'
+  | 'wisdom'
+  | 'charisma'
+  | 'maxHp';
+
+export interface HpChange {
+  formula: string;
+  type: 'heal' | 'damage';
 }
 
-export interface ItemEffect {
-  type: 'heal_hp';
-  formula: string;
+export interface Effect {
+  type: 'immediate' | 'temporary' | 'permanent';
+  duration?: number;
+  statModifiers?: Array<{
+    target: EffectTarget;
+    value: number;
+    operation: 'add' | 'override';
+    dexCap?: number;
+  }>;
+  hpChange?: HpChange;
+  origin: 'item' | 'condition' | 'narrative';
+  originId?: string;
+}
+
+export interface Condition {
+  id: string;
+  name: string;
+  description: string;
+  effects?: Effect[];
+  antidote?: {
+    targetCondition: string;
+    type: 'immediate' | 'temporary';
+    duration?: number;
+  };
+  origin: 'item' | 'narrative';
+  originId?: string;
+}
+
+export interface ActiveCondition {
+  id: string;
+  condition: {
+    name: string;
+    description: string;
+    effects: Effect[];
+    antidote?: Condition['antidote'];
+    origin: 'item' | 'narrative';
+    originId?: string;
+  };
+  appliedAt: number;
+  remainingDurations: number[];
+  isSuppressed: boolean;
+  suppressRemaining?: number;
 }
 
 export interface InventoryItem {
@@ -23,8 +71,8 @@ export interface InventoryItem {
   type: 'weapon' | 'armor' | 'potion' | 'scroll' | 'key_item' | 'misc';
   quantity: number;
   slot?: 'body' | 'hand' | 'two-handed';
-  modifiers?: ItemModifier[];
-  effects?: ItemEffect[];
+  effects: Effect[];
+  antidoteFor?: string;
 }
 
 export interface MerchantItem {
@@ -33,11 +81,11 @@ export interface MerchantItem {
   description: string;
   type: 'weapon' | 'armor' | 'potion' | 'scroll' | 'key_item' | 'misc';
   slot?: 'body' | 'hand' | 'two-handed';
-  modifiers?: ItemModifier[];
-  effects?: ItemEffect[];
+  effects: Effect[];
   buyPrice: number;
   sellPrice: number;
   quantity: number;
+  antidoteFor?: string;
 }
 
 export interface Merchant {
@@ -76,6 +124,38 @@ export interface Player {
     offHand?: string;
   };
   ac: number;
+  activeConditions: ActiveCondition[];
+}
+
+export interface TickResult {
+  playerId: string;
+  playerName: string;
+  hpChange: number;
+  conditionsExpired: string[];
+  dotDetails: Array<{
+    conditionName: string;
+    formula: string;
+    type: 'heal' | 'damage';
+    durationLeft: number;
+  }>;
+}
+
+export interface UseItemResult {
+  success: boolean;
+  error?: string;
+  hpChange: number;
+  appliedConditions: Array<{ name: string; duration: number }>;
+}
+
+export interface UseAntidoteResult {
+  success: boolean;
+  error?: string;
+  conditionRemoved?: string;
+}
+
+export interface ServiceActionResult {
+  response: { narration: string; location?: string; merchants?: any[]; next: { type: string; target?: string; skill?: string; dc?: number } };
+  tickResults: TickResult[];
 }
 
 export interface GameStateData {
@@ -276,6 +356,7 @@ export class GameState {
       coins,
       equipment: {},
       ac,
+      activeConditions: [],
     };
 
     room.players.push(player);
@@ -383,6 +464,11 @@ export class GameState {
     if (slot === 'mainHand' && item.slot !== 'hand' && item.slot !== 'two-handed') return { success: false, error: 'This item cannot be held in the main hand' };
     if (slot === 'offHand' && item.slot !== 'hand') return { success: false, error: 'This item cannot be held in the off hand' };
 
+    const currentItemId = player.equipment[slot];
+    if (currentItemId && currentItemId !== itemId) {
+      this.unequipItem(roomId, playerId, slot);
+    }
+
     if (item.slot === 'two-handed' && slot === 'mainHand') {
       player.equipment.offHand = undefined;
     }
@@ -396,6 +482,7 @@ export class GameState {
     else if (slot === 'mainHand') player.equipment.mainHand = itemId;
     else if (slot === 'offHand') player.equipment.offHand = itemId;
 
+    this.recomputePlayer(player);
     return { success: true };
   }
 
@@ -409,6 +496,7 @@ export class GameState {
     else if (slot === 'mainHand') player.equipment.mainHand = undefined;
     else if (slot === 'offHand') player.equipment.offHand = undefined;
 
+    this.recomputePlayer(player);
     return { success: true };
   }
 
@@ -458,7 +546,21 @@ export class GameState {
     const attr = attrMap[skill.toLowerCase()];
     if (!attr) return 0;
 
-    const value = player.attributes[attr];
+    let value = player.attributes[attr];
+
+    for (const ac of player.activeConditions) {
+      if (ac.isSuppressed) continue;
+      for (const ef of ac.condition.effects || []) {
+        if (ef.type === 'immediate') continue;
+        for (const mod of ef.statModifiers || []) {
+          if (mod.target === skill) {
+            if (mod.operation === 'override') value = mod.value;
+            else value += mod.value;
+          }
+        }
+      }
+    }
+
     return Math.floor((value - 10) / 2);
   }
 
@@ -467,25 +569,224 @@ export class GameState {
   }
 
   rollDiceFormula(formula: string): number {
-    const match = formula.match(/^(\d+)d(\d+)([+-]\d+)?$/i);
-    if (!match) return 0;
-    const diceCount = parseInt(match[1], 10);
-    const diceFaces = parseInt(match[2], 10);
-    const modifier = match[3] ? parseInt(match[3], 10) : 0;
+    const diceMatch = formula.match(/^(\d+)d(\d+)([+-]\d+)?$/i);
+    if (diceMatch) {
+      const diceCount = parseInt(diceMatch[1], 10);
+      const diceFaces = parseInt(diceMatch[2], 10);
+      const modifier = diceMatch[3] ? parseInt(diceMatch[3], 10) : 0;
 
-    let total = modifier;
-    for (let i = 0; i < diceCount; i++) {
-      total += Math.floor(Math.random() * diceFaces) + 1;
+      let total = modifier;
+      for (let i = 0; i < diceCount; i++) {
+        total += Math.floor(Math.random() * diceFaces) + 1;
+      }
+      return Math.max(0, total);
     }
-    return Math.max(0, total);
+
+    const fixed = parseInt(formula, 10);
+    if (!isNaN(fixed)) return Math.max(0, fixed);
+    return 0;
   }
 
-  computeAc(roomId: string, playerId: string): number {
-    const room = this.rooms.get(roomId);
-    if (!room) return 10;
-    const player = room.players.find(p => p.id === playerId);
-    if (!player) return 10;
+  private applyHpChange(player: Player, hpChange: HpChange): number {
+    const amount = this.rollDiceFormula(hpChange.formula);
+    if (hpChange.type === 'damage') {
+      player.hp = Math.max(0, player.hp - amount);
+      return -amount;
+    } else {
+      player.hp = Math.min(player.maxHp, player.hp + amount);
+      return amount;
+    }
+  }
 
+  applyEffectToPlayer(player: Player, effect: Effect): void {
+    if (effect.type === 'immediate') {
+      if (effect.hpChange) this.applyHpChange(player, effect.hpChange);
+      return;
+    }
+  }
+
+  applyConditionToPlayer(
+    player: Player,
+    condition: Condition,
+    room: GameStateData,
+  ): ActiveCondition | null {
+    if ((condition.effects || []).length > 5) {
+      console.error(`Condition "${condition.name}" rejected: max 5 effects`);
+      return null;
+    }
+
+    for (const ef of condition.effects || []) {
+      if (ef.type === 'temporary' && (ef.duration === undefined || ef.duration === null)) {
+        console.error(`Condition "${condition.name}" rejected: temporary effect without duration`);
+        return null;
+      }
+      if (ef.type === 'immediate' && !ef.hpChange) {
+        console.error(`Condition "${condition.name}" rejected: immediate effect without hpChange`);
+        return null;
+      }
+      if (ef.duration !== undefined && ef.duration > 99) {
+        ef.duration = 99;
+      }
+      if (ef.statModifiers) {
+        for (const mod of ef.statModifiers) {
+          mod.value = Math.max(-10, Math.min(10, mod.value));
+        }
+      }
+    }
+
+    const existing = player.activeConditions.find(
+      ac => ac.condition.name === condition.name && ac.condition.origin === condition.origin
+    );
+
+    if (existing) {
+      for (let i = 0; i < (condition.effects || []).length; i++) {
+        const ce = (condition.effects || [])[i];
+        if (ce.type === 'temporary') {
+          const idx = existing.remainingDurations.findIndex(
+            (_, ei) => existing.condition.effects[ei]?.type === 'temporary'
+          );
+          if (idx >= 0) {
+            existing.remainingDurations[idx] += ce.duration!;
+          }
+        }
+      }
+      return existing;
+    }
+
+    const durations: number[] = (condition.effects || []).map(ef => {
+      if (ef.type === 'immediate') return 0;
+      if (ef.type === 'temporary') return ef.duration!;
+      return -1;
+    });
+
+    const active: ActiveCondition = {
+      id: uuid(),
+      condition: { ...condition, effects: [...(condition.effects || [])] },
+      appliedAt: room.history.length,
+      remainingDurations: durations,
+      isSuppressed: false,
+    };
+
+    for (const ef of condition.effects || []) {
+      if (ef.type === 'immediate' && ef.hpChange) {
+        this.applyHpChange(player, ef.hpChange);
+      }
+    }
+
+    player.activeConditions.push(active);
+    this.recomputePlayer(player);
+    return active;
+  }
+
+  removeConditionFromPlayer(player: Player, conditionId: string): boolean {
+    const idx = player.activeConditions.findIndex(ac => ac.id === conditionId);
+    if (idx === -1) return false;
+    player.activeConditions.splice(idx, 1);
+    this.recomputePlayer(player);
+    return true;
+  }
+
+  tickEffects(room: GameStateData): TickResult[] {
+    const results: TickResult[] = [];
+
+    for (const player of room.players) {
+      if (!player.active) continue;
+      const result: TickResult = {
+        playerId: player.id,
+        playerName: player.name,
+        hpChange: 0,
+        conditionsExpired: [],
+        dotDetails: [],
+      };
+
+      const toRemove: string[] = [];
+
+      for (const ac of player.activeConditions) {
+        if (ac.isSuppressed) {
+          if (ac.suppressRemaining !== undefined) {
+            ac.suppressRemaining--;
+            if (ac.suppressRemaining <= 0) {
+              ac.isSuppressed = false;
+              ac.suppressRemaining = undefined;
+            }
+          }
+          continue;
+        }
+
+        let conditionExpired = true;
+        let hasPermanent = false;
+
+        for (let i = 0; i < ac.remainingDurations.length; i++) {
+          const ef = ac.condition.effects[i];
+          if (!ef) continue;
+
+          if (ef.type === 'immediate') continue;
+
+          if (ef.type === 'permanent') {
+            hasPermanent = true;
+            conditionExpired = false;
+            if (ef.hpChange) {
+              const amount = this.rollDiceFormula(ef.hpChange.formula);
+              if (ef.hpChange.type === 'damage') {
+                player.hp -= amount;
+                result.hpChange -= amount;
+              } else {
+                player.hp = Math.min(player.maxHp, player.hp + amount);
+                result.hpChange += amount;
+              }
+              result.dotDetails.push({
+                conditionName: ac.condition.name,
+                formula: ef.hpChange.formula,
+                type: ef.hpChange.type,
+                durationLeft: -1,
+              });
+            }
+            continue;
+          }
+
+          if (ef.type === 'temporary') {
+            ac.remainingDurations[i]--;
+            if (ac.remainingDurations[i] > 0) conditionExpired = false;
+
+            if (ef.hpChange && ac.remainingDurations[i] >= 0) {
+              const amount = this.rollDiceFormula(ef.hpChange.formula);
+              if (ef.hpChange.type === 'damage') {
+                player.hp -= amount;
+                result.hpChange -= amount;
+              } else {
+                player.hp = Math.min(player.maxHp, player.hp + amount);
+                result.hpChange += amount;
+              }
+              result.dotDetails.push({
+                conditionName: ac.condition.name,
+                formula: ef.hpChange.formula,
+                type: ef.hpChange.type,
+                durationLeft: ac.remainingDurations[i],
+              });
+            }
+          }
+        }
+
+        if (!hasPermanent && conditionExpired) {
+          toRemove.push(ac.id);
+          result.conditionsExpired.push(ac.condition.name);
+        }
+      }
+
+      for (const id of toRemove) {
+        this.removeConditionFromPlayer(player, id);
+      }
+
+      player.hp = Math.max(0, Math.min(player.maxHp, player.hp));
+      this.recomputePlayer(player);
+      results.push(result);
+    }
+
+    return results;
+  }
+
+  recomputePlayer(player: Player): void {
+    const dexMod = Math.floor((player.attributes.dexterity - 10) / 2);
     let baseAc = 10;
     let dexCap: number | null = null;
     let bonusAc = 0;
@@ -495,44 +796,115 @@ export class GameState {
       const itemId = player.equipment[slot];
       if (!itemId) continue;
       const item = player.inventory.find(i => i.id === itemId);
-      if (!item?.modifiers) continue;
-      for (const mod of item.modifiers) {
-        if (mod.stat !== 'ac') continue;
-        if (mod.operation === 'override') {
-          baseAc = mod.value;
-          if (mod.dexCap !== undefined) dexCap = mod.dexCap;
-        } else if (mod.operation === 'add') {
-          bonusAc += mod.value;
+      if (!item?.effects) continue;
+      for (const effect of item.effects) {
+        if (!effect.statModifiers) continue;
+        for (const mod of effect.statModifiers) {
+          if (mod.target !== 'ac') continue;
+          if (mod.operation === 'override') {
+            baseAc = mod.value;
+            if (mod.dexCap !== undefined) dexCap = mod.dexCap;
+          } else {
+            bonusAc += mod.value;
+          }
         }
       }
     }
 
-    const dexMod = Math.floor((player.attributes.dexterity - 10) / 2);
-    const dexContrib = dexCap !== null ? Math.min(dexMod, dexCap) : dexMod;
+    for (const ac of player.activeConditions) {
+      if (ac.isSuppressed) continue;
+      for (const ef of ac.condition.effects || []) {
+        if (ef.type === 'immediate') continue;
+        for (const mod of ef.statModifiers || []) {
+          if (mod.target === 'ac') {
+            if (mod.operation === 'override') {
+              baseAc = mod.value;
+              if (mod.dexCap !== undefined) dexCap = mod.dexCap;
+            } else {
+              bonusAc += mod.value;
+            }
+          }
+        }
+      }
+    }
 
-    return baseAc + dexContrib + bonusAc;
+    const dexContrib = dexCap !== null ? Math.min(dexMod, dexCap) : dexMod;
+    player.ac = baseAc + dexContrib + bonusAc;
   }
 
-  useItem(roomId: string, playerId: string, itemId: string): { success: boolean; error?: string; healed?: number } {
+  computeAc(roomId: string, playerId: string): number {
     const room = this.rooms.get(roomId);
-    if (!room) return { success: false, error: 'Room not found' };
+    if (!room) return 10;
     const player = room.players.find(p => p.id === playerId);
-    if (!player) return { success: false, error: 'Player not found' };
+    if (!player) return 10;
+    this.recomputePlayer(player);
+    return player.ac;
+  }
+
+  useItem(roomId: string, playerId: string, itemId: string): UseItemResult {
+    const room = this.rooms.get(roomId);
+    if (!room) return { success: false, error: 'Room not found', hpChange: 0, appliedConditions: [] };
+    const player = room.players.find(p => p.id === playerId);
+    if (!player) return { success: false, error: 'Player not found', hpChange: 0, appliedConditions: [] };
 
     const itemIndex = player.inventory.findIndex(i => i.id === itemId);
-    if (itemIndex === -1) return { success: false, error: 'Item not found' };
+    if (itemIndex === -1) return { success: false, error: 'Item not found', hpChange: 0, appliedConditions: [] };
 
     const item = player.inventory[itemIndex];
-    if (!item.effects || item.effects.length === 0) return { success: false, error: 'This item has no effects' };
+    if (!item.effects || item.effects.length === 0) {
+      return { success: false, error: 'This item has no effects', hpChange: 0, appliedConditions: [] };
+    }
 
-    let healed = 0;
+    const result: UseItemResult = {
+      success: true,
+      hpChange: 0,
+      appliedConditions: [],
+    };
 
     for (const effect of item.effects) {
-      if (effect.type === 'heal_hp') {
-        const amount = this.rollDiceFormula(effect.formula);
-        const beforeHp = player.hp;
-        player.hp = Math.min(player.maxHp, player.hp + amount);
-        healed = player.hp - beforeHp;
+      switch (effect.type) {
+        case 'immediate': {
+          if (effect.hpChange) {
+            const amount = this.applyHpChange(player, effect.hpChange);
+            result.hpChange += amount;
+          }
+          break;
+        }
+
+        case 'temporary': {
+          const syntheticCondition: Condition = {
+            id: uuid(),
+            name: item.name,
+            description: `Effect from ${item.name}`,
+            effects: [effect],
+            origin: 'item',
+            originId: item.id,
+          };
+          this.applyConditionToPlayer(player, syntheticCondition, room);
+          result.appliedConditions.push({
+            name: syntheticCondition.name,
+            duration: effect.duration ?? 0,
+          });
+          break;
+        }
+
+        case 'permanent': {
+          const fallbackEffect = { ...effect, type: 'temporary' as const, duration: 1 };
+          const syntheticCondition: Condition = {
+            id: uuid(),
+            name: item.name,
+            description: `Effect from ${item.name}`,
+            effects: [fallbackEffect],
+            origin: 'item',
+            originId: item.id,
+          };
+          this.applyConditionToPlayer(player, syntheticCondition, room);
+          result.appliedConditions.push({
+            name: syntheticCondition.name,
+            duration: 1,
+          });
+          break;
+        }
       }
     }
 
@@ -542,7 +914,25 @@ export class GameState {
       item.quantity -= 1;
     }
 
-    return { success: true, healed };
+    this.recomputePlayer(player);
+    return result;
+  }
+
+  useAntidote(player: Player, antidoteItem: InventoryItem, targetConditionName?: string): UseAntidoteResult {
+    const targetName = targetConditionName || antidoteItem.antidoteFor;
+    if (!targetName) {
+      return { success: false, error: 'This item is not an antidote' };
+    }
+
+    const activeCondition = player.activeConditions.find(
+      ac => ac.condition.name === targetName && !ac.isSuppressed
+    );
+    if (!activeCondition) {
+      return { success: false, error: `No active condition named "${targetName}" found` };
+    }
+
+    this.removeConditionFromPlayer(player, activeCondition.id);
+    return { success: true, conditionRemoved: targetName };
   }
 
   adjustMerchantPrices(merchants: Merchant[], chaMod: number): Merchant[] {
@@ -597,8 +987,7 @@ export class GameState {
         type: merchantItem.type,
         quantity,
         slot: merchantItem.slot,
-        modifiers: merchantItem.modifiers ? JSON.parse(JSON.stringify(merchantItem.modifiers)) : undefined,
-        effects: merchantItem.effects ? JSON.parse(JSON.stringify(merchantItem.effects)) : undefined,
+        effects: merchantItem.effects ? JSON.parse(JSON.stringify(merchantItem.effects)) : [],
       });
     }
 
@@ -671,8 +1060,7 @@ export class GameState {
         type: item.type,
         quantity,
         slot: item.slot,
-        modifiers: item.modifiers ? JSON.parse(JSON.stringify(item.modifiers)) : undefined,
-        effects: item.effects ? JSON.parse(JSON.stringify(item.effects)) : undefined,
+        effects: item.effects ? JSON.parse(JSON.stringify(item.effects)) : [],
         buyPrice: Math.round(unitPrice * 2),
         sellPrice: unitPrice,
       });

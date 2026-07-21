@@ -117,10 +117,12 @@ cd frontend && npm run preview     # vite preview
 | `game:allocate_attributes` | `GameGateway` | `{ roomId, playerId, allocations }` |
 | `game:equip` | `GameGateway` | `{ roomId, playerId, itemId, slot }` |
 | `game:unequip` | `GameGateway` | `{ roomId, playerId, slot }` |
+| `game:use_item` | `GameGateway` | `{ roomId, playerId, itemId }` |
 | `game:initiate_trade` | `GameGateway` | `{ roomId, playerId }` |
 | `game:buy_item` | `GameGateway` | `{ roomId, playerId, merchantId, merchantItemId, quantity? }` |
 | `game:sell_item` | `GameGateway` | `{ roomId, playerId, merchantId, itemId, quantity? }` |
 | `game:end_trade` | `GameGateway` | `{ roomId, playerId }` |
+| `game:use_antidote` | `GameGateway` | `{ roomId, playerId, itemId, targetConditionName? }` |
 
 ### Server → Client
 
@@ -139,6 +141,8 @@ cd frontend && npm run preview     # vite preview
 | `game:disband` | `{ reason }` |
 | `game:level_up` | `{ playerId, newLevel, gainedPoints }` (frontend-ready, server not yet emitting) |
 | `game:trade_state` | `{ locked, merchants, tradeParticipants, tradeDone }` |
+| `game:condition_tick` | `{ players: [{ id, hp, maxHp, ac, activeConditions, tickResult }] }` |
+| `game:antidote_result` | `{ success, conditionRemoved? }` |
 
 ## AI Integration
 
@@ -148,13 +152,13 @@ The backend uses a **provider pattern**:
 - **`OpencodeProvider`** — raw HTTP fetch to a local Opencode session; manages sessions per room.
 - **Fallback** — if `AI_API_KEY` is empty, `AiService.generate()` returns a static narration without calling any provider.
 
-The system prompt supports **English**, **Portuguese (Brazil)**, and **Spanish** narration. The AI responds in strict JSON with `narration`, mandatory `location`, optional `merchants` (array of merchants with items/prices), and `next` (with `type`, `target`, `skill`, `dc`). Narration supports **Markdown** formatting rendered via `react-markdown`.
+The system prompt supports **English**, **Portuguese (Brazil)**, and **Spanish** narration. The AI responds in strict JSON with `narration`, mandatory `location`, optional `conditions` (narrative conditions with effects on players), optional `merchants` (array of merchants with items/prices using unified `statValue`/`statOperation`), and `next` (with `type`, `target`, `skill`, `dc`). Narration supports **Markdown** formatting rendered via `react-markdown`.
 
 The AI has a **two-tier memory system**: a running history of narration text (for immediate context) and a periodic **summarization** that condenses old entries into a persistent summary every 50 actions — saving tokens vs. storing full history.
 
 Invalid AI targets (`call_player`/`call_roll` pointing to missing players) are coerced to `group_action` by `GameService.validateAiResponseTarget()`.
 
-When a player initiates trade via `game:initiate_trade`, the AI generates merchant data in the `merchants` field of the response. Each merchant includes an inventory of 3-8 items with prices, modifiers, and effects. Location must be known — `"unknown location"` disables trading.
+When a player initiates trade via `game:initiate_trade`, the AI generates merchant data in the `merchants` field of the response. Each merchant includes an inventory of 3-8 items with prices and effects (stat modifiers and/or hp formulas). Location must be known — `"unknown location"` disables trading.
 
 The provider manages **per-room sessions**: created when a character is made or campaign is resumed (`onRoomReady()`), and deleted when the last player leaves or the campaign is deleted (`onRoomEmpty()`). 404/410 errors auto-recreate sessions.
 
@@ -173,11 +177,11 @@ Players build characters using a **point-buy system**:
 
 Players start each campaign with basic equipment:
 
-- **Dagger** (hand slot) — a melee weapon
-- **2 Healing Potions** (potion type)
+- **Dagger** (hand slot, +1 damage permanent effect)
+- **2 Healing Potions** (immediate heal effect: `2d4+2`)
 - **50 coins**
 
-Items have **types** (`weapon`, `armor`, `potion`, `scroll`, `key_item`, `misc`) and **slots** (`body`, `hand`, `two-handed`). Each player has three equipment slots:
+Items have **types** (`weapon`, `armor`, `potion`, `scroll`, `key_item`, `misc`), **slots** (`body`, `hand`, `two-handed`), and **`effects: Effect[]`** (unified stat modifiers and hp changes per item). Each player has three equipment slots:
 
 | Slot | Accepts |
 |------|---------|
@@ -185,7 +189,7 @@ Items have **types** (`weapon`, `armor`, `potion`, `scroll`, `key_item`, `misc`)
 | `mainHand` | Items with `hand` or `two-handed` slot |
 | `offHand` | Items with `hand` slot |
 
-Two-handed weapons block the off-hand slot when equipped. Equipment is managed via `game:equip` / `game:unequip` events and is persisted in saved campaigns.
+Two-handed weapons block the off-hand slot when equipped. `game:equip` auto-unequips any existing item in the target slot and recalculates AC/effects via `recomputePlayer()`. `game:unequip` also triggers recalculation. `game:use_item` handles all effect types — `immediate` (heal/damage via `applyHpChange`), `temporary` (synthetic `Condition` via `applyConditionToPlayer`), and `permanent` (fallback as temporary with duration 1). Equipment and items are persisted in saved campaigns.
 
 ## Trading
 
@@ -241,12 +245,12 @@ backend/src/
 │   ├── ai.interface.ts      # AIConfig / AIProvider interface (includes summarize)
 │   ├── ai.service.ts        # Provider dispatcher + response validation + summarizeHistory()
 │   ├── prompts/
-│   │   └── system.prompt.ts # Multilingual system prompt builder (memory, markdown, levels)
+│   │   └── system.prompt.ts # Multilingual system prompt builder (memory, markdown, levels, conditions, merchants with effects)
 │   └── providers/
 │       └── opencode.provider.ts  # Per-room sessions, summarization, error recovery
 ├── campaign/
-│   ├── campaign.store.ts    # Persist/restore to data/campaigns.json (stores HP/XP/level/summary/inventory/coins/equipment)
-│   └── campaign.types.ts    # SavedCampaign, SavedCampaignInfo (incl. inventory/coins/equipment)
+│   ├── campaign.store.ts    # Persist/restore to data/campaigns.json (schema v2, flattened SavedEffect format, auto-migrates v1 saves)
+│   └── campaign.types.ts    # SavedCampaign, SavedCampaignInfo (schemaVersion, SavedEffect, SavedMerchantItem)
 ├── game/
 │   ├── game.gateway.ts      # Game WebSocket handlers (incl. allocate_attributes, equip, unequip)
 │   ├── game.service.ts      # Turn orchestration + AI response processing + maybeSummarize()
@@ -255,14 +259,14 @@ backend/src/
 ├── room/
 │   ├── room.gateway.ts      # Lobby WebSocket handlers
 │   └── room.service.ts      # In-memory Room registry
-└── dto/                     # Data transfer objects
+└── dto/                     # Data transfer objects (unified ConditionEffectSeed/MerchantSeedItem effects with statValue/statOperation)
 
 frontend/src/
 ├── main.tsx                 # React entry point
 ├── App.tsx                  # Page router (state machine via useReducer)
 ├── index.css                # Tailwind + custom layers (pixel fonts, colors)
 ├── hooks/
-│   ├── SocketContext.tsx    # Socket.IO context provider + state (incl. emitEquip, emitUnequip)
+│   ├── SocketContext.tsx    # Socket.IO context provider + state (incl. emitEquip, emitUnequip, emitUseAntidote, game:condition_tick, game:antidote_result)
 │   ├── useSocket.ts         # Context re-export
 │   └── useGameTurn.ts       # Turn logic hook (isMyTurn, isRollRequest, etc.)
 ├── routing/
@@ -283,10 +287,10 @@ frontend/src/
 │   │   ├── TurnIndicator.tsx
 │   │   ├── PlayerList.tsx
 │   │   ├── PlayerCard.tsx
-│   │   ├── CharacterSheet.tsx   # Attributes + Inventory tabs, equip/unequip UI
+│   │   ├── CharacterSheet.tsx   # Attributes + Inventory tabs, equip/unequip UI, active conditions section with antidote button, EffectRow (exported)
 │   │   ├── TypingIndicator.tsx
 │   │   ├── CampaignStatusBar.tsx
-│   │   ├── MyCharacterStatus.tsx
+│   │   ├── MyCharacterStatus.tsx   # HP/XP bars + condition indicators with hover tooltip
 │   │   ├── PlayerCircles.tsx
 │   │   ├── AttributeAllocationModal.tsx
 │   │   ├── CharacterListModal.tsx
@@ -301,10 +305,10 @@ frontend/src/
 │       ├── RoomList.tsx
 │       └── SavedCampaigns.tsx
 └── types/
-    └── game.types.ts        # Shared TypeScript interfaces (Player incl. inventory/coins/equipment)
+    └── game.types.ts        # Shared TypeScript interfaces (Player incl. activeConditions, Effect, inventory/coins/equipment, UseAntidoteResult, ConditionTickPayload)
 ```
 
 ## Limitations
 
-- **Active rooms are in-memory** — restarting the backend wipes active rooms, but saved campaigns persist in `data/campaigns.json` and can be resumed.
+- **Active rooms are in-memory** — restarting the backend wipes active rooms, but saved campaigns persist in `data/campaigns.json` (schema v2) and can be resumed. Old v1 saves (with nested `modifiers`/`effects`) are auto-migrated to v2 on restore via `migrateV1ToV2()`.
 - **XP gain not yet wired** — the HP/XP/leveling engine is structurally complete (levels 1-20, D&D 5e SRD XP thresholds, ASI at levels 4/8/12/16/19), but no server-side game action triggers XP gain yet. `game:level_up` is frontend-ready but not emitted by the backend.

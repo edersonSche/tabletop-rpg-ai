@@ -16,6 +16,7 @@ export interface AIContext {
     id: string;
     name: string;
     level: number;
+    activeConditions?: any[];
   }>;
   scene: string;
   currentLocation: string | null;

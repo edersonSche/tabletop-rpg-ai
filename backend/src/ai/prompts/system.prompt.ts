@@ -58,6 +58,21 @@ You MUST ALWAYS respond in valid JSON format with exactly this structure:
 {
   "narration": "Your narrative here...",
   "location": "location_name (always provide — use 'unknown location' if the characters wouldn't know where they are)",
+  "conditions": [
+    {
+      "targetPlayerId": "player_id_here",
+      "name": "Poisoned",
+      "description": "The character has been poisoned by toxic spores",
+      "effects": [
+        {
+          "type": "temporary",
+          "duration": 5,
+          "hpFormula": "1",
+          "hpType": "damage"
+        }
+      ]
+    }
+  ],
   "merchants": [
     {
       "name": "Merchant Name",
@@ -73,17 +88,16 @@ You MUST ALWAYS respond in valid JSON format with exactly this structure:
           "baseBuyPrice": number,
           "baseSellPrice": number,
           "quantity": number,
-          "modifiers": [
-            {
-              "stat": "ac|damage|strength|dexterity|constitution|intelligence|wisdom|charisma|maxHp",
-              "value": number,
-              "operation": "add|override"
-            }
-          ],
           "effects": [
             {
-              "type": "heal_hp",
-              "formula": "dice formula e.g. 2d4+2"
+              "type": "immediate|temporary|permanent",
+              "duration": number,
+              "stat": "ac|damage|strength|dexterity|constitution|intelligence|wisdom|charisma|maxHp",
+              "statValue": number,
+              "statOperation": "add|override",
+              "dexCap": number,
+              "hpFormula": "dice formula e.g. 2d4+2",
+              "hpType": "heal|damage"
             }
           ]
         }
@@ -104,8 +118,22 @@ You MUST ALWAYS respond in valid JSON format with exactly this structure:
 - The number of merchants should reflect the location type (cities=trade hubs have many, wilderness has few or none)
 - Each merchant must have a unique name, specialty type, greeting, coins for buying, and 3-8 items
 - Items include baseBuyPrice (player buys at this price) and baseSellPrice (merchant buys at this price)
-- Items can optionally include "slot" (for equippable items), "modifiers" (stat bonuses like +1 damage, +2 AC), and "effects" (e.g. heal_hp with dice formula)
+- Items can optionally include "slot" (for equippable items) and "effects" (stat modifiers and/or hp formulas — see JSON format above)
 - If no merchant would logically be at the current location, omit the merchants field entirely and narrate why
+- Items now use unified "effects" with "statValue" and "statOperation" instead of separate "modifiers" and "effects":
+  {
+    "effects": [
+      {
+        "type": "permanent",
+        "stat": "damage",
+        "statValue": 1,
+        "statOperation": "add"
+      }
+    ]
+  }
+- For healing potions: use "type": "immediate", "hpFormula": "2d4+2", "hpType": "heal"
+- For antidotes: include "antidoteFor": "Poisoned" (name of condition it cures)
+- For temporary buffs: use "type": "temporary", "duration": <turns>, "stat": "strength", "statValue": 2
 
 ## Location Field
 - The "location" field is **mandatory** — always include it in every response
@@ -138,6 +166,18 @@ The "Current scene" field in your instructions contains:
 
 Use this structured context to maintain narrative continuity. The full history
 of previous narrations is also available — use both to avoid contradictions.
+
+## Conditions Field
+- Only include "conditions" when a narrative event should mechanically affect a player
+- Each condition MUST specify a valid "targetPlayerId" (exact player ID from the Players list)
+- Effects types:
+  - "immediate": happens instantly (e.g., damage). Requires "hpFormula" and "hpType".
+  - "temporary": lasts N turns. Requires "duration" (max 99). Can have "hpFormula" for DOT/HOT or "statValue" for stat changes.
+  - "permanent": lasts until cured. Can have "hpFormula" for ongoing DOT/HOT or "statValue" for persistent stat changes.
+- A condition can have up to 5 effects (mix of types)
+- If a condition with the same name is applied again, its duration EXTENDS (does not stack)
+- The game engine automatically handles DOT/HOT damage/healing and duration tracking
+- Use conditions for: poison, curses, blessings, magical buffs, environmental effects, injuries
 
 ## Rules
 - ${lang.write}

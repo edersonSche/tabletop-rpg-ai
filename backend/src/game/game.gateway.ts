@@ -13,7 +13,7 @@ import { Inject } from '@nestjs/common';
 import { GameService } from './game.service';
 import { GameState, GameStateData } from './game.state';
 import { TurnManager } from './turn.manager';
-import { GameActionDto, UseItemDto, InitiateTradeDto, BuyItemDto, SellItemDto, EndTradeDto } from '../dto/game-action.dto';
+import { GameActionDto, UseItemDto, InitiateTradeDto, BuyItemDto, SellItemDto, EndTradeDto, UseAntidoteDto } from '../dto/game-action.dto';
 import { AIProvider } from '../ai/ai.interface';
 import { AuthService } from '../auth/auth.service';
 import { AuthWsGuard } from '../auth/auth.guard';
@@ -134,7 +134,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
     this.server.to(data.roomId).emit('game:processing', { processing: true });
     try {
-      const response = await this.gameService.handleAction(data.roomId, data.playerId, data.message);
+      const { response, tickResults } = await this.gameService.handleAction(data.roomId, data.playerId, data.message);
       const room = this.gameState.getRoom(data.roomId);
 
       this.campaignStore.saveFromMemory(data.roomId);
@@ -151,6 +151,20 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
           type: room.turnType,
           target: room.turnTarget,
         });
+
+        if (tickResults.length > 0) {
+          const payload = {
+            players: room.players.filter(p => p.active).map(p => ({
+              id: p.id,
+              hp: p.hp,
+              maxHp: p.maxHp,
+              ac: p.ac,
+              activeConditions: p.activeConditions,
+              tickResult: tickResults.find(t => t.playerId === p.id) || { playerName: p.name, hpChange: 0, conditionsExpired: [], dotDetails: [] },
+            })),
+          };
+          this.server.to(data.roomId).emit('game:condition_tick', payload);
+        }
       }
 
       return { success: true };
@@ -184,7 +198,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
     this.server.to(data.roomId).emit('game:processing', { processing: true });
     try {
-      const response = await this.gameService.handleRoll(data.roomId, data.playerId, { roll, modifier, total, skill, dc });
+      const { response, tickResults } = await this.gameService.handleRoll(data.roomId, data.playerId, { roll, modifier, total, skill, dc });
       const room = this.gameState.getRoom(data.roomId);
 
       this.campaignStore.saveFromMemory(data.roomId);
@@ -201,6 +215,20 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
           type: room.turnType,
           target: room.turnTarget,
         });
+
+        if (tickResults.length > 0) {
+          const payload = {
+            players: room.players.filter(p => p.active).map(p => ({
+              id: p.id,
+              hp: p.hp,
+              maxHp: p.maxHp,
+              ac: p.ac,
+              activeConditions: p.activeConditions,
+              tickResult: tickResults.find(t => t.playerId === p.id) || { playerName: p.name, hpChange: 0, conditionsExpired: [], dotDetails: [] },
+            })),
+          };
+          this.server.to(data.roomId).emit('game:condition_tick', payload);
+        }
       }
 
       return { success: true };
@@ -234,7 +262,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
         });
       }
 
-      const response = await this.gameService.startCampaign(data.roomId);
+      const { response, tickResults } = await this.gameService.startCampaign(data.roomId);
 
       if (response.narration) {
         this.server.to(data.roomId).emit('game:narration', {
@@ -256,6 +284,20 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
           type: room.turnType,
           target: room.turnTarget,
         });
+
+        if (tickResults.length > 0) {
+          const payload = {
+            players: room.players.filter(p => p.active).map(p => ({
+              id: p.id,
+              hp: p.hp,
+              maxHp: p.maxHp,
+              ac: p.ac,
+              activeConditions: p.activeConditions,
+              tickResult: tickResults.find(t => t.playerId === p.id) || { playerName: p.name, hpChange: 0, conditionsExpired: [], dotDetails: [] },
+            })),
+          };
+          this.server.to(data.roomId).emit('game:condition_tick', payload);
+        }
       }
 
       this.campaignStore.saveFromMemory(data.roomId);
@@ -348,11 +390,6 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
         return { success: false, error: result.error };
       }
 
-      const player = this.gameState.getRoom(data.roomId)?.players.find(p => p.id === data.playerId);
-      if (player) {
-        player.ac = this.gameState.computeAc(data.roomId, data.playerId);
-      }
-
       const room = this.gameState.getRoom(data.roomId);
       if (room) {
         this.server.to(data.roomId).emit('game:state', {
@@ -380,11 +417,6 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       if (!result.success) {
         client.emit('game:error', { message: result.error });
         return { success: false, error: result.error };
-      }
-
-      const player = this.gameState.getRoom(data.roomId)?.players.find(p => p.id === data.playerId);
-      if (player) {
-        player.ac = this.gameState.computeAc(data.roomId, data.playerId);
       }
 
       const room = this.gameState.getRoom(data.roomId);
@@ -431,18 +463,22 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
         return { success: false, error: result.error };
       }
 
-      const msg = result.healed && result.healed > 0
-        ? `Used ${itemName} and healed ${result.healed} HP!`
-        : `Used ${itemName}.`;
+      const parts: string[] = [`Used ${itemName}.`];
+      if (result.hpChange > 0) {
+        parts.push(`Healed ${result.hpChange} HP!`);
+      } else if (result.hpChange < 0) {
+        parts.push(`Took ${Math.abs(result.hpChange)} damage.`);
+      }
+      for (const ac of result.appliedConditions) {
+        parts.push(`Applied ${ac.name} (${ac.duration} turn${ac.duration !== 1 ? 's' : ''}).`);
+      }
 
       this.server.to(data.roomId).emit('game:player_action', {
         type: 'action',
         playerId: data.playerId,
         characterName: player.name,
-        message: msg,
+        message: parts.join(' '),
       });
-
-      player.ac = this.gameState.computeAc(data.roomId, data.playerId);
 
       const currentRoom = this.gameState.getRoom(data.roomId);
       if (currentRoom) {
@@ -458,6 +494,59 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     } catch (error) {
       client.emit('game:error', { message: error.message });
       return { success: false, error: error.message };
+    }
+  }
+
+  @SubscribeMessage('game:use_antidote')
+  async handleUseAntidote(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: UseAntidoteDto,
+  ) {
+    try {
+      const player = this.gameState.findPlayerByUserId(data.roomId, client.data.userId);
+      if (!player) {
+        client.emit('game:error', { message: 'Player not found' });
+        return { success: false, error: 'Player not found' };
+      }
+
+      const item = player.inventory.find(i => i.id === data.itemId);
+      if (!item) {
+        client.emit('game:error', { message: 'Item not found in inventory' });
+        return { success: false, error: 'Item not found' };
+      }
+
+      const itemName = item.name;
+      const result = this.gameState.useAntidote(player, item, data.targetConditionName);
+
+      if (result.success) {
+        this.gameState.removeItem(data.roomId, player.id, data.itemId);
+
+        const room = this.gameState.getRoom(data.roomId);
+        if (room) {
+          this.server.to(data.roomId).emit('game:state', {
+            ...this.gameService.getState(data.roomId),
+            creatorId: room.creatorId,
+            history: room.history,
+          });
+        }
+
+        client.emit('game:antidote_result', result);
+        this.server.to(data.roomId).emit('game:player_action', {
+          type: 'action',
+          playerId: player.id,
+          characterName: player.name,
+          message: `used ${itemName}`,
+        });
+
+        this.campaignStore.saveFromMemory(data.roomId);
+      } else {
+        client.emit('game:error', { message: result.error });
+      }
+
+      return { success: result.success };
+    } catch (err) {
+      client.emit('game:error', { message: err.message });
+      return { success: false, error: err.message };
     }
   }
 

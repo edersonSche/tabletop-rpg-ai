@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Close, Sword, Target, Heart, BookOpen, Star, Crown, Archive, Shield, Wallet, Box, Potion, Backpack, Human } from 'pixelarticons/react';
-import { Player, InventoryItem } from '../../types/game.types';
+import { Close, Sword, Target, Heart, BookOpen, Star, Crown, Archive, Shield, Wallet, Box, Potion, Backpack, Human, Skull, Fire, Zap, CloudMoon, Moon, Lock, Circle } from 'pixelarticons/react';
+import { Player, InventoryItem, ActiveCondition, Effect } from '../../types/game.types';
 import { useSocketContext } from '../../hooks/SocketContext';
 
 interface CharacterSheetProps {
@@ -36,6 +36,98 @@ const SLOT_LABELS: Record<SlotKey, string> = {
   offHand: 'Off Hand',
 };
 
+const CONDITION_ICONS: Record<string, React.ComponentType<{ width?: number; height?: number; className?: string }>> = {
+  Poisoned: Skull,
+  Burning: Fire,
+  Blessed: Star,
+  Cursed: Close,
+  Stunned: Zap,
+  Frozen: CloudMoon,
+  Paralyzed: Lock,
+  Unconscious: Moon,
+};
+
+function ConditionIcon({ condition, className }: { condition: string; className?: string }) {
+  const Icon = CONDITION_ICONS[condition] || Circle;
+  return <Icon width={14} height={14} className={className || 'text-dungeon-200'} />;
+}
+
+export function EffectRow({ effect, remainingDuration }: { effect: Effect; remainingDuration?: number }) {
+  let text = '';
+  if (effect.hpChange) {
+    const prefix = effect.hpChange.type === 'damage' ? '-' : '+';
+    text = `${prefix}${effect.hpChange.formula} HP ${effect.hpChange.type === 'damage' ? 'per turn' : 'per turn'}`;
+  }
+  if (effect.statModifiers) {
+    const modTexts = effect.statModifiers.map(m =>
+      `${m.operation === 'override' ? 'Override: ' : ''}${m.value > 0 ? '+' : ''}${m.value} ${m.target.toUpperCase()}${m.dexCap !== undefined ? ` (DEX max ${m.dexCap})` : ''}`
+    );
+    text = modTexts.join(', ');
+  }
+  if (!text) return null;
+
+  return (
+    <div className="flex justify-between text-mono text-[10px] text-dungeon-200 ml-2 mt-0.5">
+      <span>{text}</span>
+      {remainingDuration !== undefined && remainingDuration > 0 && (
+        <span>{remainingDuration} turn(s)</span>
+      )}
+    </div>
+  );
+}
+
+function hasAntidoteInInventory(player: Player, conditionName: string): boolean {
+  return player.inventory.some(i => i.antidoteFor === conditionName);
+}
+
+function formatDuration(remainingDurations: number[]): string {
+  const active = remainingDurations.filter(d => d > 0);
+  if (active.length === 0) return '';
+  return `${Math.min(...active)} turn(s)`;
+}
+
+function ActiveConditionsSection({ player, onUseAntidote }: { player: Player; onUseAntidote: (conditionName: string) => void }) {
+  const conditions = player.activeConditions?.filter(ac => !ac.isSuppressed) || [];
+  if (conditions.length === 0) return null;
+
+  return (
+    <div className="mt-4">
+      <div className="text-mono text-[10px] text-dungeon-200 mb-2 tracking-wider">
+        ACTIVE CONDITIONS
+      </div>
+      <div className="space-y-2">
+        {conditions.map(ac => (
+          <div key={ac.id} className="p-2 bg-dungeon-900 pixel-border">
+            <div className="flex justify-between items-center">
+              <div className="flex items-center gap-2">
+                <ConditionIcon condition={ac.condition.name} />
+                <span className="text-mono text-sm text-blood">{ac.condition.name}</span>
+              </div>
+              <span className="text-mono text-[10px] text-dungeon-200">
+                {formatDuration(ac.remainingDurations)}
+              </span>
+            </div>
+            <div className="text-mono text-[10px] text-dungeon-100 mt-1">
+              {ac.condition.description}
+            </div>
+            {ac.condition.effects.map((ef, i) => (
+              <EffectRow key={i} effect={ef} remainingDuration={ac.remainingDurations[i]} />
+            ))}
+            {hasAntidoteInInventory(player, ac.condition.name) && (
+              <button
+                onClick={() => onUseAntidote(ac.condition.name)}
+                className="mt-2 w-full bg-green-900/30 border border-green-700 pixel-border py-1 text-mono text-[10px] text-green-400 hover:brightness-110"
+              >
+                Use Antidote
+              </button>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 const ITEM_TYPE_ICONS: Record<string, React.ComponentType<{ width?: number; height?: number; className?: string }>> = {
   weapon: Sword,
   armor: Archive,
@@ -45,7 +137,7 @@ const ITEM_TYPE_ICONS: Record<string, React.ComponentType<{ width?: number; heig
   misc: Box,
 };
 
-function AttributesTab({ player }: { player: Player }) {
+function AttributesTab({ player, onUseAntidote }: { player: Player; onUseAntidote: (conditionName: string) => void }) {
   const hpPct = player.maxHp > 0 ? Math.round((player.hp / player.maxHp) * 100) : 0;
   const xpPct = player.maxXp > 0 ? Math.round((player.xp / player.maxXp) * 100) : 0;
 
@@ -98,6 +190,8 @@ function AttributesTab({ player }: { player: Player }) {
           );
         })}
       </div>
+
+      <ActiveConditionsSection player={player} onUseAntidote={onUseAntidote} />
     </>
   );
 }
@@ -172,7 +266,8 @@ function ConfirmUseModal({ item, onUse, onClose }: { item: InventoryItem; onUse:
         <div className="text-mono text-xs text-dungeon-100 mb-4">
           {item.effects?.map((ef, i) => (
             <div key={i} className="mb-1">
-              {ef.type === 'heal_hp' && <span>Heals <span className="text-blood">{ef.formula}</span> HP.</span>}
+              {ef.hpChange?.type === 'heal' && <span>Heals <span className="text-blood">{ef.hpChange.formula}</span> HP.</span>}
+              {ef.hpChange?.type === 'damage' && <span>Deals <span className="text-blood">{ef.hpChange.formula}</span> damage.</span>}
             </div>
           ))}
         </div>
@@ -215,12 +310,6 @@ function ItemPopupContent({ item, player, onEquip, onUnequip, onUseItem, onClose
       : 'offHand'
     : null;
 
-  const MODIFIER_LABELS: Record<string, string> = {
-    ac: 'AC', damage: 'Damage', strength: 'Strength', dexterity: 'Dexterity',
-    constitution: 'Constitution', intelligence: 'Intelligence',
-    wisdom: 'Wisdom', charisma: 'Charisma', maxHp: 'Max HP',
-  };
-
   return (
     <>
       <div className="p-3">
@@ -238,20 +327,28 @@ function ItemPopupContent({ item, player, onEquip, onUnequip, onUseItem, onClose
 
         <div className="text-mono text-xs text-dungeon-100 mb-3">{item.description}</div>
 
-        {item.modifiers && item.modifiers.length > 0 && (
+        {item.effects && item.effects.length > 0 && (
           <div className="mb-3 p-2 bg-dungeon-900 pixel-border">
-            <div className="text-mono text-[10px] text-dungeon-200 mb-1 tracking-wider">MODIFIERS</div>
-            {item.modifiers.map((mod, i) => (
-              <div key={i} className="text-mono text-xs text-gold flex justify-between">
-                <span>{MODIFIER_LABELS[mod.stat] || mod.stat}</span>
-                <span>{mod.operation === 'override' ? 'Base ' : ''}{mod.value > 0 ? '+' : ''}{mod.value}{mod.dexCap !== undefined ? ` (DEX max ${mod.dexCap})` : ''}</span>
+            <div className="text-mono text-[10px] text-dungeon-200 mb-1 tracking-wider">EFFECTS</div>
+            {item.effects.map((ef, i) => (
+              <div key={i} className="mb-2 last:mb-0">
+                <div className="flex justify-between items-center">
+                  <span className="text-mono text-[10px] text-dungeon-300">
+                    {ef.type === 'immediate' ? 'Instant' : ef.type === 'temporary' ? 'Temporary' : 'Permanent'}
+                    {ef.duration ? ` (${ef.duration} turns)` : ''}
+                  </span>
+                  <span className="text-mono text-[10px] text-dungeon-300">
+                    {ef.origin}
+                  </span>
+                </div>
+                <EffectRow effect={ef} />
               </div>
             ))}
           </div>
         )}
 
         <div className="space-y-1">
-          {item.effects && item.effects.length > 0 && (
+          {item.effects && item.effects.some(e => e.type === 'immediate') && (
             <button
               onClick={() => setConfirmUse(true)}
               className="w-full bg-blood/20 border border-blood pixel-border py-1.5 text-mono text-xs text-blood hover:brightness-110 transition-all"
@@ -441,7 +538,7 @@ function InventoryTab({ player, onEquip, onUnequip, onUseItem }: { player: Playe
 
 export function CharacterSheet({ player, isOpen, onClose }: CharacterSheetProps) {
   const [tab, setTab] = useState<Tab>('attributes');
-  const { emitEquip, emitUnequip, emitUseItem } = useSocketContext();
+  const { emitEquip, emitUnequip, emitUseItem, emitUseAntidote } = useSocketContext();
 
   if (!isOpen || !player) return null;
 
@@ -455,6 +552,13 @@ export function CharacterSheet({ player, isOpen, onClose }: CharacterSheetProps)
 
   const handleUseItem = (itemId: string) => {
     emitUseItem(itemId);
+  };
+
+  const handleUseAntidote = (conditionName: string) => {
+    const item = player.inventory.find(i => i.antidoteFor === conditionName);
+    if (item) {
+      emitUseAntidote(item.id, conditionName);
+    }
   };
 
   return (
@@ -514,7 +618,7 @@ export function CharacterSheet({ player, isOpen, onClose }: CharacterSheetProps)
 
         {/* Tab Content */}
         <div className="p-4 overflow-y-auto">
-          {tab === 'attributes' && <AttributesTab player={player} />}
+          {tab === 'attributes' && <AttributesTab player={player} onUseAntidote={handleUseAntidote} />}
           {tab === 'inventory' && (
             <InventoryTab
               player={player}

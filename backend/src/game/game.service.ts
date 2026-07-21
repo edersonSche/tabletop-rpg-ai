@@ -1,9 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { v4 as uuid } from 'uuid';
-import { GameState, Player, Merchant, MerchantItem } from './game.state';
+import { GameState, Player, Merchant, MerchantItem, TickResult, GameStateData, Condition, Effect } from './game.state';
 import { TurnManager } from './turn.manager';
 import { AiService } from '../ai/ai.service';
-import { AIResponse, MerchantSeed } from '../dto/ai-response.dto';
+import { AIResponse, MerchantSeed, ConditionSeed } from '../dto/ai-response.dto';
 
 const MAX_NARRATION_DEPTH = 5;
 const SUMMARY_THRESHOLD = 50;
@@ -18,7 +18,7 @@ export class GameService {
     private aiService: AiService,
   ) {}
 
-  async handleAction(roomId: string, playerId: string, message: string): Promise<AIResponse> {
+  async handleAction(roomId: string, playerId: string, message: string): Promise<{ response: AIResponse; tickResults: TickResult[] }> {
     const room = this.gameState.getRoom(roomId);
     if (!room) throw new Error('Room not found');
 
@@ -37,6 +37,7 @@ export class GameService {
 
     try {
       let response: AIResponse = { narration: '', next: { type: 'group_action' } };
+      let allTickResults: TickResult[] = [];
 
       for (let depth = 0; depth <= MAX_NARRATION_DEPTH; depth++) {
         const currentRoom = this.gameState.getRoom(roomId);
@@ -57,19 +58,19 @@ export class GameService {
             : null,
         });
 
-        this.processAiResponse(roomId, response);
+        allTickResults = allTickResults.concat(this.processAiResponse(roomId, response));
 
         if (response.next?.type !== 'narration_only') break;
       }
 
-      return response;
+      return { response, tickResults: allTickResults };
     } finally {
       this.turnManager.unlock(roomId);
       this.maybeSummarize(roomId).catch(() => {});
     }
   }
 
-  async handleRoll(roomId: string, playerId: string, rollData?: { roll: number; modifier: number; total: number; skill: string; dc: number }): Promise<AIResponse> {
+  async handleRoll(roomId: string, playerId: string, rollData?: { roll: number; modifier: number; total: number; skill: string; dc: number }): Promise<{ response: AIResponse; tickResults: TickResult[] }> {
     const room = this.gameState.getRoom(roomId);
     if (!room) throw new Error('Room not found');
 
@@ -90,6 +91,7 @@ export class GameService {
 
     try {
       let response: AIResponse = { narration: '', next: { type: 'group_action' } };
+      let allTickResults: TickResult[] = [];
 
       for (let depth = 0; depth <= MAX_NARRATION_DEPTH; depth++) {
         const currentRoom = this.gameState.getRoom(roomId);
@@ -117,30 +119,33 @@ export class GameService {
             : null,
         });
 
-        this.processAiResponse(roomId, response);
+        allTickResults = allTickResults.concat(this.processAiResponse(roomId, response));
 
         if (response.next?.type !== 'narration_only') break;
       }
 
-      return response;
+      return { response, tickResults: allTickResults };
     } finally {
       this.turnManager.unlock(roomId);
       this.maybeSummarize(roomId).catch(() => {});
     }
   }
 
-  async startCampaign(roomId: string): Promise<AIResponse> {
+  async startCampaign(roomId: string): Promise<{ response: AIResponse; tickResults: TickResult[] }> {
     const room = this.gameState.getRoom(roomId);
     if (!room) throw new Error('Room not found');
 
     if (room.history.length > 0) {
       room.gameStarted = true;
       return {
-        narration: '',
-        next: {
-          type: room.turnType || 'group_action',
-          target: room.turnTarget || undefined,
+        response: {
+          narration: '',
+          next: {
+            type: room.turnType || 'group_action',
+            target: room.turnTarget || undefined,
+          },
         },
+        tickResults: [],
       };
     }
 
@@ -148,6 +153,7 @@ export class GameService {
 
     try {
       let response: AIResponse = { narration: '', next: { type: 'group_action' } };
+      let allTickResults: TickResult[] = [];
 
       for (let depth = 0; depth <= MAX_NARRATION_DEPTH; depth++) {
         const currentRoom = this.gameState.getRoom(roomId);
@@ -168,12 +174,12 @@ export class GameService {
 
         currentRoom.gameStarted = true;
 
-        this.processAiResponse(roomId, response);
+        allTickResults = allTickResults.concat(this.processAiResponse(roomId, response));
 
         if (response.next?.type !== 'narration_only') break;
       }
 
-      return response;
+      return { response, tickResults: allTickResults };
     } finally {
       this.turnManager.unlock(roomId);
       this.maybeSummarize(roomId).catch(() => {});
@@ -228,7 +234,7 @@ export class GameService {
       }
 
       if (response.narration) {
-        room.scene = this.buildSceneContext(response, room.currentLocation);
+        room.scene = this.buildSceneContext(response, room.currentLocation, room);
         this.gameState.addHistory(roomId, {
           role: 'assistant',
           content: response.narration,
@@ -254,28 +260,30 @@ export class GameService {
         description: item.description || '',
         type: item.type as MerchantItem['type'],
         slot: item.slot as MerchantItem['slot'],
-        modifiers: item.modifiers ? item.modifiers.map(m => ({
-          stat: m.stat as any,
-          value: m.value,
-          operation: m.operation as 'add' | 'override',
-          dexCap: m.dexCap,
-        })) : undefined,
         effects: item.effects ? item.effects.map(e => ({
-          type: e.type as 'heal_hp',
-          formula: e.formula,
-        })) : undefined,
+          type: e.type,
+          duration: e.duration,
+          statModifiers: e.stat ? [{ target: e.stat as any, value: e.statValue ?? 0, operation: (e.statOperation as 'add' | 'override') ?? 'add', dexCap: e.dexCap }] : undefined,
+          hpChange: e.hpFormula ? { formula: e.hpFormula, type: e.hpType ?? 'heal' } : undefined,
+          origin: 'item',
+        })) : [],
         buyPrice: item.baseBuyPrice,
         sellPrice: item.baseSellPrice,
         quantity: item.quantity,
+        antidoteFor: item.antidoteFor,
       })),
     };
   }
 
-  private processAiResponse(roomId: string, response: AIResponse): void {
+  private processAiResponse(roomId: string, response: AIResponse): TickResult[] {
     const room = this.gameState.getRoom(roomId);
-    if (!room) return;
+    if (!room) return [];
 
     this.validateAiResponseTarget(response, room.players);
+
+    if (response.conditions && response.conditions.length > 0) {
+      this.processConditions(room, response.conditions);
+    }
 
     if (response.location) {
       room.currentLocation = response.location;
@@ -286,12 +294,15 @@ export class GameService {
     this.turnManager.processTurn(roomId, room, response);
 
     if (response.narration) {
-      room.scene = this.buildSceneContext(response, room.currentLocation);
+      room.scene = this.buildSceneContext(response, room.currentLocation, room);
       this.gameState.addHistory(roomId, {
         role: 'assistant',
         content: response.narration,
       });
     }
+
+    const tickResults = this.gameState.tickEffects(room);
+    return tickResults;
   }
 
   private extractSummary(narration: string, maxChars: number = 300): string {
@@ -304,7 +315,7 @@ export class GameService {
     return summary.trim();
   }
 
-  private buildSceneContext(response: AIResponse, currentLocation: string | null): string {
+  private buildSceneContext(response: AIResponse, currentLocation: string | null, room: GameStateData): string {
     const summary = this.extractSummary(response.narration);
     const location = response.location || currentLocation || 'unknown';
 
@@ -323,7 +334,25 @@ export class GameService {
       }
     }
 
-    return `Scene: ${summary}\nLocation: ${location}\n${nextDesc}`;
+    const conditionsDesc = room.players
+      .filter(p => p.active && p.activeConditions.length > 0)
+      .map(p => {
+        const conds = p.activeConditions
+          .filter(ac => !ac.isSuppressed)
+          .map(ac => {
+            const parts = [ac.condition.name];
+            const temps = ac.remainingDurations.filter(d => d > 0);
+            if (temps.length > 0) {
+              parts.push(`(${Math.min(...temps)} turns remaining)`);
+            }
+            return parts.join(' ');
+          });
+        return conds.length > 0 ? `${p.name}: ${conds.join(', ')}` : null;
+      })
+      .filter(Boolean)
+      .join('; ');
+
+    return `Scene: ${summary}\nLocation: ${location}\n${nextDesc}${conditionsDesc ? `\nActive Conditions: ${conditionsDesc}` : ''}`;
   }
 
   private validateAiResponseTarget(response: AIResponse, players: Player[]): void {
@@ -342,6 +371,93 @@ export class GameService {
         }
       }
     }
+
+    if (response.conditions) {
+      for (const cond of response.conditions) {
+        const playerExists = players.some(p => p.id === cond.targetPlayerId);
+        if (!playerExists) {
+          console.warn(`AI condition "${cond.name}" targets invalid player "${cond.targetPlayerId}". Skipping condition.`);
+        }
+      }
+    }
+  }
+
+  private processConditions(room: GameStateData, conditions: ConditionSeed[]): void {
+    for (const seed of conditions) {
+      const targetPlayer = room.players.find(p => p.id === seed.targetPlayerId);
+      if (!targetPlayer) {
+        console.warn(`AI condition target "${seed.targetPlayerId}" not found in room. Skipping.`);
+        continue;
+      }
+
+      if (seed.effects.length > 5) {
+        console.warn(`Condition "${seed.name}" has ${seed.effects.length} effects (max 5). Truncating.`);
+        seed.effects = seed.effects.slice(0, 5);
+      }
+
+      const validEffects: Effect[] = [];
+      for (const ef of seed.effects) {
+        const effect = this.seedToEffect(ef, targetPlayer);
+        if (effect) validEffects.push(effect);
+      }
+
+      if (validEffects.length === 0) {
+        console.warn(`Condition "${seed.name}" has no valid effects. Skipping.`);
+        continue;
+      }
+
+      const condition: Condition = {
+        id: uuid(),
+        name: seed.name,
+        description: seed.description,
+        effects: validEffects,
+        origin: 'narrative',
+      };
+
+      this.gameState.applyConditionToPlayer(targetPlayer, condition, room);
+
+      this.gameState.addHistory(room.campaignId, {
+        role: 'system',
+        content: `Condition applied: ${seed.name} → ${targetPlayer.name}`,
+      });
+    }
+  }
+
+  private seedToEffect(seed: ConditionSeed['effects'][0], _player: Player): Effect | null {
+    if (seed.type === 'immediate' && !seed.hpFormula) return null;
+    if (seed.type === 'temporary' && !seed.duration) return null;
+
+    const duration = seed.duration ? Math.min(seed.duration, 99) : undefined;
+    const statValue = seed.statValue !== undefined
+      ? Math.max(-10, Math.min(10, seed.statValue))
+      : undefined;
+
+    const effect: Effect = {
+      type: seed.type,
+      origin: 'narrative',
+    };
+
+    if (duration !== undefined && seed.type === 'temporary') {
+      effect.duration = duration;
+    }
+
+    if (seed.stat && seed.statValue !== undefined) {
+      effect.statModifiers = [{
+        target: seed.stat as any,
+        value: statValue ?? 0,
+        operation: (seed.statOperation as 'add' | 'override') || 'add',
+        dexCap: seed.dexCap,
+      }];
+    }
+
+    if (seed.hpFormula) {
+      effect.hpChange = {
+        formula: seed.hpFormula,
+        type: (seed.hpType as 'heal' | 'damage') || 'damage',
+      };
+    }
+
+    return effect;
   }
 
   private async maybeSummarize(roomId: string): Promise<void> {

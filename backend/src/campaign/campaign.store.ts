@@ -1,9 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import * as path from 'path';
 import * as fs from 'fs';
-import { GameState, GameStateData, InventoryItem } from '../game/game.state';
-import { RoomService, RoomData } from '../room/room.service';
-import { SavedCampaign, SavedCampaignInfo } from './campaign.types';
+import { GameState, Player, Effect, EffectTarget, InventoryItem } from '../game/game.state';
+import { RoomService } from '../room/room.service';
+import { SavedCampaign, SavedCampaignInfo, SavedPlayer, SavedEffect } from './campaign.types';
 
 @Injectable()
 export class CampaignStore {
@@ -20,6 +20,86 @@ export class CampaignStore {
     this.loadFromDisk();
   }
 
+  private serializeEffect(ef: Effect): SavedEffect {
+    return {
+      type: ef.type,
+      duration: ef.duration,
+      stat: ef.statModifiers?.[0]?.target,
+      statValue: ef.statModifiers?.[0]?.value,
+      statOperation: ef.statModifiers?.[0]?.operation,
+      dexCap: ef.statModifiers?.[0]?.dexCap,
+      hpFormula: ef.hpChange?.formula,
+      hpType: ef.hpChange?.type,
+      origin: ef.origin,
+      originId: ef.originId,
+    };
+  }
+
+  private serializePlayer(player: Player): SavedPlayer {
+    return {
+      id: player.id,
+      userId: player.userId,
+      name: player.name,
+      attributes: { ...player.attributes },
+      hp: player.hp,
+      maxHp: player.maxHp,
+      level: player.level,
+      xp: player.xp,
+      maxXp: player.maxXp,
+      pendingAttributePoints: player.pendingAttributePoints,
+      inventory: player.inventory.map(item => ({
+        id: item.id,
+        name: item.name,
+        description: item.description,
+        type: item.type,
+        quantity: item.quantity,
+        slot: item.slot,
+        effects: (item.effects || []).map(ef => this.serializeEffect(ef)),
+        antidoteFor: item.antidoteFor,
+      })),
+      coins: player.coins,
+      equipment: { ...player.equipment },
+      activeConditions: player.activeConditions?.map(ac => ({
+        id: ac.id,
+        condition: {
+          name: ac.condition.name,
+          description: ac.condition.description,
+          effects: (ac.condition.effects || []).map(ef => this.serializeEffect(ef)),
+          antidote: ac.condition.antidote ? {
+            targetCondition: ac.condition.antidote.targetCondition,
+            type: ac.condition.antidote.type,
+            duration: ac.condition.antidote.duration,
+          } : undefined,
+          origin: ac.condition.origin,
+          originId: ac.condition.originId,
+        },
+        appliedAt: ac.appliedAt,
+        remainingDurations: [...ac.remainingDurations],
+        isSuppressed: ac.isSuppressed,
+        suppressRemaining: ac.suppressRemaining,
+      })),
+    };
+  }
+
+  private deserializeEffect(ef: SavedEffect): Effect {
+    return {
+      type: ef.type as 'immediate' | 'temporary' | 'permanent',
+      duration: ef.duration,
+      statModifiers: ef.stat ? [{
+        target: ef.stat as EffectTarget,
+        value: ef.statValue ?? 0,
+        operation: (ef.statOperation as 'add' | 'override') || 'add',
+        dexCap: ef.dexCap,
+      }] : undefined,
+      hpChange: ef.hpFormula ? {
+        formula: ef.hpFormula,
+        type: (ef.hpType as 'heal' | 'damage') || 'damage',
+      } : undefined,
+      origin: ef.origin as 'item' | 'condition' | 'narrative',
+      originId: ef.originId,
+    };
+  }
+
   snapshotFromMemory(campaignId: string): SavedCampaign | null {
     const state = this.gameState.getRoom(campaignId);
     const room = this.roomService.get(campaignId);
@@ -29,27 +109,14 @@ export class CampaignStore {
     const creatorPlayer = state.players.find(p => p.id === state.creatorId);
 
     return {
+      schemaVersion: 2,
       campaignId,
       campaignName: state.campaignName,
       creatorUserId: creatorPlayer?.userId || existing?.creatorUserId || '',
       creatorPlayerId: state.creatorId,
       language: state.language,
       campaignTheme: state.campaignTheme,
-      players: state.players.map(p => ({
-        id: p.id,
-        userId: p.userId,
-        name: p.name,
-        attributes: { ...p.attributes },
-        hp: p.hp,
-        maxHp: p.maxHp,
-        level: p.level,
-        xp: p.xp,
-        maxXp: p.maxXp,
-        pendingAttributePoints: p.pendingAttributePoints,
-        inventory: p.inventory.map(i => ({ ...i })),
-        coins: p.coins,
-        equipment: { ...p.equipment },
-      })),
+      players: state.players.map(p => this.serializePlayer(p)),
       currentTurn: state.currentTurn,
       turnType: state.turnType,
       turnTarget: state.turnTarget,
@@ -74,8 +141,8 @@ export class CampaignStore {
           buyPrice: i.buyPrice,
           sellPrice: i.sellPrice,
           quantity: i.quantity,
-          modifiers: i.modifiers,
-          effects: i.effects,
+          effects: (i.effects || []).map(ef => this.serializeEffect(ef)),
+          antidoteFor: i.antidoteFor,
         })),
       })) : undefined,
       merchantsLocation: state.merchantsLocation,
@@ -127,9 +194,77 @@ export class CampaignStore {
     );
   }
 
+  private deserializePlayerToInventoryItem(i: SavedPlayer['inventory'][0]): InventoryItem {
+    return {
+      id: i.id,
+      name: i.name,
+      description: i.description,
+      type: i.type as InventoryItem['type'],
+      quantity: i.quantity,
+      slot: i.slot as InventoryItem['slot'],
+      effects: (i.effects || []).map(ef => this.deserializeEffect(ef)),
+      antidoteFor: i.antidoteFor,
+    };
+  }
+
+  private saveImmediate(campaign: SavedCampaign): void {
+    this.campaigns.set(campaign.campaignId, campaign);
+    this.scheduleWrite();
+  }
+
+  private migrateV1ToV2(saved: SavedCampaign): boolean {
+    for (const p of saved.players) {
+      p.activeConditions = [];
+
+      for (const item of p.inventory || []) {
+        const oldItem = item as any;
+        const newEffects: SavedEffect[] = [];
+
+        if (oldItem.modifiers) {
+          for (const mod of oldItem.modifiers) {
+            newEffects.push({
+              type: 'permanent',
+              stat: mod.stat,
+              statValue: mod.value,
+              statOperation: mod.operation,
+              dexCap: mod.dexCap,
+              origin: 'item',
+            });
+          }
+        }
+
+        if (oldItem.effects) {
+          for (const ef of oldItem.effects) {
+            if (ef.type === 'heal_hp') {
+              newEffects.push({
+                type: 'immediate',
+                hpFormula: ef.formula,
+                hpType: 'heal',
+                origin: 'item',
+              });
+            }
+          }
+        }
+
+        delete (item as any).modifiers;
+        delete (item as any).effects;
+        (item as any).effects = newEffects;
+      }
+    }
+
+    saved.schemaVersion = 2;
+    this.saveImmediate(saved);
+
+    return this.restoreToMemory(saved.campaignId);
+  }
+
   restoreToMemory(campaignId: string): boolean {
     const saved = this.campaigns.get(campaignId);
     if (!saved) return false;
+
+    if (!saved.schemaVersion || saved.schemaVersion < 2) {
+      return this.migrateV1ToV2(saved);
+    }
 
     this.roomService.createWithId(
       campaignId,
@@ -159,10 +294,29 @@ export class CampaignStore {
           xp: p.xp ?? 0,
           maxXp: p.maxXp ?? 0,
           pendingAttributePoints: p.pendingAttributePoints ?? 0,
-          inventory: (p.inventory || []).map(i => ({ ...i })) as InventoryItem[],
+          inventory: (p.inventory || []).map(i => this.deserializePlayerToInventoryItem(i)),
           coins: p.coins ?? 0,
           equipment: { body: p.equipment?.body, mainHand: p.equipment?.mainHand, offHand: p.equipment?.offHand },
           ac: baseAc,
+          activeConditions: (p.activeConditions || []).map(ac => ({
+            id: ac.id,
+            condition: {
+              name: ac.condition.name,
+              description: ac.condition.description,
+              effects: (ac.condition.effects || []).map(ef => this.deserializeEffect(ef)),
+              antidote: ac.condition.antidote ? {
+                targetCondition: ac.condition.antidote.targetCondition,
+                type: ac.condition.antidote.type as 'immediate' | 'temporary',
+                duration: ac.condition.antidote.duration,
+              } : undefined,
+              origin: ac.condition.origin as 'item' | 'narrative',
+              originId: ac.condition.originId,
+            },
+            appliedAt: ac.appliedAt,
+            remainingDurations: ac.remainingDurations,
+            isSuppressed: ac.isSuppressed ?? false,
+            suppressRemaining: ac.suppressRemaining,
+          })),
         };
       }),
       currentTurn: saved.currentTurn,
@@ -179,18 +333,18 @@ export class CampaignStore {
         type: m.type,
         greeting: m.greeting,
         coins: m.coins,
-        inventory: m.inventory.map(i => ({
-          id: i.id,
-          name: i.name,
-          description: i.description,
-          type: i.type as any,
-          slot: i.slot as any,
-          buyPrice: i.buyPrice,
-          sellPrice: i.sellPrice,
-          quantity: i.quantity,
-          modifiers: i.modifiers as any,
-          effects: i.effects as any,
-        })),
+          inventory: m.inventory.map(i => ({
+            id: i.id,
+            name: i.name,
+            description: i.description,
+            type: i.type as any,
+            slot: i.slot as any,
+            buyPrice: i.buyPrice,
+            sellPrice: i.sellPrice,
+            quantity: i.quantity,
+            effects: (i.effects || []).map(ef => this.deserializeEffect(ef)),
+            antidoteFor: i.antidoteFor,
+          })),
       })) : undefined,
       merchantsLocation: saved.merchantsLocation,
       isTradeLocked: saved.isTradeLocked,

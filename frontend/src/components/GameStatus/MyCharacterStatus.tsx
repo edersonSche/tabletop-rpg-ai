@@ -1,4 +1,51 @@
-import { Player } from '../../types/game.types';
+import { Skull, Fire, Star, Close, Zap, CloudMoon, Lock, Moon, Circle } from 'pixelarticons/react';
+import { Player, ActiveCondition } from '../../types/game.types';
+
+const CONDITION_ICONS: Record<string, React.ComponentType<{ width?: number; height?: number; className?: string }>> = {
+  Poisoned: Skull,
+  Burning: Fire,
+  Blessed: Star,
+  Cursed: Close,
+  Stunned: Zap,
+  Frozen: CloudMoon,
+  Paralyzed: Lock,
+  Unconscious: Moon,
+};
+
+function ConditionIcon({ condition }: { condition: string }) {
+  const Icon = CONDITION_ICONS[condition] || Circle;
+  return <Icon width={12} height={12} className="text-dungeon-200" />;
+}
+
+function ConditionIndicators({ conditions }: { conditions: ActiveCondition[] }) {
+  const active = conditions.filter(ac => !ac.isSuppressed);
+  if (active.length === 0) return null;
+
+  return (
+    <div className="flex gap-1 mt-1">
+      {active.map(ac => (
+        <div
+          key={ac.id}
+          className="group relative w-5 h-5 bg-dungeon-900 rounded pixel-border flex items-center justify-center cursor-help"
+          title={`${ac.condition.name} - ${ac.condition.description}`}
+        >
+          <ConditionIcon condition={ac.condition.name} />
+          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 hidden group-hover:block z-50">
+            <div className="bg-dungeon-900 border border-gold/30 pixel-border p-2 whitespace-nowrap">
+              <div className="text-mono text-[10px] text-blood">{ac.condition.name}</div>
+              <div className="text-mono text-[10px] text-dungeon-100">{ac.condition.description}</div>
+              {ac.remainingDurations.some(d => d > 0) && (
+                <div className="text-mono text-[10px] text-dungeon-200 mt-1">
+                  {Math.min(...ac.remainingDurations.filter(d => d > 0))} turns remaining
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 interface MyCharacterStatusProps {
   player: Player;
@@ -43,6 +90,8 @@ export function MyCharacterStatus({ player }: MyCharacterStatusProps) {
           />
         </div>
       </div>
+
+      <ConditionIndicators conditions={player.activeConditions || []} />
     </div>
   );
 }

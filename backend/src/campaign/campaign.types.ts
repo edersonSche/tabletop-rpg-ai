@@ -1,5 +1,18 @@
 import { NarrativeLanguage } from '../game/game.state';
 
+export interface SavedEffect {
+  type: string;
+  duration?: number;
+  stat?: string;
+  statValue?: number;
+  statOperation?: string;
+  dexCap?: number;
+  hpFormula?: string;
+  hpType?: string;
+  origin: string;
+  originId?: string;
+}
+
 export interface SavedPlayer {
   id: string;
   userId: string;
@@ -25,8 +38,8 @@ export interface SavedPlayer {
     type: 'weapon' | 'armor' | 'potion' | 'scroll' | 'key_item' | 'misc';
     quantity: number;
     slot?: 'body' | 'hand' | 'two-handed';
-    modifiers?: Array<{ stat: string; value: number; operation: 'add' | 'override'; dexCap?: number }>;
-    effects?: Array<{ type: string; formula: string }>;
+    effects: SavedEffect[];
+    antidoteFor?: string;
   }>;
   coins: number;
   equipment: {
@@ -34,6 +47,21 @@ export interface SavedPlayer {
     mainHand?: string;
     offHand?: string;
   };
+  activeConditions?: Array<{
+    id: string;
+    condition: {
+      name: string;
+      description: string;
+      effects: SavedEffect[];
+      antidote?: { targetCondition: string; type: string; duration?: number };
+      origin: string;
+      originId?: string;
+    };
+    appliedAt: number;
+    remainingDurations: number[];
+    isSuppressed: boolean;
+    suppressRemaining?: number;
+  }>;
 }
 
 export interface SavedHistoryEntry {
@@ -53,8 +81,8 @@ export interface SavedMerchantItem {
   buyPrice: number;
   sellPrice: number;
   quantity: number;
-  modifiers?: Array<{ stat: string; value: number; operation: string; dexCap?: number }>;
-  effects?: Array<{ type: string; formula: string }>;
+  effects: SavedEffect[];
+  antidoteFor?: string;
 }
 
 export interface SavedMerchant {
@@ -67,6 +95,7 @@ export interface SavedMerchant {
 }
 
 export interface SavedCampaign {
+  schemaVersion: number;
   campaignId: string;
   campaignName: string;
   creatorUserId: string;
