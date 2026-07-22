@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { Logout } from "pixelarticons/react";
 import { useSocket } from "../hooks/useSocket";
 import type { CharacterKit } from "../types/game.types";
-import logo from "../assets/logo_text.png";
+import logo from "../assets/logo.png";
 
 type StatKey =
   | "strength"

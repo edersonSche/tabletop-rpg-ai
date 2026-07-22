@@ -4,7 +4,7 @@ import { RoomList } from "../components/Lobby/RoomList";
 import { SavedCampaigns } from "../components/Lobby/SavedCampaigns";
 import { useSocket } from "../hooks/useSocket";
 import type { NarrativeLanguage } from "../types/game.types";
-import logo from "../assets/logo_text.png";
+import logo from "../assets/logo.png";
 
 export function Lobby() {
   const { createRoom, joinRoom, resumeCampaign } = useSocket();

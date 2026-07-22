@@ -1,6 +1,6 @@
 import { Sword } from "pixelarticons/react";
 import { useSocket } from "../../hooks/useSocket";
-import logo from "../../assets/logo_text.png";
+import logo from "../../assets/logo.png";
 
 export function Header() {
   const { connected, player, gameState } = useSocket();

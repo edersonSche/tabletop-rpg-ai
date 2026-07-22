@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Play, Logout } from "pixelarticons/react";
 import { useSocket } from "../hooks/useSocket";
-import logo from "../assets/logo_text.png";
+import logo from "../assets/logo.png";
 
 export function WaitingRoom() {
   const { player, gameState, startCampaign, leaveRoom, isAiProcessing } =
