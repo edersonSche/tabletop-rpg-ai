@@ -9,7 +9,6 @@ import {
   MessageBody,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
-import { Inject } from '@nestjs/common';
 import { GameService } from './game.service';
 import { GameState, TickResult } from './game.state';
 import { PlayerService } from './player.service';
@@ -19,7 +18,7 @@ import { ConditionEngine } from './condition.engine';
 import { DiceService } from './dice.service';
 import { TurnManager } from './turn.manager';
 import { AIResponse } from '../dto/ai-response.dto';
-import { AIProvider } from '../ai/ai.interface';
+import { AiService } from '../ai/ai.service';
 import { AuthService } from '../auth/auth.service';
 import { AuthWsGuard } from '../auth/auth.guard';
 import { CampaignStore } from '../campaign/campaign.store';
@@ -67,7 +66,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     private turnManager: TurnManager,
     private authService: AuthService,
     private campaignStore: CampaignStore,
-    @Inject('AI_PROVIDER') private aiProvider: AIProvider,
+    private aiService: AiService,
   ) {}
 
   // ─── Emission Helpers ───────────────────────────────────────────────
@@ -291,7 +290,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     try {
       const room = this.gameState.getRoom(roomId);
       if (room) {
-        await this.aiProvider.onRoomReady?.(roomId, {
+        await this.aiService.onRoomReady(roomId, {
           roomId,
           campaignName: room.campaignName,
           campaignTheme: room.campaignTheme,

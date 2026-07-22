@@ -36,10 +36,27 @@ Actions: `LOGGED_IN`, `LOGGED_OUT`, `CREATED_ROOM`, `JOIN_NEEDS_CHARACTER`, `CHA
 
 ## Architecture
 
-**Backend** — all under `backend/src/`:
+**Backend** — all under `backend/src/`. Organized into NestJS feature modules:
+
+### Module Structure
+
+```
+AppModule
+├── SharedModule (@Global)    — GameState, DiceService (available to all modules without import)
+├── AuthModule                — AuthGateway, AuthService, AuthWsGuard
+├── AiModule                  — AiService, AI_CONFIG/AI_PROVIDER factories (exports all three)
+├── GameModule                — imports AuthModule, AiModule
+│   exports: GameGateway, GameService, PlayerService, MerchantService,
+│            TradeService, ConditionEngine, LevelingService, TurnManager
+├── RoomModule                — imports GameModule, AuthModule, AiModule, CampaignModule(forwardRef)
+│   exports: RoomGateway, RoomService, CampaignStore
+└── CampaignModule            — imports GameModule, RoomModule(forwardRef)
+    exports: CampaignStore
+```
+
+RoomModule ↔ CampaignModule circular dependency is resolved via `forwardRef()` on both sides. `AiService` encapsulates AI provider lifecycle (`onRoomReady`/`onRoomEmpty`) — gateways no longer inject `AI_PROVIDER` directly.
 - `auth/` — `AuthGateway` (auth:login, disconnect), `AuthService` (userId↔socketId + playerId↔socketId), `AuthWsGuard`
-- `game/` — Decomposed into 7 focused services:
-  - `GameState` (`game.state.ts`) — Data layer: in-memory `rooms` Map, `playerByUserId` Map, `createRoom`/`getRoom`/`removeRoom`/`restoreCampaign`, `addHistory`/`setTurn`, shared `recomputePlayer()` for AC recalculation, all type definitions (`Player`, `Effect`, `Condition`, `ActiveCondition`, `InventoryItem`, `Merchant`, `MerchantItem`, `GameStateData`, `TickResult`, etc.)
+- `game/` — `GameState` (`game.state.ts`) — Data layer: in-memory `rooms` Map, `playerByUserId` Map, `createRoom`/`getRoom`/`removeRoom`/`restoreCampaign`, `addHistory`/`setTurn`, shared `recomputePlayer()` for AC recalculation, all type definitions (`Player`, `Effect`, `Condition`, `ActiveCondition`, `InventoryItem`, `Merchant`, `MerchantItem`, `GameStateData`, `TickResult`, etc.)
   - `GameGateway` (`game.gateway.ts`) — Thin delegation layer: validates input, delegates to services, emits results. Three emission helpers (`emitGameState`, `emitNarration`, `emitTradeStateToAll`) eliminate duplicated broadcast patterns across 16 handlers
   - `GameService` (`game.service.ts`) — Turn orchestration, AI target validation, `processConditions()`/`seedToEffect()` for AI-generated narrative conditions, `buildSceneContext()` with active conditions, `maybeSummarize()` history summarization, `initiateTrade()` AI-driven merchant generation, calls `ConditionEngine.tickEffects()` at end of `processAiResponse`
   - `ConditionEngine` (`condition.engine.ts`) — Condition/effect lifecycle: `applyConditionToPlayer`/`removeConditionFromPlayer`/`tickEffects`, `applyEffectToPlayer`/`applyHpChange`, `getPlayerModifier` (skill modifier with condition stat overrides). Depends on `DiceService` + `GameState.recomputePlayer`
@@ -71,7 +88,7 @@ Actions: `LOGGED_IN`, `LOGGED_OUT`, `CREATED_ROOM`, `JOIN_NEEDS_CHARACTER`, `CHA
 | `AI_MODEL` | `(empty)` | Passes through; no default override |
 | `AI_BASE_URL` | `http://localhost:4096` | Opencode base URL |
 
-Repo `.env` defaults: `AI_PROVIDER=opencode`, `AI_API_KEY=none`, `AI_BASE_URL=http://localhost:4096`. Config loaded in `app.module.ts:27-30` via `ConfigModule.forRoot()`.
+Repo `.env` defaults: `AI_PROVIDER=opencode`, `AI_API_KEY=none`, `AI_BASE_URL=http://localhost:4096`. Config loaded in `ai.module.ts` via `ConfigService` factories.
 
 Opencode provider uses inline JSON prompt + regex extraction. Invalid `call_player`/`call_roll` targets get coerced to `group_action` by `GameService.validateAiResponseTarget()` (also warns on invalid `conditions[].targetPlayerId`).
 
@@ -93,7 +110,7 @@ System prompt (`system.prompt.ts`) documents: Markdown narration, two-tier memor
 - **HP/XP/Leveling** — Player model includes `hp`, `maxHp`, `level` (1-20), `xp`, `maxXp`, `pendingAttributePoints`. HP = `10 + CON mod`. XP thresholds from D&D 5e SRD. ASI levels (4/8/12/16/19) grant +2 attribute points. Backend engine is complete; XP gain is not yet triggered by game actions (no server-side `game:level_up` emit).
 - **Attribute point-buy** — Character creation: 27-point pool, attributes range 8-15 (cost: 1pt for 8-12, 2pt for 13-14). Max attribute is 20.
 - **Inventory & Equipment** — Players start with a dagger, 2 healing potions, and 50 coins. Items have types, slots, and `effects: Effect[]` (unified stat modifiers + hp changes). Equipment slots: body, mainHand, offHand. `PlayerService.equipItem` auto-unequips existing slot items and recalculates AC/effects via `GameState.recomputePlayer`; `PlayerService.unequipItem` also triggers recalculation. Two-handed weapons block off-hand slot. `PlayerService.useItem` processes all effect types (immediate heal/damage via `ConditionEngine.applyHpChange`, temporary→synthetic condition via `ConditionEngine.applyConditionToPlayer`, permanent→temporary fallback). `PlayerService.useAntidote` removes a condition by name (matched via `item.antidoteFor`) via `ConditionEngine.removeConditionFromPlayer` and consumes the item. Items with `antidoteFor` in their definition (catalog or AI-generated merchant) work as condition cures. Inventory/coins/equipment are persisted in saved campaigns.
-- **AI sessions** — `OpencodeProvider` creates a dedicated AI session per room on `onRoomReady()` (character creation / campaign resume). Session deleted on `onRoomEmpty()` (last leave / disband / delete_saved). 404/410 errors auto-recreate the session.
+- **AI sessions** — `AiService.onRoomReady()`/`onRoomEmpty()` delegate to `OpencodeProvider` for session lifecycle. Called by gateways via `AiService` (no direct `AI_PROVIDER` injection). Created on character creation / campaign resume; deleted on last leave / disband / delete_saved. 404/410 errors auto-recreate sessions.
 - **History summarization** — `maybeSummarize()` triggers every 50 history entries. Uses a temporary AI session to merge new entries into `room.summary`. Guarded by a per-room `isSummarizing` Set to prevent concurrency. Summary is persisted in saved campaigns.
 - **GameRoom layout** — Left sidebar (48px) with `MyCharacterStatus` (HP/XP bars, name, level, condition indicators) + modal navigation buttons (Sheet, Characters, Options, Leave). Main area has `CampaignStatusBar` at top, Chat in center, TypingIndicator + MessageInput + DiceRollButton at bottom. All panels (CharacterSheet with ActiveConditionsSection, CharacterList, Options, AttributeAllocation) are modals.
 - **Campaign themes** — 18 preset themes (Medieval Fantasy, Lovecraftian Horror, Cyberpunk, Dark Souls, Pirate, Steampunk, Sci-Fi, Weird West, Post-Apocalyptic, Norse, Arabian Nights, Wuxia, Superhero, Arthurian, Zombie, Japanese Folklore, Space Horror, Post-Magic Apocalypse) + Custom free-form text. Set at room creation via `lobby:create { campaignTheme }`.

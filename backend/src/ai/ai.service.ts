@@ -42,6 +42,18 @@ export class AiService {
     return response;
   }
 
+  async onRoomReady(roomId: string, context: AIContext): Promise<void> {
+    if (this.provider.onRoomReady) {
+      await this.provider.onRoomReady(roomId, context);
+    }
+  }
+
+  async onRoomEmpty(roomId: string): Promise<void> {
+    if (this.provider.onRoomEmpty) {
+      await this.provider.onRoomEmpty(roomId);
+    }
+  }
+
   async summarizeHistory(entries: string[], existingSummary?: string): Promise<string> {
     if (!this.config.apiKey || !this.provider.summarize) {
       return this.fallbackSummary(entries);

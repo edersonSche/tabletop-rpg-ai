@@ -7,11 +7,10 @@ import {
   MessageBody,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
-import { Inject } from '@nestjs/common';
 import { RoomService } from './room.service';
 import { GameState, NarrativeLanguage } from '../game/game.state';
 import { PlayerService } from '../game/player.service';
-import { AIProvider } from '../ai/ai.interface';
+import { AiService } from '../ai/ai.service';
 import { AuthService } from '../auth/auth.service';
 import { AuthWsGuard } from '../auth/auth.guard';
 import { CampaignStore } from '../campaign/campaign.store';
@@ -44,7 +43,7 @@ export class RoomGateway {
     private playerService: PlayerService,
     private authService: AuthService,
     private campaignStore: CampaignStore,
-    @Inject('AI_PROVIDER') private aiProvider: AIProvider,
+    private aiService: AiService,
   ) {}
 
   @SubscribeMessage('lobby:create')
@@ -97,7 +96,7 @@ export class RoomGateway {
     this.roomService.join(roomId, player.id, name);
 
     const gsForAi = this.gameState.getRoom(roomId);
-    await this.aiProvider.onRoomReady?.(roomId, {
+    await this.aiService.onRoomReady(roomId, {
       roomId,
       campaignName: gsForAi?.campaignName || '',
       campaignTheme: gsForAi?.campaignTheme || '',
@@ -287,7 +286,7 @@ export class RoomGateway {
     }
 
     this.campaignStore.delete(campaignId);
-    this.aiProvider.onRoomEmpty?.(campaignId);
+    this.aiService.onRoomEmpty(campaignId);
     return { success: true };
   }
 
@@ -409,7 +408,7 @@ export class RoomGateway {
 
     if (isCreator) {
       this.server.to(roomId).emit('game:disband', { reason: 'Campaign ended.' });
-      this.aiProvider.onRoomEmpty?.(roomId);
+      this.aiService.onRoomEmpty(roomId);
 
       const roomSockets = this.authService.getSocketsByRoomId(roomId);
       for (const sid of roomSockets) {
@@ -429,7 +428,7 @@ export class RoomGateway {
       const state = this.gameState.getRoom(roomId);
       if (state) {
         if (state.players.length === 0) {
-          this.aiProvider.onRoomEmpty?.(roomId);
+      this.aiService.onRoomEmpty(roomId);
           this.gameState.removeRoom(roomId);
           this.roomService.remove(roomId);
         } else {

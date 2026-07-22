@@ -21,15 +21,14 @@ AI-powered tabletop role-playing game platform with a real-time multiplayer expe
                         ▼
 ┌─────────────────────────────────────────────────────────────┐
 │                    Backend (NestJS 11)                      │
-│  AuthGateway/AuthGuard ─── AuthService                      │
-│  RoomGateway ─────────────── RoomService                    │
-│  GameGateway ─── GameService ─── AiService ─── AI Provider  │
-│  ConditionEngine ─── DiceService                            │
-│  PlayerService ─── MerchantService ─── TradeService         │
-│  LevelingService                                           │
-│  GameState (in-memory data layer + recomputePlayer)         │
-│  CampaignStore (persistence to data/campaigns.json)         │
-│  TurnManager (lock-per-room)                                │
+│  SharedModule (@Global) — GameState, DiceService            │
+│  AuthModule — AuthGateway, AuthService, AuthWsGuard         │
+│  AiModule — AiService, OpencodeProvider, AI_CONFIG/AI_PROVIDER │
+│  GameModule — GameGateway, GameService, PlayerService,      │
+│    MerchantService, TradeService, ConditionEngine,          │
+│    LevelingService, TurnManager                             │
+│  RoomModule — RoomGateway, RoomService, CampaignStore       │
+│  CampaignModule — CampaignStore (persist/restore)           │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -151,7 +150,8 @@ cd frontend && npm run preview     # vite preview
 
 The backend uses a **provider pattern**:
 
-- **`AiService`** dispatches to `OpencodeProvider`.
+- **`AiModule`** configures `AI_CONFIG` and `AI_PROVIDER` via factories (using `ConfigService`), and exports `AiService`, `AI_PROVIDER`, and `AI_CONFIG`.
+- **`AiService`** dispatches to `OpencodeProvider`. Also exposes `onRoomReady()` and `onRoomEmpty()` lifecycle methods for session management.
 - **`OpencodeProvider`** — raw HTTP fetch to a local Opencode session; manages sessions per room.
 - **Fallback** — if `AI_API_KEY` is empty, `AiService.generate()` returns a static narration without calling any provider.
 
@@ -238,23 +238,24 @@ Set at room creation via `lobby:create { campaignTheme }`. The theme is injected
 ```
 backend/src/
 ├── main.ts                  # NestJS entry point (port 3000)
-├── app.module.ts            # Root module with AI provider config
+├── app.module.ts            # Root module (imports only — all providers moved to feature modules)
+├── shared/
+│   └── shared.module.ts     # @Global module — exports GameState, DiceService
 ├── auth/
-│   ├── auth.module.ts       # Auth module
+│   ├── auth.module.ts       # Auth module (exports AuthService, AuthWsGuard)
 │   ├── auth.gateway.ts      # auth:login handler
 │   ├── auth.service.ts      # userId/socketId + playerId/socketId mapping
 │   └── auth.guard.ts        # AuthWsGuard
 ├── ai/
+│   ├── ai.module.ts         # AiModule (providers: AiService, AI_CONFIG factory, AI_PROVIDER factory)
 │   ├── ai.interface.ts      # AIConfig / AIProvider interface (includes summarize)
-│   ├── ai.service.ts        # Provider dispatcher + response validation + summarizeHistory()
+│   ├── ai.service.ts        # Provider dispatcher + onRoomReady/onRoomEmpty lifecycle + summarizeHistory()
 │   ├── prompts/
 │   │   └── system.prompt.ts # Multilingual system prompt builder (memory, markdown, levels, conditions, merchants with effects)
 │   └── providers/
 │       └── opencode.provider.ts  # Per-room sessions, summarization, error recovery
-├── campaign/
-│   ├── campaign.store.ts    # Persist/restore to data/campaigns.json (schema v2, flattened SavedEffect format, auto-migrates v1 saves)
-│   └── campaign.types.ts    # SavedCampaign, SavedCampaignInfo (schemaVersion, SavedEffect, SavedMerchantItem)
 ├── game/
+│   ├── game.module.ts       # GameModule (imports AuthModule, AiModule — exports all game services)
 │   ├── game.gateway.ts      # Game WebSocket handlers (thin delegation layer with emission helpers)
 │   ├── game.service.ts      # Turn orchestration + AI response processing + maybeSummarize()
 │   ├── game.state.ts        # Data layer: rooms Map, types/interfaces, recomputePlayer, addHistory, setTurn
@@ -266,8 +267,13 @@ backend/src/
 │   ├── leveling.service.ts  # XP thresholds, awardXp, allocateAttributes
 │   └── turn.manager.ts      # Lock-per-room turn gate (stores turnSkill/turnDc)
 ├── room/
+│   ├── room.module.ts       # RoomModule (imports GameModule, AuthModule, AiModule, CampaignModule)
 │   ├── room.gateway.ts      # Lobby WebSocket handlers
 │   └── room.service.ts      # In-memory Room registry
+├── campaign/
+│   ├── campaign.module.ts   # CampaignModule (imports GameModule, RoomModule — exports CampaignStore)
+│   ├── campaign.store.ts    # Persist/restore to data/campaigns.json (schema v2, flattened SavedEffect format, auto-migrates v1 saves)
+│   └── campaign.types.ts    # SavedCampaign, SavedCampaignInfo (schemaVersion, SavedEffect, SavedMerchantItem)
 ├── pipes/
 │   └── zod-validation.pipe.ts  # Global Zod validation pipe (safeParse → BadRequestException)
 └── dto/
