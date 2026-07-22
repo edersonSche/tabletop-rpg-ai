@@ -9,10 +9,10 @@ export function PlayerCircles({ players, currentTurn }: PlayerCirclesProps) {
       {players.map(p => (
         <div
           key={p.id}
-          className={`w-6 h-6 rounded-full flex items-center justify-center text-mono text-[10px] font-bold transition-all bg-dungeon-700 text-dungeon-100 ${
+          className={`w-6 h-6 flex items-center justify-center font-pixel text-[7px] font-bold transition-all ${
             p.id === currentTurn
-              ? 'ring-2 ring-gold'
-              : 'ring-1 ring-dungeon-500'
+              ? 'bg-gold-500/20 text-gold-400 pixel-border-gold'
+              : 'bg-navy-700 text-stone-400 pixel-border'
           }`}
           title={p.name}
         >

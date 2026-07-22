@@ -31,53 +31,53 @@ export function UseItemButton({ items, onUseItem }: UseItemButtonProps) {
     <div ref={ref} className="relative">
       <button
         onClick={() => { setOpen(!open); setConfirmItem(null); }}
-        className="w-12 h-12 flex items-center justify-center bg-dungeon-600 text-gold pixel-border hover:bg-dungeon-500 transition-all"
+        className="w-11 h-11 flex items-center justify-center bg-navy-700 text-gold-400 pixel-border hover:bg-navy-600 hover:shadow-glow-gold transition-all shrink-0"
       >
-        <Potion width={20} height={20} />
+        <Potion width={18} height={18} />
       </button>
 
       {open && !confirmItem && (
-        <div className="absolute bottom-full right-0 mb-2 w-48 bg-dungeon-700 pixel-border z-50">
-          <div className="text-mono text-[10px] text-dungeon-200 px-3 py-2 border-b border-dungeon-600 tracking-wider">
-            USE ITEM
+        <div className="absolute bottom-full right-0 mb-2 w-48 bg-navy-800 pixel-border z-50">
+          <div className="font-pixel text-[6px] text-stone-500 px-3 py-2 border-b border-stone-700/20 tracking-widest">
+            CONSUMABLES
           </div>
           {usableItems.map(item => (
             <button
               key={item.id}
               onClick={() => setConfirmItem(item)}
-              className="w-full text-left px-3 py-2 text-mono text-xs text-dungeon-100 hover:bg-dungeon-600 transition-all flex items-center justify-between"
+              className="w-full text-left px-3 py-2 font-pixel text-[8px] text-stone-300 hover:bg-navy-700 transition-all flex items-center justify-between"
             >
               <span>{item.name}</span>
-              <span className="text-dungeon-200">x{item.quantity}</span>
+              <span className="text-stone-600">x{item.quantity}</span>
             </button>
           ))}
         </div>
       )}
 
       {open && confirmItem && (
-        <div className="absolute bottom-full right-0 mb-2 w-56 bg-dungeon-700 pixel-border z-50">
-          <div className="px-3 py-3">
-            <div className="text-mono text-sm text-gold mb-2">Use {confirmItem.name}?</div>
-            <div className="text-mono text-xs text-dungeon-100 mb-3">
+        <div className="absolute bottom-full right-0 mb-2 w-52 bg-navy-800 pixel-border z-50">
+          <div className="p-3">
+            <div className="font-pixel text-[8px] text-gold-400 mb-2">Use {confirmItem.name}?</div>
+            <div className="font-pixel text-[7px] text-stone-400 mb-3">
               {confirmItem.effects?.map((ef, i) => (
                 <div key={i}>
-                  {ef.hpChange?.type === 'heal' && <span>Heals <span className="text-blood">{ef.hpChange.formula}</span> HP.</span>}
-                  {ef.hpChange?.type === 'damage' && <span>Deals <span className="text-blood">{ef.hpChange.formula}</span> damage.</span>}
+                  {ef.hpChange?.type === 'heal' && <span>Restores <span className="text-forest-600">{ef.hpChange.formula}</span> HP</span>}
+                  {ef.hpChange?.type === 'damage' && <span>Deals <span className="text-blood-600">{ef.hpChange.formula}</span> damage</span>}
                 </div>
               ))}
             </div>
             <div className="flex gap-2">
               <button
                 onClick={() => { onUseItem(confirmItem.id); setOpen(false); setConfirmItem(null); }}
-                className="flex-1 bg-blood/80 border border-blood pixel-border py-2 text-mono text-xs text-white hover:brightness-110 transition-all"
+                className="flex-1 bg-forest-800 border border-forest-600/50 pixel-border py-1.5 font-pixel text-[7px] text-forest-600 hover:bg-forest-700 transition-all"
               >
-                Use
+                USE
               </button>
               <button
                 onClick={() => setConfirmItem(null)}
-                className="flex-1 bg-dungeon-600 pixel-border py-2 text-mono text-xs text-dungeon-100 hover:brightness-110 transition-all"
+                className="flex-1 bg-navy-700 pixel-border py-1.5 font-pixel text-[7px] text-stone-400 hover:bg-navy-600 transition-all"
               >
-                Back
+                BACK
               </button>
             </div>
           </div>

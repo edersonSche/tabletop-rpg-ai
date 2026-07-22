@@ -16,28 +16,33 @@ export function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-dungeon-800 bg-noise flex items-center justify-center p-4 relative">
-      <div className="w-full max-w-sm space-y-6">
+    <div className="min-h-screen flex items-center justify-center p-4 relative bg-starfield">
+      <div className="absolute inset-0 bg-gradient-navy pointer-events-none" />
+
+      <div className="w-full max-w-sm space-y-6 relative z-10">
         <div className="flex flex-col items-center">
-          <img className="max-w-[350px]" src={logo} />
+          <img className="max-w-[300px]" src={logo} alt="Tabletop RPG AI" />
+          <p className="font-pixel text-[8px] text-stone-600 mt-3 tracking-widest">
+            ENTER THE REALM
+          </p>
         </div>
 
-        <div className="pixel-border bg-dungeon-500 p-6 rounded-none">
-          <h2 className="text-pixel text-gold text-lg mb-4 text-center">
-            LOGIN
+        <div className="card-stone p-6">
+          <h2 className="font-pixel text-[11px] text-gold-400 mb-5 text-center text-shadow-glow-gold">
+            IDENTIFY YOURSELF
           </h2>
 
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
-              <label className="text-mono text-sm text-dungeon-100 block mb-1">
-                User ID
+              <label className="font-pixel text-[8px] text-stone-400 block mb-2 tracking-wider">
+                ADVENTURER NAME
               </label>
               <input
                 type="text"
                 value={userId}
                 onChange={(e) => setUserId(e.target.value)}
-                className="w-full bg-dungeon-700 text-dungeon-100 p-3 text-mono text-lg pixel-border outline-none focus:border-gold transition-colors"
-                placeholder="Enter your user ID"
+                className="input-field"
+                placeholder="Enter your name..."
                 autoFocus
               />
             </div>
@@ -45,12 +50,16 @@ export function Login() {
             <button
               type="submit"
               disabled={!userId.trim() || loading}
-              className="w-full bg-gold text-dungeon-900 font-bold py-3 px-4 text-mono text-lg pixel-border hover:brightness-110 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              className="btn-primary w-full"
             >
-              {loading ? "CONNECTING..." : "ENTER"}
+              {loading ? "CONNECTING..." : "BEGIN ADVENTURE"}
             </button>
           </form>
         </div>
+
+        <p className="font-pixel text-[6px] text-stone-700 text-center tracking-wider">
+          TABLETOP RPG AI - WHERE AI MEETS ADVENTURE
+        </p>
       </div>
     </div>
   );

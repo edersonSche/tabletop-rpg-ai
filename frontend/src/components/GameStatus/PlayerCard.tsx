@@ -10,13 +10,15 @@ interface PlayerCardProps {
 export function PlayerCard({ name, level, isActive, isMe }: PlayerCardProps) {
   return (
     <div className={`p-2 pixel-border transition-all ${
-      isActive ? 'bg-dungeon-600 border-gold border' : 'bg-dungeon-700'
+      isActive ? 'bg-navy-700 pixel-border-gold' : 'bg-navy-800'
     }`}>
       <div className="flex items-center gap-2">
-        <span className="text-gold text-xs inline-flex items-center">{isActive ? <Play width={12} height={12} /> : <Circle width={12} height={12} />}</span>
-        <span className="text-mono text-sm text-dungeon-100 font-bold">{name}</span>
-        <span className="text-mono text-[10px] text-dungeon-100 ml-auto">Lv{level}</span>
-        {isMe && <span className="text-xs text-magic">(you)</span>}
+        <span className={isActive ? 'text-cyan-400' : 'text-stone-600'}>
+          {isActive ? <Play width={10} height={10} /> : <Circle width={10} height={10} />}
+        </span>
+        <span className="font-pixel text-[8px] text-stone-300 flex-1">{name}</span>
+        <span className="font-pixel text-[7px] text-stone-500">Lv{level}</span>
+        {isMe && <span className="font-pixel text-[6px] text-cyan-400">(YOU)</span>}
       </div>
     </div>
   );

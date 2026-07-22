@@ -10,12 +10,12 @@ interface AttributeAllocationModalProps {
 }
 
 const ATTRIBUTE_ICONS: Record<keyof Player['attributes'], { label: string; icon: React.ComponentType<{ width?: number; height?: number; className?: string }> }> = {
-  strength:     { label: 'Strength',     icon: Sword },
-  dexterity:    { label: 'Dexterity',    icon: Target },
-  constitution: { label: 'Constitution', icon: Heart },
-  intelligence: { label: 'Intelligence', icon: BookOpen },
-  wisdom:       { label: 'Wisdom',       icon: Star },
-  charisma:     { label: 'Charisma',     icon: Crown },
+  strength:     { label: 'STR',     icon: Sword },
+  dexterity:    { label: 'DEX',    icon: Target },
+  constitution: { label: 'CON', icon: Heart },
+  intelligence: { label: 'INT', icon: BookOpen },
+  wisdom:       { label: 'WIS',       icon: Star },
+  charisma:     { label: 'CHA',     icon: Crown },
 };
 
 const ATTRIB_KEYS = Object.keys(ATTRIBUTE_ICONS) as Array<keyof Player['attributes']>;
@@ -54,21 +54,18 @@ export function AttributeAllocationModal({ player, isOpen, onClose, onAllocate }
   const remaining = player.pendingAttributePoints - totalAllocated;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-dungeon-900/80" onClick={onClose}>
-      <div className="pixel-border bg-dungeon-700 w-full max-w-sm mx-4 p-6 relative" onClick={e => e.stopPropagation()}>
-        <button
-          onClick={onClose}
-          className="absolute top-3 right-3 text-dungeon-100 hover:text-dungeon-100 transition-colors"
-        >
-          <Close width={18} height={18} />
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-navy-950/80" onClick={onClose}>
+      <div className="pixel-border bg-navy-800 w-full max-w-sm mx-4 p-5 relative" onClick={e => e.stopPropagation()}>
+        <button onClick={onClose} className="absolute top-3 right-3 text-stone-500 hover:text-stone-300 transition-colors">
+          <Close width={16} height={16} />
         </button>
 
-        <h2 className="text-pixel text-xs text-gold mb-1 tracking-wider">ABILITY SCORE IMPROVEMENT</h2>
-        <p className="text-mono text-xs text-dungeon-100 mb-4">
-          {player.name} &mdash; Points remaining: <span className="text-gold">{remaining}</span>
+        <h2 className="font-pixel text-[9px] text-gold-400 mb-1 tracking-wider text-shadow-glow-gold">ABILITY SCORE IMPROVEMENT</h2>
+        <p className="font-pixel text-[7px] text-stone-400 mb-4">
+          {player.name} &mdash; POINTS: <span className="text-gold-400">{remaining}</span>
         </p>
 
-        <div className="space-y-2 mb-5">
+        <div className="space-y-1.5 mb-5">
           {ATTRIB_KEYS.map((key) => {
             const { label, icon: Icon } = ATTRIBUTE_ICONS[key];
             const baseValue = player.attributes[key];
@@ -78,24 +75,26 @@ export function AttributeAllocationModal({ player, isOpen, onClose, onAllocate }
             const canDec = allocated > 0;
 
             return (
-              <div key={key} className="flex items-center gap-2 bg-dungeon-800 p-2 pixel-border">
-                <Icon width={16} height={16} className="text-gold shrink-0" />
-                <span className="text-mono text-xs text-dungeon-100 w-24">{label}</span>
+              <div key={key} className="flex items-center gap-2 bg-navy-900 p-2 pixel-border">
+                <Icon width={14} height={14} className="text-gold-400 shrink-0" />
+                <span className="font-pixel text-[7px] text-stone-400 w-8">{label}</span>
+                <span className="font-pixel text-[7px] text-stone-600 ml-1">{baseValue}</span>
+                {allocated > 0 && <span className="font-pixel text-[7px] text-cyan-400">+{allocated}</span>}
                 <div className="flex items-center gap-2 ml-auto">
                   <button
                     onClick={() => handleDecrement(key)}
                     disabled={!canDec}
-                    className="text-dungeon-100 hover:text-blood transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                    className="text-stone-500 hover:text-blood-500 transition-colors disabled:opacity-20 disabled:cursor-not-allowed"
                   >
-                    <Minus width={14} height={14} />
+                    <Minus width={12} height={12} />
                   </button>
-                  <span className="text-mono text-sm text-gold font-bold w-6 text-center">{currentValue}</span>
+                  <span className="font-pixel text-[10px] text-gold-400 font-bold w-6 text-center">{currentValue}</span>
                   <button
                     onClick={() => handleIncrement(key)}
                     disabled={!canInc}
-                    className="text-dungeon-100 hover:text-magic transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                    className="text-stone-500 hover:text-cyan-400 transition-colors disabled:opacity-20 disabled:cursor-not-allowed"
                   >
-                    <Plus width={14} height={14} />
+                    <Plus width={12} height={12} />
                   </button>
                 </div>
               </div>
@@ -106,9 +105,9 @@ export function AttributeAllocationModal({ player, isOpen, onClose, onAllocate }
         <button
           onClick={handleConfirm}
           disabled={totalAllocated === 0}
-          className="w-full bg-gold text-dungeon-900 pixel-border py-2 text-mono text-sm font-bold hover:brightness-110 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+          className="btn-gold w-full"
         >
-          Confirm Allocation ({totalAllocated} / {player.pendingAttributePoints})
+          CONFIRM ({totalAllocated} / {player.pendingAttributePoints})
         </button>
       </div>
     </div>

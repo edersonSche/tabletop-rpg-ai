@@ -72,69 +72,66 @@ export function GameRoom() {
   };
 
   return (
-    <div className="h-screen flex flex-col bg-dungeon-800">
+    <div className="h-screen flex flex-col bg-navy-900">
       <Header />
 
       <div className="flex-1 flex max-w-6xl w-full mx-auto overflow-hidden">
         {/* Sidebar */}
-        <aside className="w-48 bg-dungeon-900 border-r-2 border-dungeon-600 p-3 flex flex-col gap-4">
+        <aside className="w-48 bg-navy-800 border-r border-gold-500/15 flex flex-col">
           {gameState && (
             <>
-              {me && <MyCharacterStatus player={me} />}
-              {me && me.pendingAttributePoints > 0 && (
-                <button
-                  onClick={() => setShowAttributeAllocation(true)}
-                  className="w-full bg-gold/20 border border-gold pixel-border py-2 px-3 text-mono text-xs text-gold font-bold hover:brightness-110 transition-all"
-                >
-                  Distribute Attributes ({me.pendingAttributePoints} pts)
-                </button>
-              )}
-              <div className="flex-1" />
-              <div className="flex flex-col gap-2">
-                <button
-                  onClick={() => setShowSheet(true)}
-                  className="w-full bg-dungeon-700 pixel-border py-2 px-3 flex items-center gap-2 text-mono text-sm text-dungeon-100 hover:brightness-110 transition-all"
-                >
-                  <File width={16} height={16} />
-                  Sheet
-                </button>
-                <button
-                  onClick={() => setShowCharacterList(true)}
-                  className="w-full bg-dungeon-700 pixel-border py-2 px-3 flex items-center gap-2 text-mono text-sm text-dungeon-100 hover:brightness-110 transition-all"
-                >
-                  <Users width={16} height={16} />
-                  Characters ({gameState.players.length})
-                </button>
-                <button
-                  onClick={() => setShowOptions(true)}
-                  className="w-full bg-dungeon-700 pixel-border py-2 px-3 flex items-center gap-2 text-mono text-sm text-dungeon-100 hover:brightness-110 transition-all"
-                >
-                  <AiSettings2 width={16} height={16} />
-                  Options
-                </button>
-                <button
-                  onClick={initiateTrade}
-                  disabled={!gameState?.gameStarted || isAiProcessing || isTradeLocked}
-                  className="w-full bg-dungeon-700 pixel-border py-2 px-3 flex items-center gap-2 text-mono text-sm text-gold hover:brightness-110 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <Wallet width={16} height={16} />
-                  Trade
-                </button>
-                <button
-                  onClick={handleLeave}
-                  disabled={leaving || isAiProcessing}
-                  className="w-full bg-dungeon-700 pixel-border py-2 px-3 flex items-center gap-2 text-mono text-sm text-blood hover:brightness-110 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <Logout width={16} height={16} />
-                  {leaving ? 'LEAVING...' : (isCreator ? 'Close' : 'Leave')}
-                </button>
+              <div className="p-3 flex flex-col gap-3 flex-1">
+                {me && <MyCharacterStatus player={me} />}
+                {me && me.pendingAttributePoints > 0 && (
+                  <button
+                    onClick={() => setShowAttributeAllocation(true)}
+                    className="w-full btn-gold !py-2 !px-3 !text-[8px]"
+                  >
+                    ATTRIBUTE PTS ({me.pendingAttributePoints})
+                  </button>
+                )}
+
+                <div className="flex-1" />
+
+                <div className="flex flex-col gap-1.5">
+                  <SidebarButton
+                    icon={<File width={14} height={14} />}
+                    label="Sheet"
+                    onClick={() => setShowSheet(true)}
+                  />
+                  <SidebarButton
+                    icon={<Users width={14} height={14} />}
+                    label={`Party (${gameState.players.length})`}
+                    onClick={() => setShowCharacterList(true)}
+                  />
+                  <SidebarButton
+                    icon={<AiSettings2 width={14} height={14} />}
+                    label="Options"
+                    onClick={() => setShowOptions(true)}
+                  />
+                  <SidebarButton
+                    icon={<Wallet width={14} height={14} />}
+                    label="Trade"
+                    onClick={initiateTrade}
+                    disabled={!gameState?.gameStarted || isAiProcessing || isTradeLocked}
+                    accent="gold"
+                  />
+                  <div className="divider-gold my-1" />
+                  <SidebarButton
+                    icon={<Logout width={14} height={14} />}
+                    label={leaving ? 'LEAVING...' : (isCreator ? 'Close' : 'Leave')}
+                    onClick={handleLeave}
+                    disabled={leaving || isAiProcessing}
+                    accent="danger"
+                  />
+                </div>
               </div>
             </>
           )}
         </aside>
 
         {/* Main Chat Area */}
-        <div className="flex-1 flex flex-col bg-dungeon-800 bg-noise">
+        <div className="flex-1 flex flex-col bg-navy-900 bg-noise">
           <CampaignStatusBar
             location={gameState?.currentLocation || null}
             currentTurn={turnUpdate?.currentTurn || null}
@@ -158,7 +155,7 @@ export function GameRoom() {
                 onTypingStop={emitTypingStop}
                 disabled={isInputDisabled}
                 disabledReason={disabledReason}
-                  characterName={me?.name || 'Adventurer'}
+                characterName={me?.name || 'Adventurer'}
                 turnType={turnUpdate?.type || null}
               />
             </div>
@@ -218,5 +215,36 @@ export function GameRoom() {
         />
       )}
     </div>
+  );
+}
+
+function SidebarButton({
+  icon,
+  label,
+  onClick,
+  disabled,
+  accent,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  onClick: () => void;
+  disabled?: boolean;
+  accent?: 'gold' | 'danger';
+}) {
+  const colorClass = accent === 'danger'
+    ? 'text-blood-600 hover:text-blood-500 hover:bg-blood-700/20'
+    : accent === 'gold'
+    ? 'text-gold-500 hover:text-gold-400 hover:bg-gold-500/10'
+    : 'text-stone-400 hover:text-gold-400 hover:bg-navy-600';
+
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      className={`w-full flex items-center gap-2 px-3 py-2 font-pixel text-[8px] tracking-wider transition-all ${colorClass} disabled:opacity-30 disabled:cursor-not-allowed`}
+    >
+      {icon}
+      {label}
+    </button>
   );
 }
