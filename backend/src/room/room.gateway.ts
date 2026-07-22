@@ -9,6 +9,7 @@ import {
 import { Server, Socket } from 'socket.io';
 import { RoomService } from './room.service';
 import { GameState, NarrativeLanguage } from '../game/game.state';
+import { GameService } from '../game/game.service';
 import { PlayerService } from '../game/player.service';
 import { AiService } from '../ai/ai.service';
 import { AuthService } from '../auth/auth.service';
@@ -40,6 +41,7 @@ export class RoomGateway {
   constructor(
     private roomService: RoomService,
     private gameState: GameState,
+    private gameService: GameService,
     private playerService: PlayerService,
     private authService: AuthService,
     private campaignStore: CampaignStore,
@@ -116,33 +118,9 @@ export class RoomGateway {
 
     const state = this.gameState.getRoom(roomId);
     if (state) {
-      client.emit('game:state', {
-        campaignId: state.campaignId,
-        campaignName: state.campaignName,
-        campaignTheme: state.campaignTheme,
-  
-        creatorId: state.creatorId,
-        players: state.players.filter(p => p.active),
-        currentTurn: state.currentTurn,
-        turnType: state.turnType,
-        turnTarget: state.turnTarget,
-        currentLocation: state.currentLocation,
-        scene: state.scene,
-        history: state.history,
-      });
+      client.emit('game:state', this.gameService.getState(roomId));
 
-      this.server.to(roomId).emit('game:state', {
-        campaignId: state.campaignId,
-        campaignName: state.campaignName,
-        campaignTheme: state.campaignTheme,
-  
-        creatorId: state.creatorId,
-        players: state.players.filter(p => p.active),
-        currentTurn: state.currentTurn,
-        turnType: state.turnType,
-        turnTarget: state.turnTarget,
-        scene: state.scene,
-      });
+      this.server.to(roomId).emit('game:state', this.gameService.getState(roomId));
 
       this.server.to(roomId).emit('game:message', {
         type: 'system',
@@ -201,34 +179,9 @@ export class RoomGateway {
       client.emit('player:registered', { playerId: existing.id });
 
       if (state) {
-        client.to(roomId).emit('game:state', {
-          campaignId: state.campaignId,
-          campaignName: state.campaignName,
-          campaignTheme: state.campaignTheme,
-    
-          creatorId: state.creatorId,
-          players: state.players.filter(p => p.active),
-          currentTurn: state.currentTurn,
-          turnType: state.turnType,
-          turnTarget: state.turnTarget,
-          scene: state.scene,
-        });
+        client.to(roomId).emit('game:state', this.gameService.getState(roomId));
 
-        client.emit('game:state', {
-          campaignId: state.campaignId,
-          campaignName: state.campaignName,
-          campaignTheme: state.campaignTheme,
-    
-          creatorId: state.creatorId,
-          language: state.language,
-          players: state.players.filter(p => p.active),
-          currentTurn: state.currentTurn,
-          turnType: state.turnType,
-          turnTarget: state.turnTarget,
-          currentLocation: state.currentLocation,
-          scene: state.scene,
-          history: state.history,
-        });
+        client.emit('game:state', this.gameService.getState(roomId));
       }
 
       return {
@@ -321,22 +274,7 @@ export class RoomGateway {
 
       const state = this.gameState.getRoom(campaignId);
       if (state) {
-        client.emit('game:state', {
-          campaignId: state.campaignId,
-          campaignName: state.campaignName,
-          campaignTheme: state.campaignTheme,
-    
-          creatorId: state.creatorId,
-          language: state.language,
-          players: state.players.filter(p => p.active),
-          currentTurn: state.currentTurn,
-          turnType: state.turnType,
-          turnTarget: state.turnTarget,
-          currentLocation: state.currentLocation,
-          scene: state.scene,
-          gameStarted: state.gameStarted,
-          history: state.history,
-        });
+        client.emit('game:state', this.gameService.getState(campaignId));
       }
 
       return {
@@ -365,23 +303,7 @@ export class RoomGateway {
 
     const state = this.gameState.getRoom(savedCampaign.campaignId);
     if (state) {
-      const gameStateData = {
-        campaignId: state.campaignId,
-        campaignName: state.campaignName,
-        campaignTheme: state.campaignTheme,
-  
-        creatorId: state.creatorId,
-        language: state.language,
-        players: state.players.filter(p => p.active),
-        currentTurn: state.currentTurn,
-        turnType: state.turnType,
-        turnTarget: state.turnTarget,
-        currentLocation: state.currentLocation,
-        scene: state.scene,
-        gameStarted: state.gameStarted,
-        history: state.history,
-      };
-      client.emit('game:state', gameStateData);
+      client.emit('game:state', this.gameService.getState(savedCampaign.campaignId));
     }
 
     return {
@@ -432,18 +354,7 @@ export class RoomGateway {
           this.gameState.removeRoom(roomId);
           this.roomService.remove(roomId);
         } else {
-          this.server.to(roomId).emit('game:state', {
-            campaignId: state.campaignId,
-            campaignName: state.campaignName,
-            campaignTheme: state.campaignTheme,
-      
-            creatorId: state.creatorId,
-            players: state.players.filter(p => p.active),
-            currentTurn: state.currentTurn,
-            turnType: state.turnType,
-            turnTarget: state.turnTarget,
-            scene: state.scene,
-          });
+          this.server.to(roomId).emit('game:state', this.gameService.getState(roomId));
         }
       }
     }

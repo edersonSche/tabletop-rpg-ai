@@ -71,14 +71,14 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   // ─── Emission Helpers ───────────────────────────────────────────────
 
-  private emitGameState(roomId: string): void {
-    const room = this.gameState.getRoom(roomId);
-    if (!room) return;
-    this.server.to(roomId).emit('game:state', {
-      ...this.gameService.getState(roomId),
-      creatorId: room.creatorId,
-      history: room.history,
-    });
+  private emitGameState(roomId: string, socket?: Socket): void {
+    const state = this.gameService.getState(roomId);
+    if (!state) return;
+    if (socket) {
+      socket.emit('game:state', state);
+    } else {
+      this.server.to(roomId).emit('game:state', state);
+    }
   }
 
   private emitNarration(roomId: string, response: AIResponse, tickResults: TickResult[]): void {
@@ -192,7 +192,6 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
       this.emitGameState(roomId);
 
-      client.to(roomId).emit('game:state', this.gameService.getState(roomId));
       this.server.to(roomId).emit('game:message', {
         type: 'system',
         content: `${existing.name} joined the campaign.`,
@@ -566,11 +565,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
     const room = this.gameState.getRoom(roomId);
     if (!room) return { error: 'Room not found' };
-    return {
-      ...this.gameService.getState(roomId),
-      creatorId: room.creatorId,
-      history: room.history,
-    };
+    return this.gameService.getState(roomId);
   }
 
   @SubscribeMessage('game:initiate_trade')

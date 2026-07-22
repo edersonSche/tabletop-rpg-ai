@@ -516,6 +516,8 @@ export class GameService {
       currentLocation: room.currentLocation,
       scene: room.scene,
       gameStarted: room.gameStarted,
+      creatorId: room.creatorId,
+      history: room.history,
     };
   }
 
