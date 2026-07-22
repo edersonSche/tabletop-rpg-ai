@@ -11,13 +11,15 @@ import {
 import { Server, Socket } from 'socket.io';
 import { Inject } from '@nestjs/common';
 import { GameService } from './game.service';
-import { GameState, GameStateData } from './game.state';
+import { GameState, TickResult } from './game.state';
 import { PlayerService } from './player.service';
 import { MerchantService } from './merchant.service';
+import { TradeService } from './trade.service';
 import { ConditionEngine } from './condition.engine';
 import { DiceService } from './dice.service';
 import { TurnManager } from './turn.manager';
 import { GameActionDto, UseItemDto, InitiateTradeDto, BuyItemDto, SellItemDto, EndTradeDto, UseAntidoteDto } from '../dto/game-action.dto';
+import { AIResponse } from '../dto/ai-response.dto';
 import { AIProvider } from '../ai/ai.interface';
 import { AuthService } from '../auth/auth.service';
 import { AuthWsGuard } from '../auth/auth.guard';
@@ -41,6 +43,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     private gameState: GameState,
     private playerService: PlayerService,
     private merchantService: MerchantService,
+    private tradeService: TradeService,
     private conditionEngine: ConditionEngine,
     private diceService: DiceService,
     private turnManager: TurnManager,
@@ -48,6 +51,73 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     private campaignStore: CampaignStore,
     @Inject('AI_PROVIDER') private aiProvider: AIProvider,
   ) {}
+
+  // ─── Emission Helpers ───────────────────────────────────────────────
+
+  private emitGameState(roomId: string): void {
+    const room = this.gameState.getRoom(roomId);
+    if (!room) return;
+    this.server.to(roomId).emit('game:state', {
+      ...this.gameService.getState(roomId),
+      creatorId: room.creatorId,
+      history: room.history,
+    });
+  }
+
+  private emitNarration(roomId: string, response: AIResponse, tickResults: TickResult[]): void {
+    this.server.to(roomId).emit('game:narration', {
+      narration: response.narration,
+      next: response.next,
+      state: this.gameService.getState(roomId),
+    });
+
+    const room = this.gameState.getRoom(roomId);
+    if (!room) return;
+
+    this.server.to(roomId).emit('game:turn', {
+      currentTurn: room.currentTurn,
+      type: room.turnType,
+      target: room.turnTarget,
+    });
+
+    if (tickResults.length > 0) {
+      this.server.to(roomId).emit('game:condition_tick', {
+        players: room.players.filter(p => p.active).map(p => ({
+          id: p.id,
+          hp: p.hp,
+          maxHp: p.maxHp,
+          ac: p.ac,
+          activeConditions: p.activeConditions,
+          tickResult: tickResults.find(t => t.playerId === p.id) || {
+            playerName: p.name, hpChange: 0, conditionsExpired: [], dotDetails: [],
+          },
+        })),
+      });
+    }
+  }
+
+  private emitTradeStateToAll(roomId: string): void {
+    const room = this.gameState.getRoom(roomId);
+    if (!room || !room.merchants) return;
+
+    const roomSockets = this.authService.getSocketsByRoomId(roomId);
+    for (const sid of roomSockets) {
+      const conn = this.authService.getPlayerBySocket(sid);
+      if (!conn) continue;
+      const player = room.players.find(p => p.id === conn.playerId);
+      if (!player) continue;
+
+      const chaMod = Math.floor((player.attributes.charisma - 10) / 2);
+      this.server.to(sid).emit('game:trade_state', {
+        locked: true,
+        merchants: this.merchantService.adjustMerchantPrices(room.merchants!, chaMod),
+        tradeParticipants: room.tradeParticipants,
+        tradeDone: room.tradeDone,
+      });
+    }
+  }
+
+  // ─── Connection Lifecycle ───────────────────────────────────────────
 
   handleConnection(client: Socket) {
     console.log(`Client connected: ${client.id}`);
@@ -64,18 +134,13 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const room = this.gameState.getRoom(roomId);
     if (room) {
       if (room.isTradeLocked) {
-        room.tradeParticipants = room.tradeParticipants.filter(id => id !== playerId);
-        room.tradeDone = room.tradeDone.filter(id => id !== playerId);
-
-        if (room.tradeParticipants.length === 0 || room.tradeDone.length >= room.tradeParticipants.length) {
-          room.isTradeLocked = false;
-          room.tradeParticipants = [];
-          room.tradeDone = [];
+        const shouldUnlock = this.tradeService.removeFromTrade(roomId, playerId);
+        if (shouldUnlock) {
           this.server.to(roomId).emit('game:trade_state', { locked: false });
         }
       }
 
-      this.server.to(roomId).emit('game:state', this.gameService.getState(roomId));
+      this.emitGameState(roomId);
       this.server.to(roomId).emit('game:message', {
         type: 'system',
         content: `${characterName} disconnected.`,
@@ -85,6 +150,8 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
     console.log(`Client disconnected: ${client.id}`);
   }
+
+  // ─── Message Handlers ───────────────────────────────────────────────
 
   @SubscribeMessage('room:join')
   async handleJoinRoom(
@@ -104,14 +171,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       client.join(data.roomId);
       client.emit('player:registered', { playerId: existing.id });
 
-      const joinedRoom = this.gameState.getRoom(data.roomId);
-      if (joinedRoom) {
-        client.emit('game:state', {
-          ...this.gameService.getState(data.roomId),
-          creatorId: joinedRoom.creatorId,
-          history: joinedRoom.history,
-        });
-      }
+      this.emitGameState(data.roomId);
 
       client.to(data.roomId).emit('game:state', this.gameService.getState(data.roomId));
       this.server.to(data.roomId).emit('game:message', {
@@ -143,38 +203,8 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     this.server.to(data.roomId).emit('game:processing', { processing: true });
     try {
       const { response, tickResults } = await this.gameService.handleAction(data.roomId, data.playerId, data.message);
-      const room = this.gameState.getRoom(data.roomId);
-
       this.campaignStore.saveFromMemory(data.roomId);
-
-      this.server.to(data.roomId).emit('game:narration', {
-        narration: response.narration,
-        next: response.next,
-        state: this.gameService.getState(data.roomId),
-      });
-
-      if (room) {
-        this.server.to(data.roomId).emit('game:turn', {
-          currentTurn: room.currentTurn,
-          type: room.turnType,
-          target: room.turnTarget,
-        });
-
-        if (tickResults.length > 0) {
-          const payload = {
-            players: room.players.filter(p => p.active).map(p => ({
-              id: p.id,
-              hp: p.hp,
-              maxHp: p.maxHp,
-              ac: p.ac,
-              activeConditions: p.activeConditions,
-              tickResult: tickResults.find(t => t.playerId === p.id) || { playerName: p.name, hpChange: 0, conditionsExpired: [], dotDetails: [] },
-            })),
-          };
-          this.server.to(data.roomId).emit('game:condition_tick', payload);
-        }
-      }
-
+      this.emitNarration(data.roomId, response, tickResults);
       return { success: true };
     } catch (error) {
       client.emit('game:error', { message: error.message });
@@ -207,38 +237,8 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     this.server.to(data.roomId).emit('game:processing', { processing: true });
     try {
       const { response, tickResults } = await this.gameService.handleRoll(data.roomId, data.playerId, { roll, modifier, total, skill, dc });
-      const room = this.gameState.getRoom(data.roomId);
-
       this.campaignStore.saveFromMemory(data.roomId);
-
-      this.server.to(data.roomId).emit('game:narration', {
-        narration: response.narration,
-        next: response.next,
-        state: this.gameService.getState(data.roomId),
-      });
-
-      if (room) {
-        this.server.to(data.roomId).emit('game:turn', {
-          currentTurn: room.currentTurn,
-          type: room.turnType,
-          target: room.turnTarget,
-        });
-
-        if (tickResults.length > 0) {
-          const payload = {
-            players: room.players.filter(p => p.active).map(p => ({
-              id: p.id,
-              hp: p.hp,
-              maxHp: p.maxHp,
-              ac: p.ac,
-              activeConditions: p.activeConditions,
-              tickResult: tickResults.find(t => t.playerId === p.id) || { playerName: p.name, hpChange: 0, conditionsExpired: [], dotDetails: [] },
-            })),
-          };
-          this.server.to(data.roomId).emit('game:condition_tick', payload);
-        }
-      }
-
+      this.emitNarration(data.roomId, response, tickResults);
       return { success: true };
     } catch (error) {
       client.emit('game:error', { message: error.message });
@@ -273,43 +273,12 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       const { response, tickResults } = await this.gameService.startCampaign(data.roomId);
 
       if (response.narration) {
-        this.server.to(data.roomId).emit('game:narration', {
-          narration: response.narration,
-          next: response.next,
-          state: this.gameService.getState(data.roomId),
-        });
+        this.emitNarration(data.roomId, response, tickResults);
       } else {
-        this.server.to(data.roomId).emit('game:state', {
-          ...this.gameService.getState(data.roomId),
-          creatorId: room?.creatorId,
-          history: room?.history,
-        });
-      }
-
-      if (room) {
-        this.server.to(data.roomId).emit('game:turn', {
-          currentTurn: room.currentTurn,
-          type: room.turnType,
-          target: room.turnTarget,
-        });
-
-        if (tickResults.length > 0) {
-          const payload = {
-            players: room.players.filter(p => p.active).map(p => ({
-              id: p.id,
-              hp: p.hp,
-              maxHp: p.maxHp,
-              ac: p.ac,
-              activeConditions: p.activeConditions,
-              tickResult: tickResults.find(t => t.playerId === p.id) || { playerName: p.name, hpChange: 0, conditionsExpired: [], dotDetails: [] },
-            })),
-          };
-          this.server.to(data.roomId).emit('game:condition_tick', payload);
-        }
+        this.emitGameState(data.roomId);
       }
 
       this.campaignStore.saveFromMemory(data.roomId);
-
       return { success: true };
     } catch (error) {
       client.emit('game:error', { message: error.message });
@@ -327,7 +296,6 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     if (this.turnManager.isLocked(data.roomId)) return;
 
     const key = `${data.roomId}:${data.playerId}`;
-
     if (this.typingTimers.has(key)) {
       clearTimeout(this.typingTimers.get(key));
     }
@@ -368,17 +336,8 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
         return { success: false, error: result.error };
       }
 
-      const room = this.gameState.getRoom(data.roomId);
-      if (room) {
-        this.server.to(data.roomId).emit('game:state', {
-          ...this.gameService.getState(data.roomId),
-          creatorId: room.creatorId,
-          history: room.history,
-        });
-      }
-
+      this.emitGameState(data.roomId);
       this.campaignStore.saveFromMemory(data.roomId);
-
       return { success: true };
     } catch (error) {
       client.emit('game:error', { message: error.message });
@@ -398,15 +357,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
         return { success: false, error: result.error };
       }
 
-      const room = this.gameState.getRoom(data.roomId);
-      if (room) {
-        this.server.to(data.roomId).emit('game:state', {
-          ...this.gameService.getState(data.roomId),
-          creatorId: room.creatorId,
-          history: room.history,
-        });
-      }
-
+      this.emitGameState(data.roomId);
       this.campaignStore.saveFromMemory(data.roomId);
       return { success: true };
     } catch (error) {
@@ -427,15 +378,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
         return { success: false, error: result.error };
       }
 
-      const room = this.gameState.getRoom(data.roomId);
-      if (room) {
-        this.server.to(data.roomId).emit('game:state', {
-          ...this.gameService.getState(data.roomId),
-          creatorId: room.creatorId,
-          history: room.history,
-        });
-      }
-
+      this.emitGameState(data.roomId);
       this.campaignStore.saveFromMemory(data.roomId);
       return { success: true };
     } catch (error) {
@@ -462,7 +405,6 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
         client.emit('game:error', { message: 'Item not found' });
         return { success: false, error: 'Item not found' };
       }
-
       const itemName = item.name;
 
       const result = this.playerService.useItem(data.roomId, data.playerId, data.itemId);
@@ -471,32 +413,26 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
         return { success: false, error: result.error };
       }
 
-      const parts: string[] = [`Used ${itemName}.`];
-      if (result.hpChange > 0) {
-        parts.push(`Healed ${result.hpChange} HP!`);
-      } else if (result.hpChange < 0) {
-        parts.push(`Took ${Math.abs(result.hpChange)} damage.`);
-      }
-      for (const ac of result.appliedConditions) {
-        parts.push(`Applied ${ac.name} (${ac.duration} turn${ac.duration !== 1 ? 's' : ''}).`);
-      }
+      if (player) {
+        const parts: string[] = [`Used ${itemName}.`];
+        if (result.hpChange > 0) {
+          parts.push(`Healed ${result.hpChange} HP!`);
+        } else if (result.hpChange < 0) {
+          parts.push(`Took ${Math.abs(result.hpChange)} damage.`);
+        }
+        for (const ac of result.appliedConditions) {
+          parts.push(`Applied ${ac.name} (${ac.duration} turn${ac.duration !== 1 ? 's' : ''}).`);
+        }
 
-      this.server.to(data.roomId).emit('game:player_action', {
-        type: 'action',
-        playerId: data.playerId,
-        characterName: player.name,
-        message: parts.join(' '),
-      });
-
-      const currentRoom = this.gameState.getRoom(data.roomId);
-      if (currentRoom) {
-        this.server.to(data.roomId).emit('game:state', {
-          ...this.gameService.getState(data.roomId),
-          creatorId: currentRoom.creatorId,
-          history: currentRoom.history,
+        this.server.to(data.roomId).emit('game:player_action', {
+          type: 'action',
+          playerId: data.playerId,
+          characterName: player.name,
+          message: parts.join(' '),
         });
       }
 
+      this.emitGameState(data.roomId);
       this.campaignStore.saveFromMemory(data.roomId);
       return { success: true };
     } catch (error) {
@@ -523,29 +459,18 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
         return { success: false, error: 'Item not found' };
       }
 
-      const itemName = item.name;
       const result = this.playerService.useAntidote(player, item, data.targetConditionName);
 
       if (result.success) {
         this.playerService.removeItem(data.roomId, player.id, data.itemId);
-
-        const room = this.gameState.getRoom(data.roomId);
-        if (room) {
-          this.server.to(data.roomId).emit('game:state', {
-            ...this.gameService.getState(data.roomId),
-            creatorId: room.creatorId,
-            history: room.history,
-          });
-        }
-
+        this.emitGameState(data.roomId);
         client.emit('game:antidote_result', result);
         this.server.to(data.roomId).emit('game:player_action', {
           type: 'action',
           playerId: player.id,
           characterName: player.name,
-          message: `used ${itemName}`,
+          message: `used ${item.name}`,
         });
-
         this.campaignStore.saveFromMemory(data.roomId);
       } else {
         client.emit('game:error', { message: result.error });
@@ -580,7 +505,8 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const room = this.gameState.getRoom(data.roomId);
 
     if (room && room.merchants && room.merchants.length > 0 && room.merchantsLocation == room.currentLocation) {
-      this.emitTradeState(room, data.roomId);
+      this.tradeService.lockTrade(data.roomId);
+      this.emitTradeStateToAll(data.roomId);
       this.campaignStore.saveFromMemory(data.roomId);
       return { success: true };
     }
@@ -607,7 +533,8 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       }
 
       if (updatedRoom && updatedRoom.merchants && updatedRoom.merchants.length > 0) {
-        this.emitTradeState(updatedRoom, data.roomId);
+        this.tradeService.lockTrade(data.roomId);
+        this.emitTradeStateToAll(data.roomId);
       } else {
         client.emit('game:message', {
           type: 'system',
@@ -622,30 +549,6 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       return { success: false, error: error.message };
     } finally {
       this.server.to(data.roomId).emit('game:processing', { processing: false });
-    }
-  }
-
-  private emitTradeState(room: GameStateData, roomId: string): void {
-    room.isTradeLocked = true;
-    room.tradeParticipants = room.players.filter(p => p.active).map(p => p.id);
-    room.tradeDone = [];
-
-    const roomSockets = this.authService.getSocketsByRoomId(roomId);
-    for (const sid of roomSockets) {
-      const conn = this.authService.getPlayerBySocket(sid);
-      if (!conn) continue;
-      const player = room.players.find(p => p.id === conn.playerId);
-      if (!player) continue;
-
-      const chaMod = Math.floor((player.attributes.charisma - 10) / 2);
-      const adjustedMerchants = this.merchantService.adjustMerchantPrices(room.merchants!, chaMod);
-
-      this.server.to(sid).emit('game:trade_state', {
-        locked: true,
-        merchants: adjustedMerchants,
-        tradeParticipants: room.tradeParticipants,
-        tradeDone: room.tradeDone,
-      });
     }
   }
 
@@ -667,25 +570,8 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
       const room = this.gameState.getRoom(data.roomId);
       if (room && room.merchants) {
-        const roomSockets = this.authService.getSocketsByRoomId(data.roomId);
-        for (const sid of roomSockets) {
-          const conn = this.authService.getPlayerBySocket(sid);
-          if (!conn) continue;
-          const player = room.players.find(p => p.id === conn.playerId);
-          if (!player) continue;
-
-          const chaMod = Math.floor((player.attributes.charisma - 10) / 2);
-          const adjustedMerchants = this.merchantService.adjustMerchantPrices(room.merchants, chaMod);
-
-          this.server.to(sid).emit('game:trade_state', {
-            locked: true,
-            merchants: adjustedMerchants,
-            tradeParticipants: room.tradeParticipants,
-            tradeDone: room.tradeDone,
-          });
-        }
-
-        this.server.to(data.roomId).emit('game:state', this.gameService.getState(data.roomId));
+        this.emitTradeStateToAll(data.roomId);
+        this.emitGameState(data.roomId);
       }
 
       this.campaignStore.saveFromMemory(data.roomId);
@@ -714,25 +600,8 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
       const room = this.gameState.getRoom(data.roomId);
       if (room && room.merchants) {
-        const roomSockets = this.authService.getSocketsByRoomId(data.roomId);
-        for (const sid of roomSockets) {
-          const conn = this.authService.getPlayerBySocket(sid);
-          if (!conn) continue;
-          const player = room.players.find(p => p.id === conn.playerId);
-          if (!player) continue;
-
-          const chaMod = Math.floor((player.attributes.charisma - 10) / 2);
-          const adjustedMerchants = this.merchantService.adjustMerchantPrices(room.merchants, chaMod);
-
-          this.server.to(sid).emit('game:trade_state', {
-            locked: true,
-            merchants: adjustedMerchants,
-            tradeParticipants: room.tradeParticipants,
-            tradeDone: room.tradeDone,
-          });
-        }
-
-        this.server.to(data.roomId).emit('game:state', this.gameService.getState(data.roomId));
+        this.emitTradeStateToAll(data.roomId);
+        this.emitGameState(data.roomId);
       }
 
       this.campaignStore.saveFromMemory(data.roomId);
@@ -749,24 +618,14 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @MessageBody() data: EndTradeDto,
   ) {
     try {
-      const room = this.gameState.getRoom(data.roomId);
-      if (!room) return { success: false, error: 'Room not found' };
-
-      if (!room.tradeDone.includes(data.playerId)) {
-        room.tradeDone.push(data.playerId);
-      }
-
-      const allDone = room.tradeParticipants.length > 0 &&
-        room.tradeDone.length >= room.tradeParticipants.length;
+      const allDone = this.tradeService.markDone(data.roomId, data.playerId);
 
       if (allDone) {
-        room.isTradeLocked = false;
-        room.tradeParticipants = [];
-        room.tradeDone = [];
-
+        this.tradeService.unlockTrade(data.roomId);
         this.server.to(data.roomId).emit('game:trade_state', { locked: false });
 
-        if (room.merchants) {
+        const room = this.gameState.getRoom(data.roomId);
+        if (room?.merchants) {
           this.server.to(data.roomId).emit('game:narration', {
             narration: 'The party finishes their business with the local merchants.',
             next: { type: 'group_action' },
@@ -774,25 +633,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
           });
         }
       } else {
-        const roomSockets = this.authService.getSocketsByRoomId(data.roomId);
-        for (const sid of roomSockets) {
-          const conn = this.authService.getPlayerBySocket(sid);
-          if (!conn) continue;
-          const player = room.players.find(p => p.id === conn.playerId);
-          if (!player) continue;
-
-          const chaMod = Math.floor((player.attributes.charisma - 10) / 2);
-          const adjustedMerchants = room.merchants
-            ? this.merchantService.adjustMerchantPrices(room.merchants, chaMod)
-            : [];
-
-          this.server.to(sid).emit('game:trade_state', {
-            locked: true,
-            merchants: adjustedMerchants,
-            tradeParticipants: room.tradeParticipants,
-            tradeDone: room.tradeDone,
-          });
-        }
+        this.emitTradeStateToAll(data.roomId);
       }
 
       this.campaignStore.saveFromMemory(data.roomId);

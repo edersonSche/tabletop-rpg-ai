@@ -8,6 +8,7 @@ import { GameState } from './game/game.state';
 import { DiceService } from './game/dice.service';
 import { ConditionEngine } from './game/condition.engine';
 import { MerchantService } from './game/merchant.service';
+import { TradeService } from './game/trade.service';
 import { LevelingService } from './game/leveling.service';
 import { PlayerService } from './game/player.service';
 import { RoomGateway } from './room/room.gateway';
@@ -27,6 +28,7 @@ import { CampaignStore } from './campaign/campaign.store';
     DiceService,
     ConditionEngine,
     MerchantService,
+    TradeService,
     LevelingService,
     PlayerService,
     RoomGateway,
