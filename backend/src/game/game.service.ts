@@ -1,6 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { v4 as uuid } from 'uuid';
 import { GameState, Player, Merchant, MerchantItem, TickResult, GameStateData, Condition, Effect } from './game.state';
+import { ConditionEngine } from './condition.engine';
+import { DiceService } from './dice.service';
+import { LevelingService } from './leveling.service';
 import { TurnManager } from './turn.manager';
 import { AiService } from '../ai/ai.service';
 import { AIResponse, MerchantSeed, ConditionSeed } from '../dto/ai-response.dto';
@@ -14,6 +17,9 @@ export class GameService {
 
   constructor(
     private gameState: GameState,
+    private conditionEngine: ConditionEngine,
+    private diceService: DiceService,
+    private levelingService: LevelingService,
     private turnManager: TurnManager,
     private aiService: AiService,
   ) {}
@@ -85,8 +91,8 @@ export class GameService {
     const skill = rollData?.skill ?? room.turnSkill ?? 'dexterity';
     const dc = rollData?.dc ?? room.turnDc ?? 10;
 
-    const modifier = rollData?.modifier ?? this.gameState.getPlayerModifier(player, skill);
-    const roll = rollData?.roll ?? this.gameState.rollDice(20);
+    const modifier = rollData?.modifier ?? this.conditionEngine.getPlayerModifier(player, skill);
+    const roll = rollData?.roll ?? this.diceService.rollDice(20);
     const total = rollData?.total ?? roll + modifier;
 
     try {
@@ -301,7 +307,7 @@ export class GameService {
       });
     }
 
-    const tickResults = this.gameState.tickEffects(room);
+    const tickResults = this.conditionEngine.tickEffects(room);
     return tickResults;
   }
 
@@ -414,7 +420,7 @@ export class GameService {
         origin: 'narrative',
       };
 
-      this.gameState.applyConditionToPlayer(targetPlayer, condition, room);
+      this.conditionEngine.applyConditionToPlayer(targetPlayer, condition, room);
 
       this.gameState.addHistory(room.campaignId, {
         role: 'system',
@@ -518,7 +524,7 @@ export class GameService {
     playerId: string,
     allocations: Partial<Record<keyof Player['attributes'], number>>,
   ) {
-    return this.gameState.allocateAttributes(roomId, playerId, allocations);
+    return this.levelingService.allocateAttributes(roomId, playerId, allocations);
   }
 
   private isUnknownLocation(location: string | null | undefined): boolean {

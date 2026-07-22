@@ -10,6 +10,7 @@ import { Server, Socket } from 'socket.io';
 import { Inject } from '@nestjs/common';
 import { RoomService } from './room.service';
 import { GameState, NarrativeLanguage, Player } from '../game/game.state';
+import { PlayerService } from '../game/player.service';
 import { AIProvider } from '../ai/ai.interface';
 import { AuthService } from '../auth/auth.service';
 import { AuthWsGuard } from '../auth/auth.guard';
@@ -30,6 +31,7 @@ export class RoomGateway {
   constructor(
     private roomService: RoomService,
     private gameState: GameState,
+    private playerService: PlayerService,
     private authService: AuthService,
     private campaignStore: CampaignStore,
     @Inject('AI_PROVIDER') private aiProvider: AIProvider,
@@ -63,7 +65,7 @@ export class RoomGateway {
     if (!userId) return { success: false, error: 'Not authenticated' };
 
     const gs = this.gameState.getRoom(data.roomId);
-    const player = this.gameState.addPlayer(data.roomId, userId, data.name, data.attributes, data.kitId, gs?.language);
+    const player = this.playerService.addPlayer(data.roomId, userId, data.name, data.attributes, data.kitId, gs?.language);
     const roomData = this.roomService.get(data.roomId);
     if (roomData && !roomData.creatorId) {
       roomData.creatorId = player.id;
@@ -164,12 +166,12 @@ export class RoomGateway {
     const userId = this.authService.getUserId(client.id);
     if (!userId) return { success: false, error: 'Not authenticated' };
 
-    const existing = this.gameState.findPlayerByUserId(data.roomId, userId);
+    const existing = this.playerService.findPlayerByUserId(data.roomId, userId);
     const state = this.gameState.getRoom(data.roomId);
     const campaignStarted = !!(state && state.gameStarted);
 
     if (existing) {
-      this.gameState.reactivatePlayer(data.roomId, existing.id);
+      this.playerService.reactivatePlayer(data.roomId, existing.id);
       this.authService.registerPlayer(client.id, existing.id, existing.name, data.roomId);
       client.join(data.roomId);
       client.emit('player:registered', { playerId: existing.id });
@@ -277,7 +279,7 @@ export class RoomGateway {
     }
 
     if (this.roomService.get(data.campaignId)) {
-      const creatorPlayer = this.gameState.findPlayerByUserId(data.campaignId, userId);
+      const creatorPlayer = this.playerService.findPlayerByUserId(data.campaignId, userId);
       if (!creatorPlayer) {
         return { success: false, error: 'Character not found in active campaign.' };
       }
@@ -285,7 +287,7 @@ export class RoomGateway {
       this.authService.registerPlayer(client.id, creatorPlayer.id, creatorPlayer.name, data.campaignId);
       client.join(data.campaignId);
       client.emit('player:registered', { playerId: creatorPlayer.id });
-      this.gameState.reactivatePlayer(data.campaignId, creatorPlayer.id);
+      this.playerService.reactivatePlayer(data.campaignId, creatorPlayer.id);
 
       const state = this.gameState.getRoom(data.campaignId);
       if (state) {
@@ -384,7 +386,7 @@ export class RoomGateway {
       this.roomService.remove(data.roomId);
       this.server.socketsLeave(data.roomId);
     } else {
-      this.gameState.removePlayer(data.roomId, data.playerId);
+      this.playerService.removePlayer(data.roomId, data.playerId);
       this.roomService.leave(data.roomId, data.playerId);
 
       this.authService.unregisterPlayer(client.id);

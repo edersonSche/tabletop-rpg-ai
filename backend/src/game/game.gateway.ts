@@ -12,6 +12,10 @@ import { Server, Socket } from 'socket.io';
 import { Inject } from '@nestjs/common';
 import { GameService } from './game.service';
 import { GameState, GameStateData } from './game.state';
+import { PlayerService } from './player.service';
+import { MerchantService } from './merchant.service';
+import { ConditionEngine } from './condition.engine';
+import { DiceService } from './dice.service';
 import { TurnManager } from './turn.manager';
 import { GameActionDto, UseItemDto, InitiateTradeDto, BuyItemDto, SellItemDto, EndTradeDto, UseAntidoteDto } from '../dto/game-action.dto';
 import { AIProvider } from '../ai/ai.interface';
@@ -35,6 +39,10 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
   constructor(
     private gameService: GameService,
     private gameState: GameState,
+    private playerService: PlayerService,
+    private merchantService: MerchantService,
+    private conditionEngine: ConditionEngine,
+    private diceService: DiceService,
     private turnManager: TurnManager,
     private authService: AuthService,
     private campaignStore: CampaignStore,
@@ -51,7 +59,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
     const { roomId, playerId, characterName } = playerConn;
 
-    this.gameState.disconnectPlayer(roomId, playerId);
+    this.playerService.disconnectPlayer(roomId, playerId);
 
     const room = this.gameState.getRoom(roomId);
     if (room) {
@@ -87,7 +95,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       const userId = this.authService.getUserId(client.id);
       if (!userId) return { success: false, error: 'Not authenticated' };
 
-      const existing = this.gameState.findPlayerByUserId(data.roomId, userId);
+      const existing = this.playerService.findPlayerByUserId(data.roomId, userId);
       if (!existing) {
         return { success: false, error: 'No character found. Create one first.' };
       }
@@ -185,8 +193,8 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const rollPlayer = rollRoom?.players.find(p => p.id === data.playerId);
     const skill = data.skill || rollRoom?.turnSkill || 'dexterity';
     const dc = data.dc ?? rollRoom?.turnDc ?? 10;
-    const modifier = rollPlayer ? this.gameState.getPlayerModifier(rollPlayer, skill) : 0;
-    const roll = this.gameState.rollDice(20);
+    const modifier = rollPlayer ? this.conditionEngine.getPlayerModifier(rollPlayer, skill) : 0;
+    const roll = this.diceService.rollDice(20);
     const total = roll + modifier;
 
     this.server.to(data.roomId).emit('game:player_action', {
@@ -384,7 +392,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @MessageBody() data: { roomId: string; playerId: string; itemId: string; slot: 'body' | 'mainHand' | 'offHand' },
   ) {
     try {
-      const result = this.gameState.equipItem(data.roomId, data.playerId, data.itemId, data.slot);
+      const result = this.playerService.equipItem(data.roomId, data.playerId, data.itemId, data.slot);
       if (!result.success) {
         client.emit('game:error', { message: result.error });
         return { success: false, error: result.error };
@@ -413,7 +421,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @MessageBody() data: { roomId: string; playerId: string; slot: 'body' | 'mainHand' | 'offHand' },
   ) {
     try {
-      const result = this.gameState.unequipItem(data.roomId, data.playerId, data.slot);
+      const result = this.playerService.unequipItem(data.roomId, data.playerId, data.slot);
       if (!result.success) {
         client.emit('game:error', { message: result.error });
         return { success: false, error: result.error };
@@ -457,7 +465,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
       const itemName = item.name;
 
-      const result = this.gameState.useItem(data.roomId, data.playerId, data.itemId);
+      const result = this.playerService.useItem(data.roomId, data.playerId, data.itemId);
       if (!result.success) {
         client.emit('game:error', { message: result.error });
         return { success: false, error: result.error };
@@ -503,7 +511,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @MessageBody() data: UseAntidoteDto,
   ) {
     try {
-      const player = this.gameState.findPlayerByUserId(data.roomId, client.data.userId);
+      const player = this.playerService.findPlayerByUserId(data.roomId, client.data.userId);
       if (!player) {
         client.emit('game:error', { message: 'Player not found' });
         return { success: false, error: 'Player not found' };
@@ -516,10 +524,10 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       }
 
       const itemName = item.name;
-      const result = this.gameState.useAntidote(player, item, data.targetConditionName);
+      const result = this.playerService.useAntidote(player, item, data.targetConditionName);
 
       if (result.success) {
-        this.gameState.removeItem(data.roomId, player.id, data.itemId);
+        this.playerService.removeItem(data.roomId, player.id, data.itemId);
 
         const room = this.gameState.getRoom(data.roomId);
         if (room) {
@@ -630,7 +638,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       if (!player) continue;
 
       const chaMod = Math.floor((player.attributes.charisma - 10) / 2);
-      const adjustedMerchants = this.gameState.adjustMerchantPrices(room.merchants!, chaMod);
+      const adjustedMerchants = this.merchantService.adjustMerchantPrices(room.merchants!, chaMod);
 
       this.server.to(sid).emit('game:trade_state', {
         locked: true,
@@ -647,7 +655,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @MessageBody() data: BuyItemDto,
   ) {
     try {
-      const result = this.gameState.buyFromMerchant(
+      const result = this.merchantService.buyFromMerchant(
         data.roomId, data.playerId, data.merchantId,
         data.merchantItemId, data.quantity || 1,
       );
@@ -667,7 +675,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
           if (!player) continue;
 
           const chaMod = Math.floor((player.attributes.charisma - 10) / 2);
-          const adjustedMerchants = this.gameState.adjustMerchantPrices(room.merchants, chaMod);
+          const adjustedMerchants = this.merchantService.adjustMerchantPrices(room.merchants, chaMod);
 
           this.server.to(sid).emit('game:trade_state', {
             locked: true,
@@ -694,7 +702,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @MessageBody() data: SellItemDto,
   ) {
     try {
-      const result = this.gameState.sellToMerchant(
+      const result = this.merchantService.sellToMerchant(
         data.roomId, data.playerId, data.merchantId,
         data.itemId, data.quantity || 1,
       );
@@ -714,7 +722,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
           if (!player) continue;
 
           const chaMod = Math.floor((player.attributes.charisma - 10) / 2);
-          const adjustedMerchants = this.gameState.adjustMerchantPrices(room.merchants, chaMod);
+          const adjustedMerchants = this.merchantService.adjustMerchantPrices(room.merchants, chaMod);
 
           this.server.to(sid).emit('game:trade_state', {
             locked: true,
@@ -775,7 +783,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
           const chaMod = Math.floor((player.attributes.charisma - 10) / 2);
           const adjustedMerchants = room.merchants
-            ? this.gameState.adjustMerchantPrices(room.merchants, chaMod)
+            ? this.merchantService.adjustMerchantPrices(room.merchants, chaMod)
             : [];
 
           this.server.to(sid).emit('game:trade_state', {

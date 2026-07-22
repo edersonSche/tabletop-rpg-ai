@@ -24,7 +24,9 @@ AI-powered tabletop role-playing game platform with a real-time multiplayer expe
 │  AuthGateway/AuthGuard ─── AuthService                      │
 │  RoomGateway ─────────────── RoomService                    │
 │  GameGateway ─── GameService ─── AiService ─── AI Provider  │
-│  GameState (in-memory)                                      │
+│  ConditionEngine ─── DiceService                            │
+│  PlayerService ─── MerchantService ─── LevelingService      │
+│  GameState (in-memory data layer + recomputePlayer)         │
 │  CampaignStore (persistence to data/campaigns.json)         │
 │  TurnManager (lock-per-room)                                │
 └─────────────────────────────────────────────────────────────┘
@@ -252,9 +254,14 @@ backend/src/
 │   ├── campaign.store.ts    # Persist/restore to data/campaigns.json (schema v2, flattened SavedEffect format, auto-migrates v1 saves)
 │   └── campaign.types.ts    # SavedCampaign, SavedCampaignInfo (schemaVersion, SavedEffect, SavedMerchantItem)
 ├── game/
-│   ├── game.gateway.ts      # Game WebSocket handlers (incl. allocate_attributes, equip, unequip)
+│   ├── game.gateway.ts      # Game WebSocket handlers (dispatches to services)
 │   ├── game.service.ts      # Turn orchestration + AI response processing + maybeSummarize()
-│   ├── game.state.ts        # In-memory GameState store (HP/XP/level engine, ASI, XP thresholds, inventory/coins/equipment)
+│   ├── game.state.ts        # Data layer: rooms Map, types/interfaces, recomputePlayer, addHistory, setTurn
+│   ├── dice.service.ts      # Dice rolling (rollDice, rollDiceFormula)
+│   ├── condition.engine.ts  # Condition/effect lifecycle: apply/remove/tick, getPlayerModifier
+│   ├── player.service.ts    # Player CRUD, inventory, equipment, coins, useItem, useAntidote
+│   ├── merchant.service.ts  # Merchant pricing, buy/sell, clearMerchants
+│   ├── leveling.service.ts  # XP thresholds, awardXp, allocateAttributes
 │   └── turn.manager.ts      # Lock-per-room turn gate (stores turnSkill/turnDc)
 ├── room/
 │   ├── room.gateway.ts      # Lobby WebSocket handlers
