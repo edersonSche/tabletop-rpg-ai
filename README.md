@@ -256,9 +256,9 @@ backend/src/
 │       └── opencode.provider.ts  # Per-room sessions, summarization, error recovery
 ├── game/
 │   ├── game.module.ts       # GameModule (imports AuthModule, AiModule — exports all game services)
-│   ├── game.gateway.ts      # Game WebSocket handlers (thin delegation layer with emission helpers)
-│   ├── game.service.ts      # Turn orchestration + AI response processing + maybeSummarize()
-│   ├── game.state.ts        # Data layer: rooms Map, types/interfaces, recomputePlayer, addHistory, setTurn
+│   ├── game.gateway.ts      # Game WebSocket handlers (thin delegation layer, no GameState injection)
+│   ├── game.service.ts      # Turn orchestration + AI response processing + data-access methods for gateways
+│   ├── game.state.ts        # Data layer: rooms Map, types/interfaces, recomputePlayer, addHistory, setTurn (services only)
 │   ├── dice.service.ts      # Dice rolling (rollDice, rollDiceFormula)
 │   ├── condition.engine.ts  # Condition/effect lifecycle: apply/remove/tick, getPlayerModifier
 │   ├── player.service.ts    # Player CRUD, inventory, equipment, coins, useItem, useAntidote
@@ -268,8 +268,8 @@ backend/src/
 │   └── turn.manager.ts      # Lock-per-room turn gate (stores turnSkill/turnDc)
 ├── room/
 │   ├── room.module.ts       # RoomModule (imports GameModule, AuthModule, AiModule, CampaignModule)
-│   ├── room.gateway.ts      # Lobby WebSocket handlers
-│   └── room.service.ts      # In-memory Room registry
+│   ├── room.gateway.ts      # Lobby WebSocket handlers (no GameState injection)
+│   └── room.service.ts      # In-memory Room registry + removeRoom()
 ├── campaign/
 │   ├── campaign.module.ts   # CampaignModule (imports GameModule, RoomModule — exports CampaignStore)
 │   ├── campaign.store.ts    # Persist/restore to data/campaigns.json (schema v2, flattened SavedEffect format, auto-migrates v1 saves)

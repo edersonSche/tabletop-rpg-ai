@@ -58,4 +58,9 @@ export class RoomService {
   remove(roomId: string): void {
     this.rooms.delete(roomId);
   }
+
+  removeRoom(roomId: string): void {
+    this.rooms.delete(roomId);
+    this.gameState.removeRoom(roomId);
+  }
 }

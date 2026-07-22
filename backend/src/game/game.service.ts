@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { v4 as uuid } from 'uuid';
-import { GameState, Player, Merchant, MerchantItem, TickResult, GameStateData, Condition, Effect } from './game.state';
+import { GameState, Player, Merchant, MerchantItem, InventoryItem, TickResult, GameStateData, Condition, Effect } from './game.state';
 import { ConditionEngine } from './condition.engine';
 import { DiceService } from './dice.service';
 import { LevelingService } from './leveling.service';
@@ -519,6 +519,89 @@ export class GameService {
       creatorId: room.creatorId,
       history: room.history,
     };
+  }
+
+  getRoomContext(roomId: string): GameStateData | null {
+    return this.gameState.getRoom(roomId) || null;
+  }
+
+  findPlayer(roomId: string, playerId: string): Player | null {
+    const room = this.gameState.getRoom(roomId);
+    if (!room) return null;
+    return room.players.find(p => p.id === playerId) || null;
+  }
+
+  findPlayerWithItem(roomId: string, playerId: string, itemId: string): { player: Player; item: InventoryItem } | null {
+    const player = this.findPlayer(roomId, playerId);
+    if (!player) return null;
+    const item = player.inventory.find(i => i.id === itemId);
+    if (!item) return null;
+    return { player, item };
+  }
+
+  getTurnContext(roomId: string): { turnSkill: string; turnDc: number } | null {
+    const room = this.gameState.getRoom(roomId);
+    if (!room) return null;
+    return { turnSkill: room.turnSkill || 'dexterity', turnDc: room.turnDc ?? 10 };
+  }
+
+  getTradeEmitData(roomId: string): { merchants: Merchant[]; tradeParticipants: string[]; tradeDone: string[]; players: Array<{ playerId: string; chaMod: number }> } | null {
+    const room = this.gameState.getRoom(roomId);
+    if (!room || !room.merchants) return null;
+    return {
+      merchants: room.merchants,
+      tradeParticipants: room.tradeParticipants,
+      tradeDone: room.tradeDone,
+      players: room.players.filter(p => p.active).map(p => ({
+        playerId: p.id,
+        chaMod: Math.floor((p.attributes.charisma - 10) / 2),
+      })),
+    };
+  }
+
+  getRoomAiContext(roomId: string) {
+    const room = this.gameState.getRoom(roomId);
+    if (!room) return null;
+    return {
+      roomId,
+      campaignName: room.campaignName,
+      campaignTheme: room.campaignTheme,
+      language: room.language,
+      players: room.players,
+      scene: room.scene,
+      currentLocation: room.currentLocation,
+      history: room.history,
+    };
+  }
+
+  hasMerchantsAtLocation(roomId: string): boolean {
+    const room = this.gameState.getRoom(roomId);
+    if (!room || !room.merchants || room.merchants.length === 0) return false;
+    return room.merchantsLocation === room.currentLocation;
+  }
+
+  hasMerchants(roomId: string): boolean {
+    const room = this.gameState.getRoom(roomId);
+    return !!(room && room.merchants && room.merchants.length > 0);
+  }
+
+  isTradeLocked(roomId: string): boolean {
+    const room = this.gameState.getRoom(roomId);
+    return !!room?.isTradeLocked;
+  }
+
+  setCreatorId(roomId: string, playerId: string): void {
+    const room = this.gameState.getRoom(roomId);
+    if (room && !room.creatorId) {
+      room.creatorId = playerId;
+    }
+  }
+
+  setGameStarted(roomId: string, value: boolean): void {
+    const room = this.gameState.getRoom(roomId);
+    if (room) {
+      room.gameStarted = value;
+    }
   }
 
   allocateAttributes(

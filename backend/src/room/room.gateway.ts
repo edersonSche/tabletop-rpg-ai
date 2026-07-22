@@ -8,7 +8,7 @@ import {
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 import { RoomService } from './room.service';
-import { GameState, NarrativeLanguage } from '../game/game.state';
+import { NarrativeLanguage } from '../game/game.state';
 import { GameService } from '../game/game.service';
 import { PlayerService } from '../game/player.service';
 import { AiService } from '../ai/ai.service';
@@ -40,7 +40,6 @@ export class RoomGateway {
 
   constructor(
     private roomService: RoomService,
-    private gameState: GameState,
     private gameService: GameService,
     private playerService: PlayerService,
     private authService: AuthService,
@@ -85,30 +84,24 @@ export class RoomGateway {
     const userId = this.authService.getUserId(client.id);
     if (!userId) return { success: false, error: 'Not authenticated' };
 
-    const gs = this.gameState.getRoom(roomId);
-    const player = this.playerService.addPlayer(roomId, userId, name, attributes, kitId, gs?.language);
+    const roomCtx = this.gameService.getRoomContext(roomId);
+    const player = this.playerService.addPlayer(roomId, userId, name, attributes, kitId, roomCtx?.language);
+
     const roomData = this.roomService.get(roomId);
     if (roomData && !roomData.creatorId) {
       roomData.creatorId = player.id;
     }
-    const gameRoom = this.gameState.getRoom(roomId);
-    if (gameRoom && !gameRoom.creatorId) {
-      gameRoom.creatorId = player.id;
-    }
+    this.gameService.setCreatorId(roomId, player.id);
+
     this.roomService.join(roomId, player.id, name);
 
-    const gsForAi = this.gameState.getRoom(roomId);
-    await this.aiService.onRoomReady(roomId, {
-      roomId,
-      campaignName: gsForAi?.campaignName || '',
-      campaignTheme: gsForAi?.campaignTheme || '',
-      language: gsForAi?.language || 'english',
-      players: gsForAi?.players || [],
-      scene: gsForAi?.scene || '',
-      currentLocation: gsForAi?.currentLocation || null,
-      history: gsForAi?.history || [],
-      currentAction: null,
-    });
+    const aiCtx = this.gameService.getRoomAiContext(roomId);
+    if (aiCtx) {
+      await this.aiService.onRoomReady(roomId, {
+        ...aiCtx,
+        currentAction: null,
+      });
+    }
 
     client.join(roomId);
 
@@ -116,7 +109,7 @@ export class RoomGateway {
 
     client.emit('player:registered', { playerId: player.id });
 
-    const state = this.gameState.getRoom(roomId);
+    const state = this.gameService.getRoomContext(roomId);
     if (state) {
       client.emit('game:state', this.gameService.getState(roomId));
 
@@ -140,7 +133,7 @@ export class RoomGateway {
     @MessageBody() data: unknown,
   ) {
     const { roomId } = data as { roomId: string };
-    const state = this.gameState.getRoom(roomId);
+    const state = this.gameService.getRoomContext(roomId);
     if (!state) return { kits: [] };
 
     const kits = getKitsForTheme(state.language);
@@ -169,7 +162,7 @@ export class RoomGateway {
     if (!userId) return { success: false, error: 'Not authenticated' };
 
     const existing = this.playerService.findPlayerByUserId(roomId, userId);
-    const state = this.gameState.getRoom(roomId);
+    const state = this.gameService.getRoomContext(roomId);
     const campaignStarted = !!(state && state.gameStarted);
 
     if (existing) {
@@ -272,7 +265,7 @@ export class RoomGateway {
       client.emit('player:registered', { playerId: creatorPlayer.id });
       this.playerService.reactivatePlayer(campaignId, creatorPlayer.id);
 
-      const state = this.gameState.getRoom(campaignId);
+      const state = this.gameService.getRoomContext(campaignId);
       if (state) {
         client.emit('game:state', this.gameService.getState(campaignId));
       }
@@ -287,10 +280,7 @@ export class RoomGateway {
 
     this.campaignStore.restoreToMemory(campaignId);
 
-    const restoredState = this.gameState.getRoom(campaignId);
-    if (restoredState) {
-      restoredState.gameStarted = false;
-    }
+    this.gameService.setGameStarted(campaignId, false);
 
     const savedCampaign = this.campaignStore.load(campaignId);
     if (!savedCampaign) return { success: false, error: 'Failed to load campaign' };
@@ -301,7 +291,7 @@ export class RoomGateway {
     client.join(savedCampaign.campaignId);
     client.emit('player:registered', { playerId: creatorPlayer.id });
 
-    const state = this.gameState.getRoom(savedCampaign.campaignId);
+    const state = this.gameService.getRoomContext(savedCampaign.campaignId);
     if (state) {
       client.emit('game:state', this.gameService.getState(savedCampaign.campaignId));
     }
@@ -337,8 +327,7 @@ export class RoomGateway {
         this.authService.unregisterPlayer(sid);
       }
 
-      this.gameState.removeRoom(roomId);
-      this.roomService.remove(roomId);
+      this.roomService.removeRoom(roomId);
       this.server.socketsLeave(roomId);
     } else {
       this.playerService.removePlayer(roomId, playerId);
@@ -347,12 +336,11 @@ export class RoomGateway {
       this.authService.unregisterPlayer(client.id);
       client.leave(roomId);
 
-      const state = this.gameState.getRoom(roomId);
+      const state = this.gameService.getRoomContext(roomId);
       if (state) {
         if (state.players.length === 0) {
       this.aiService.onRoomEmpty(roomId);
-          this.gameState.removeRoom(roomId);
-          this.roomService.remove(roomId);
+          this.roomService.removeRoom(roomId);
         } else {
           this.server.to(roomId).emit('game:state', this.gameService.getState(roomId));
         }

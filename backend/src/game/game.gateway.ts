@@ -10,7 +10,7 @@ import {
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 import { GameService } from './game.service';
-import { GameState, TickResult } from './game.state';
+import { TickResult } from './game.state';
 import { PlayerService } from './player.service';
 import { MerchantService } from './merchant.service';
 import { TradeService } from './trade.service';
@@ -57,7 +57,6 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   constructor(
     private gameService: GameService,
-    private gameState: GameState,
     private playerService: PlayerService,
     private merchantService: MerchantService,
     private tradeService: TradeService,
@@ -88,7 +87,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       state: this.gameService.getState(roomId),
     });
 
-    const room = this.gameState.getRoom(roomId);
+    const room = this.gameService.getRoomContext(roomId);
     if (!room) return;
 
     this.server.to(roomId).emit('game:turn', {
@@ -114,22 +113,21 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   private emitTradeStateToAll(roomId: string): void {
-    const room = this.gameState.getRoom(roomId);
-    if (!room || !room.merchants) return;
+    const tradeData = this.gameService.getTradeEmitData(roomId);
+    if (!tradeData) return;
 
     const roomSockets = this.authService.getSocketsByRoomId(roomId);
     for (const sid of roomSockets) {
       const conn = this.authService.getPlayerBySocket(sid);
       if (!conn) continue;
-      const player = room.players.find(p => p.id === conn.playerId);
-      if (!player) continue;
+      const playerData = tradeData.players.find(p => p.playerId === conn.playerId);
+      if (!playerData) continue;
 
-      const chaMod = Math.floor((player.attributes.charisma - 10) / 2);
       this.server.to(sid).emit('game:trade_state', {
         locked: true,
-        merchants: this.merchantService.adjustMerchantPrices(room.merchants!, chaMod),
-        tradeParticipants: room.tradeParticipants,
-        tradeDone: room.tradeDone,
+        merchants: this.merchantService.adjustMerchantPrices(tradeData.merchants, playerData.chaMod),
+        tradeParticipants: tradeData.tradeParticipants,
+        tradeDone: tradeData.tradeDone,
       });
     }
   }
@@ -148,22 +146,19 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
     this.playerService.disconnectPlayer(roomId, playerId);
 
-    const room = this.gameState.getRoom(roomId);
-    if (room) {
-      if (room.isTradeLocked) {
-        const shouldUnlock = this.tradeService.removeFromTrade(roomId, playerId);
-        if (shouldUnlock) {
-          this.server.to(roomId).emit('game:trade_state', { locked: false });
-        }
+    if (this.gameService.isTradeLocked(roomId)) {
+      const shouldUnlock = this.tradeService.removeFromTrade(roomId, playerId);
+      if (shouldUnlock) {
+        this.server.to(roomId).emit('game:trade_state', { locked: false });
       }
-
-      this.emitGameState(roomId);
-      this.server.to(roomId).emit('game:message', {
-        type: 'system',
-        content: `${characterName} disconnected.`,
-      });
-      this.campaignStore.saveFromMemory(roomId);
     }
+
+    this.emitGameState(roomId);
+    this.server.to(roomId).emit('game:message', {
+      type: 'system',
+      content: `${characterName} disconnected.`,
+    });
+    this.campaignStore.saveFromMemory(roomId);
 
     console.log(`Client disconnected: ${client.id}`);
   }
@@ -211,8 +206,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
   ) {
     const { roomId, playerId, message } = data as { roomId: string; playerId: string; message: string };
 
-    const actionRoom = this.gameState.getRoom(roomId);
-    const actionPlayer = actionRoom?.players.find(p => p.id === playerId);
+    const actionPlayer = this.gameService.findPlayer(roomId, playerId);
     if (actionPlayer) {
       client.to(roomId).emit('game:player_action', {
         type: 'action',
@@ -248,10 +242,10 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       dc?: number;
     };
 
-    const rollRoom = this.gameState.getRoom(roomId);
-    const rollPlayer = rollRoom?.players.find(p => p.id === playerId);
-    const skill = reqSkill || rollRoom?.turnSkill || 'dexterity';
-    const dc = reqDc ?? rollRoom?.turnDc ?? 10;
+    const rollPlayer = this.gameService.findPlayer(roomId, playerId);
+    const turnCtx = this.gameService.getTurnContext(roomId);
+    const skill = reqSkill || turnCtx?.turnSkill || 'dexterity';
+    const dc = reqDc ?? turnCtx?.turnDc ?? 10;
     const modifier = rollPlayer ? this.conditionEngine.getPlayerModifier(rollPlayer, skill) : 0;
     const roll = this.diceService.rollDice(20);
     const total = roll + modifier;
@@ -287,17 +281,10 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
     this.server.to(roomId).emit('game:processing', { processing: true });
     try {
-      const room = this.gameState.getRoom(roomId);
-      if (room) {
+      const aiCtx = this.gameService.getRoomAiContext(roomId);
+      if (aiCtx) {
         await this.aiService.onRoomReady(roomId, {
-          roomId,
-          campaignName: room.campaignName,
-          campaignTheme: room.campaignTheme,
-          language: room.language,
-          players: room.players,
-          scene: room.scene,
-          currentLocation: room.currentLocation,
-          history: room.history,
+          ...aiCtx,
           currentAction: null,
         });
       }
@@ -456,18 +443,12 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const { roomId, playerId, itemId } = data as { roomId: string; playerId: string; itemId: string };
 
     try {
-      const room = this.gameState.getRoom(roomId);
-      const player = room?.players.find(p => p.id === playerId);
-      if (!player) {
-        client.emit('game:error', { message: 'Player not found' });
-        return { success: false, error: 'Player not found' };
+      const found = this.gameService.findPlayerWithItem(roomId, playerId, itemId);
+      if (!found) {
+        client.emit('game:error', { message: 'Player or item not found' });
+        return { success: false, error: 'Player or item not found' };
       }
-
-      const item = player.inventory.find(i => i.id === itemId);
-      if (!item) {
-        client.emit('game:error', { message: 'Item not found' });
-        return { success: false, error: 'Item not found' };
-      }
+      const { player, item } = found;
       const itemName = item.name;
 
       const result = this.playerService.useItem(roomId, playerId, itemId);
@@ -476,24 +457,22 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
         return { success: false, error: result.error };
       }
 
-      if (player) {
-        const parts: string[] = [`Used ${itemName}.`];
-        if (result.hpChange > 0) {
-          parts.push(`Healed ${result.hpChange} HP!`);
-        } else if (result.hpChange < 0) {
-          parts.push(`Took ${Math.abs(result.hpChange)} damage.`);
-        }
-        for (const ac of result.appliedConditions) {
-          parts.push(`Applied ${ac.name} (${ac.duration} turn${ac.duration !== 1 ? 's' : ''}).`);
-        }
-
-        this.server.to(roomId).emit('game:player_action', {
-          type: 'action',
-          playerId,
-          characterName: player.name,
-          message: parts.join(' '),
-        });
+      const parts: string[] = [`Used ${itemName}.`];
+      if (result.hpChange > 0) {
+        parts.push(`Healed ${result.hpChange} HP!`);
+      } else if (result.hpChange < 0) {
+        parts.push(`Took ${Math.abs(result.hpChange)} damage.`);
       }
+      for (const ac of result.appliedConditions) {
+        parts.push(`Applied ${ac.name} (${ac.duration} turn${ac.duration !== 1 ? 's' : ''}).`);
+      }
+
+      this.server.to(roomId).emit('game:player_action', {
+        type: 'action',
+        playerId,
+        characterName: player.name,
+        message: parts.join(' '),
+      });
 
       this.emitGameState(roomId);
       this.campaignStore.saveFromMemory(roomId);
@@ -518,18 +497,12 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     };
 
     try {
-      const room = this.gameState.getRoom(roomId);
-      const player = room?.players.find(p => p.id === playerId);
-      if (!player) {
-        client.emit('game:error', { message: 'Player not found' });
-        return { success: false, error: 'Player not found' };
+      const found = this.gameService.findPlayerWithItem(roomId, playerId, itemId);
+      if (!found) {
+        client.emit('game:error', { message: 'Player or item not found' });
+        return { success: false, error: 'Player or item not found' };
       }
-
-      const item = player.inventory.find(i => i.id === itemId);
-      if (!item) {
-        client.emit('game:error', { message: 'Item not found in inventory' });
-        return { success: false, error: 'Item not found' };
-      }
+      const { player, item } = found;
 
       const result = this.playerService.useAntidote(player, item, targetConditionName);
 
@@ -563,7 +536,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
   ) {
     const { roomId } = data as { roomId: string };
 
-    const room = this.gameState.getRoom(roomId);
+    const room = this.gameService.getRoomContext(roomId);
     if (!room) return { error: 'Room not found' };
     return this.gameService.getState(roomId);
   }
@@ -576,16 +549,15 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
   ) {
     const { roomId, playerId } = data as { roomId: string; playerId: string };
 
-    const room = this.gameState.getRoom(roomId);
-
-    if (room && room.merchants && room.merchants.length > 0 && room.merchantsLocation == room.currentLocation) {
+    if (this.gameService.hasMerchantsAtLocation(roomId)) {
       this.tradeService.lockTrade(roomId);
       this.emitTradeStateToAll(roomId);
       this.campaignStore.saveFromMemory(roomId);
       return { success: true };
     }
 
-    if (!room || isUnknownLocation(room.currentLocation)) {
+    const roomCtx = this.gameService.getRoomContext(roomId);
+    if (!roomCtx || isUnknownLocation(roomCtx.currentLocation)) {
       client.emit('game:message', {
         type: 'system',
         content: "You don't know where you are. There are no merchants here.",
@@ -596,7 +568,6 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     this.server.to(roomId).emit('game:processing', { processing: true });
     try {
       const response = await this.gameService.initiateTrade(roomId, playerId);
-      const updatedRoom = this.gameState.getRoom(roomId);
 
       if (response.narration) {
         this.server.to(roomId).emit('game:narration', {
@@ -606,7 +577,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
         });
       }
 
-      if (updatedRoom && updatedRoom.merchants && updatedRoom.merchants.length > 0) {
+      if (this.gameService.hasMerchants(roomId)) {
         this.tradeService.lockTrade(roomId);
         this.emitTradeStateToAll(roomId);
       } else {
@@ -651,8 +622,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
         return { success: false, error: result.error };
       }
 
-      const room = this.gameState.getRoom(roomId);
-      if (room && room.merchants) {
+      if (this.gameService.hasMerchants(roomId)) {
         this.emitTradeStateToAll(roomId);
         this.emitGameState(roomId);
       }
@@ -690,8 +660,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
         return { success: false, error: result.error };
       }
 
-      const room = this.gameState.getRoom(roomId);
-      if (room && room.merchants) {
+      if (this.gameService.hasMerchants(roomId)) {
         this.emitTradeStateToAll(roomId);
         this.emitGameState(roomId);
       }
@@ -719,8 +688,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
         this.tradeService.unlockTrade(roomId);
         this.server.to(roomId).emit('game:trade_state', { locked: false });
 
-        const room = this.gameState.getRoom(roomId);
-        if (room?.merchants) {
+        if (this.gameService.hasMerchants(roomId)) {
           this.server.to(roomId).emit('game:narration', {
             narration: 'The party finishes their business with the local merchants.',
             next: { type: 'group_action' },
