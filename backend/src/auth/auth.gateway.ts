@@ -1,3 +1,4 @@
+import { UsePipes } from '@nestjs/common';
 import {
   WebSocketGateway,
   SubscribeMessage,
@@ -7,6 +8,8 @@ import {
 } from '@nestjs/websockets';
 import { Socket } from 'socket.io';
 import { AuthService } from './auth.service';
+import { ZodValidationPipe } from '../pipes/zod-validation.pipe';
+import { AuthLoginSchema } from '../dto/schemas';
 
 @WebSocketGateway({
   cors: {
@@ -18,15 +21,14 @@ export class AuthGateway implements OnGatewayDisconnect {
   constructor(private authService: AuthService) {}
 
   @SubscribeMessage('auth:login')
+  @UsePipes(new ZodValidationPipe(AuthLoginSchema))
   handleLogin(
     @ConnectedSocket() client: Socket,
-    @MessageBody() data: { userId: string },
+    @MessageBody() data: unknown,
   ) {
-    if (!data.userId || !data.userId.trim()) {
-      return { success: false, error: 'User ID is required' };
-    }
+    const { userId } = data as { userId: string };
 
-    const success = this.authService.login(data.userId.trim(), client.id);
+    const success = this.authService.login(userId.trim(), client.id);
     if (!success) {
       return { success: false, error: 'User already connected' };
     }

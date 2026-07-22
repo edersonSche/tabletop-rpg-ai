@@ -1,4 +1,4 @@
-import { UseGuards } from '@nestjs/common';
+import { UseGuards, UsePipes } from '@nestjs/common';
 import {
   WebSocketGateway,
   WebSocketServer,
@@ -9,13 +9,23 @@ import {
 import { Server, Socket } from 'socket.io';
 import { Inject } from '@nestjs/common';
 import { RoomService } from './room.service';
-import { GameState, NarrativeLanguage, Player } from '../game/game.state';
+import { GameState, NarrativeLanguage } from '../game/game.state';
 import { PlayerService } from '../game/player.service';
 import { AIProvider } from '../ai/ai.interface';
 import { AuthService } from '../auth/auth.service';
 import { AuthWsGuard } from '../auth/auth.guard';
 import { CampaignStore } from '../campaign/campaign.store';
 import { getKitsForTheme } from '../data/theme-kits';
+import { ZodValidationPipe } from '../pipes/zod-validation.pipe';
+import {
+  LobbyCreateSchema,
+  LobbyCreateCharacterSchema,
+  GameGetKitsSchema,
+  LobbyJoinSchema,
+  LobbyDeleteSavedSchema,
+  LobbyResumeSchema,
+  RoomLeaveSchema,
+} from '../dto/schemas';
 
 @WebSocketGateway({
   cors: {
@@ -38,13 +48,15 @@ export class RoomGateway {
   ) {}
 
   @SubscribeMessage('lobby:create')
+  @UsePipes(new ZodValidationPipe(LobbyCreateSchema))
   async handleCreateRoom(
     @ConnectedSocket() client: Socket,
-    @MessageBody() data: { name: string; language?: string },
+    @MessageBody() data: unknown,
   ) {
+    const { name, language } = data as { name: string; language?: string };
     const room = this.roomService.create(
-      data.name,
-      data.language as NarrativeLanguage,
+      name,
+      language as NarrativeLanguage,
     );
 
     return {
@@ -57,28 +69,36 @@ export class RoomGateway {
   }
 
   @SubscribeMessage('lobby:create_character')
+  @UsePipes(new ZodValidationPipe(LobbyCreateCharacterSchema))
   async handleCreateCharacter(
     @ConnectedSocket() client: Socket,
-    @MessageBody() data: { roomId: string; name: string; attributes?: Player['attributes']; kitId?: string },
+    @MessageBody() data: unknown,
   ) {
+    const { roomId, name, attributes, kitId } = data as {
+      roomId: string;
+      name: string;
+      attributes: { strength: number; dexterity: number; constitution: number; intelligence: number; wisdom: number; charisma: number };
+      kitId?: string;
+    };
+
     const userId = this.authService.getUserId(client.id);
     if (!userId) return { success: false, error: 'Not authenticated' };
 
-    const gs = this.gameState.getRoom(data.roomId);
-    const player = this.playerService.addPlayer(data.roomId, userId, data.name, data.attributes, data.kitId, gs?.language);
-    const roomData = this.roomService.get(data.roomId);
+    const gs = this.gameState.getRoom(roomId);
+    const player = this.playerService.addPlayer(roomId, userId, name, attributes, kitId, gs?.language);
+    const roomData = this.roomService.get(roomId);
     if (roomData && !roomData.creatorId) {
       roomData.creatorId = player.id;
     }
-    const gameRoom = this.gameState.getRoom(data.roomId);
+    const gameRoom = this.gameState.getRoom(roomId);
     if (gameRoom && !gameRoom.creatorId) {
       gameRoom.creatorId = player.id;
     }
-    this.roomService.join(data.roomId, player.id, data.name);
+    this.roomService.join(roomId, player.id, name);
 
-    const gsForAi = this.gameState.getRoom(data.roomId);
-    await this.aiProvider.onRoomReady?.(data.roomId, {
-      roomId: data.roomId,
+    const gsForAi = this.gameState.getRoom(roomId);
+    await this.aiProvider.onRoomReady?.(roomId, {
+      roomId,
       campaignName: gsForAi?.campaignName || '',
       campaignTheme: gsForAi?.campaignTheme || '',
       language: gsForAi?.language || 'english',
@@ -89,13 +109,13 @@ export class RoomGateway {
       currentAction: null,
     });
 
-    client.join(data.roomId);
+    client.join(roomId);
 
-    this.authService.registerPlayer(client.id, player.id, data.name, data.roomId);
+    this.authService.registerPlayer(client.id, player.id, name, roomId);
 
     client.emit('player:registered', { playerId: player.id });
 
-    const state = this.gameState.getRoom(data.roomId);
+    const state = this.gameState.getRoom(roomId);
     if (state) {
       client.emit('game:state', {
         campaignId: state.campaignId,
@@ -112,7 +132,7 @@ export class RoomGateway {
         history: state.history,
       });
 
-      this.server.to(data.roomId).emit('game:state', {
+      this.server.to(roomId).emit('game:state', {
         campaignId: state.campaignId,
         campaignName: state.campaignName,
         campaignTheme: state.campaignTheme,
@@ -125,23 +145,25 @@ export class RoomGateway {
         scene: state.scene,
       });
 
-      this.server.to(data.roomId).emit('game:message', {
+      this.server.to(roomId).emit('game:message', {
         type: 'system',
-        content: `${data.name} joined the campaign.`,
+        content: `${name} joined the campaign.`,
       });
     }
 
-    this.campaignStore.saveFromMemory(data.roomId);
+    this.campaignStore.saveFromMemory(roomId);
 
     return { success: true, playerId: player.id, campaignStarted: !!(state && state.gameStarted) };
   }
 
   @SubscribeMessage('game:get_kits')
+  @UsePipes(new ZodValidationPipe(GameGetKitsSchema))
   handleGetKits(
     @ConnectedSocket() client: Socket,
-    @MessageBody() data: { roomId: string },
+    @MessageBody() data: unknown,
   ) {
-    const state = this.gameState.getRoom(data.roomId);
+    const { roomId } = data as { roomId: string };
+    const state = this.gameState.getRoom(roomId);
     if (!state) return { kits: [] };
 
     const kits = getKitsForTheme(state.language);
@@ -154,11 +176,14 @@ export class RoomGateway {
   }
 
   @SubscribeMessage('lobby:join')
+  @UsePipes(new ZodValidationPipe(LobbyJoinSchema))
   async handleJoinRoom(
     @ConnectedSocket() client: Socket,
-    @MessageBody() data: { roomId: string },
+    @MessageBody() data: unknown,
   ) {
-    const roomData = this.roomService.get(data.roomId);
+    const { roomId } = data as { roomId: string };
+
+    const roomData = this.roomService.get(roomId);
     if (!roomData) {
       return { success: false, error: 'Room not found' };
     }
@@ -166,18 +191,18 @@ export class RoomGateway {
     const userId = this.authService.getUserId(client.id);
     if (!userId) return { success: false, error: 'Not authenticated' };
 
-    const existing = this.playerService.findPlayerByUserId(data.roomId, userId);
-    const state = this.gameState.getRoom(data.roomId);
+    const existing = this.playerService.findPlayerByUserId(roomId, userId);
+    const state = this.gameState.getRoom(roomId);
     const campaignStarted = !!(state && state.gameStarted);
 
     if (existing) {
-      this.playerService.reactivatePlayer(data.roomId, existing.id);
-      this.authService.registerPlayer(client.id, existing.id, existing.name, data.roomId);
-      client.join(data.roomId);
+      this.playerService.reactivatePlayer(roomId, existing.id);
+      this.authService.registerPlayer(client.id, existing.id, existing.name, roomId);
+      client.join(roomId);
       client.emit('player:registered', { playerId: existing.id });
 
       if (state) {
-        client.to(data.roomId).emit('game:state', {
+        client.to(roomId).emit('game:state', {
           campaignId: state.campaignId,
           campaignName: state.campaignName,
           campaignTheme: state.campaignTheme,
@@ -224,7 +249,7 @@ export class RoomGateway {
     return {
       success: true,
       needsCharacter: true,
-      roomId: data.roomId,
+      roomId,
       campaignName: roomData.name,
       campaignStarted,
     };
@@ -240,56 +265,62 @@ export class RoomGateway {
   }
 
   @SubscribeMessage('lobby:delete_saved')
+  @UsePipes(new ZodValidationPipe(LobbyDeleteSavedSchema))
   async handleDeleteSaved(
     @ConnectedSocket() client: Socket,
-    @MessageBody() data: { campaignId: string },
+    @MessageBody() data: unknown,
   ) {
+    const { campaignId } = data as { campaignId: string };
+
     const userId = this.authService.getUserId(client.id);
     if (!userId) return { success: false, error: 'Not authenticated' };
 
-    const saved = this.campaignStore.load(data.campaignId);
+    const saved = this.campaignStore.load(campaignId);
     if (!saved) return { success: false, error: 'Saved campaign not found' };
 
     if (saved.creatorUserId !== userId) {
       return { success: false, error: 'Only the campaign creator can delete.' };
     }
 
-    if (this.roomService.get(data.campaignId)) {
+    if (this.roomService.get(campaignId)) {
       return { success: false, error: 'Campaign is currently active. Leave it first.' };
     }
 
-    this.campaignStore.delete(data.campaignId);
-    this.aiProvider.onRoomEmpty?.(data.campaignId);
+    this.campaignStore.delete(campaignId);
+    this.aiProvider.onRoomEmpty?.(campaignId);
     return { success: true };
   }
 
   @SubscribeMessage('lobby:resume')
+  @UsePipes(new ZodValidationPipe(LobbyResumeSchema))
   async handleResumeCampaign(
     @ConnectedSocket() client: Socket,
-    @MessageBody() data: { campaignId: string },
+    @MessageBody() data: unknown,
   ) {
+    const { campaignId } = data as { campaignId: string };
+
     const userId = this.authService.getUserId(client.id);
     if (!userId) return { success: false, error: 'Not authenticated' };
 
-    const saved = this.campaignStore.load(data.campaignId);
+    const saved = this.campaignStore.load(campaignId);
     if (!saved) return { success: false, error: 'Saved campaign not found' };
 
     if (saved.creatorUserId !== userId) {
       return { success: false, error: 'Only the campaign creator can resume.' };
     }
 
-    if (this.roomService.get(data.campaignId)) {
-      const creatorPlayer = this.playerService.findPlayerByUserId(data.campaignId, userId);
+    if (this.roomService.get(campaignId)) {
+      const creatorPlayer = this.playerService.findPlayerByUserId(campaignId, userId);
       if (!creatorPlayer) {
         return { success: false, error: 'Character not found in active campaign.' };
       }
 
-      this.authService.registerPlayer(client.id, creatorPlayer.id, creatorPlayer.name, data.campaignId);
-      client.join(data.campaignId);
+      this.authService.registerPlayer(client.id, creatorPlayer.id, creatorPlayer.name, campaignId);
+      client.join(campaignId);
       client.emit('player:registered', { playerId: creatorPlayer.id });
-      this.playerService.reactivatePlayer(data.campaignId, creatorPlayer.id);
+      this.playerService.reactivatePlayer(campaignId, creatorPlayer.id);
 
-      const state = this.gameState.getRoom(data.campaignId);
+      const state = this.gameState.getRoom(campaignId);
       if (state) {
         client.emit('game:state', {
           campaignId: state.campaignId,
@@ -311,20 +342,20 @@ export class RoomGateway {
 
       return {
         success: true,
-        room: { id: data.campaignId, name: this.roomService.get(data.campaignId)!.name },
+        room: { id: campaignId, name: this.roomService.get(campaignId)!.name },
         playerId: creatorPlayer.id,
         campaignStarted: state?.gameStarted || false,
       };
     }
 
-    this.campaignStore.restoreToMemory(data.campaignId);
+    this.campaignStore.restoreToMemory(campaignId);
 
-    const restoredState = this.gameState.getRoom(data.campaignId);
+    const restoredState = this.gameState.getRoom(campaignId);
     if (restoredState) {
       restoredState.gameStarted = false;
     }
 
-    const savedCampaign = this.campaignStore.load(data.campaignId);
+    const savedCampaign = this.campaignStore.load(campaignId);
     if (!savedCampaign) return { success: false, error: 'Failed to load campaign' };
     const creatorPlayer = savedCampaign.players.find(p => p.userId === userId);
     if (!creatorPlayer) return { success: false, error: 'Creator character not found' };
@@ -363,43 +394,46 @@ export class RoomGateway {
   }
 
   @SubscribeMessage('room:leave')
+  @UsePipes(new ZodValidationPipe(RoomLeaveSchema))
   async handleLeaveRoom(
     @ConnectedSocket() client: Socket,
-    @MessageBody() data: { roomId: string; playerId: string },
+    @MessageBody() data: unknown,
   ) {
-    const roomData = this.roomService.get(data.roomId);
+    const { roomId, playerId } = data as { roomId: string; playerId: string };
+
+    const roomData = this.roomService.get(roomId);
     if (!roomData) return { success: false, error: 'Room not found' };
 
-    this.campaignStore.saveFromMemory(data.roomId);
-    const isCreator = data.playerId === roomData.creatorId;
+    this.campaignStore.saveFromMemory(roomId);
+    const isCreator = playerId === roomData.creatorId;
 
     if (isCreator) {
-      this.server.to(data.roomId).emit('game:disband', { reason: 'Campaign ended.' });
-      this.aiProvider.onRoomEmpty?.(data.roomId);
+      this.server.to(roomId).emit('game:disband', { reason: 'Campaign ended.' });
+      this.aiProvider.onRoomEmpty?.(roomId);
 
-      const roomSockets = this.authService.getSocketsByRoomId(data.roomId);
+      const roomSockets = this.authService.getSocketsByRoomId(roomId);
       for (const sid of roomSockets) {
         this.authService.unregisterPlayer(sid);
       }
 
-      this.gameState.removeRoom(data.roomId);
-      this.roomService.remove(data.roomId);
-      this.server.socketsLeave(data.roomId);
+      this.gameState.removeRoom(roomId);
+      this.roomService.remove(roomId);
+      this.server.socketsLeave(roomId);
     } else {
-      this.playerService.removePlayer(data.roomId, data.playerId);
-      this.roomService.leave(data.roomId, data.playerId);
+      this.playerService.removePlayer(roomId, playerId);
+      this.roomService.leave(roomId, playerId);
 
       this.authService.unregisterPlayer(client.id);
-      client.leave(data.roomId);
+      client.leave(roomId);
 
-      const state = this.gameState.getRoom(data.roomId);
+      const state = this.gameState.getRoom(roomId);
       if (state) {
         if (state.players.length === 0) {
-          this.aiProvider.onRoomEmpty?.(data.roomId);
-          this.gameState.removeRoom(data.roomId);
-          this.roomService.remove(data.roomId);
+          this.aiProvider.onRoomEmpty?.(roomId);
+          this.gameState.removeRoom(roomId);
+          this.roomService.remove(roomId);
         } else {
-          this.server.to(data.roomId).emit('game:state', {
+          this.server.to(roomId).emit('game:state', {
             campaignId: state.campaignId,
             campaignName: state.campaignName,
             campaignTheme: state.campaignTheme,

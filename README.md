@@ -39,7 +39,7 @@ Two-package monorepo with no root `package.json` — each package is independent
 
 | Layer | Technology |
 |-------|-----------|
-| **Backend** | NestJS 11, Socket.IO 4.8, TypeScript 5.7 |
+| **Backend** | NestJS 11, Socket.IO 4.8, Zod, TypeScript 5.7 |
 | **Frontend** | React 19, Vite 6, Tailwind CSS 3.4, Socket.IO Client, pixelarticons, react-markdown 9, remark-gfm 4, TypeScript 5.7 |
 | **Fonts** | Press Start 2P (UI), VT323 + Space Mono (narrative) |
 
@@ -103,7 +103,7 @@ cd frontend && npm run preview     # vite preview
 |-------|---------|---------|
 | `auth:login` | `AuthGateway` | `{ userId }` |
 | `lobby:create` | `RoomGateway` | `{ name, language?, campaignTheme? }` |
-| `lobby:create_character` | `RoomGateway` | `{ roomId, name, attributes? }` |
+| `lobby:create_character` | `RoomGateway` | `{ roomId, name, attributes, kitId? }` |
 | `lobby:list` | `RoomGateway` | — |
 | `lobby:join` | `RoomGateway` | `{ roomId }` |
 | `lobby:list_saved` | `RoomGateway` | — |
@@ -268,7 +268,11 @@ backend/src/
 ├── room/
 │   ├── room.gateway.ts      # Lobby WebSocket handlers
 │   └── room.service.ts      # In-memory Room registry
-└── dto/                     # Data transfer objects (unified ConditionEffectSeed/MerchantSeedItem effects with statValue/statOperation)
+├── pipes/
+│   └── zod-validation.pipe.ts  # Global Zod validation pipe (safeParse → BadRequestException)
+└── dto/
+    ├── schemas.ts            # Zod schemas for all WebSocket handlers (24 schemas with inferred types)
+    └── ai-response.dto.ts    # AI response types (MerchantSeed/ConditionSeed with statValue/statOperation)
 
 frontend/src/
 ├── main.tsx                 # React entry point
