@@ -520,7 +520,8 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     };
 
     try {
-      const player = this.playerService.findPlayerByUserId(roomId, client.data.userId);
+      const room = this.gameState.getRoom(roomId);
+      const player = room?.players.find(p => p.id === playerId);
       if (!player) {
         client.emit('game:error', { message: 'Player not found' });
         return { success: false, error: 'Player not found' };
