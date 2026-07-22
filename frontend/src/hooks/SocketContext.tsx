@@ -311,10 +311,10 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  const createRoom = useCallback((name: string, language?: string, campaignTheme?: string): Promise<void> => {
+  const createRoom = useCallback((name: string, language?: string): Promise<void> => {
     return new Promise((resolve, reject) => {
       if (!socketRef.current) { reject(new Error('No socket')); return; }
-      socketRef.current.emit('lobby:create', { name, language, campaignTheme }, (response: any) => {
+      socketRef.current.emit('lobby:create', { name, language }, (response: any) => {
         if (response.success) {
           setPlayer(prev => ({ ...prev, roomId: response.room.id }));
           dispatch({ type: 'CREATED_ROOM' });

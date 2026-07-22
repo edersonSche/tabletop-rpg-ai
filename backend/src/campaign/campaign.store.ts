@@ -212,59 +212,9 @@ export class CampaignStore {
     this.scheduleWrite();
   }
 
-  private migrateV1ToV2(saved: SavedCampaign): boolean {
-    for (const p of saved.players) {
-      p.activeConditions = [];
-
-      for (const item of p.inventory || []) {
-        const oldItem = item as any;
-        const newEffects: SavedEffect[] = [];
-
-        if (oldItem.modifiers) {
-          for (const mod of oldItem.modifiers) {
-            newEffects.push({
-              type: 'permanent',
-              stat: mod.stat,
-              statValue: mod.value,
-              statOperation: mod.operation,
-              dexCap: mod.dexCap,
-              origin: 'item',
-            });
-          }
-        }
-
-        if (oldItem.effects) {
-          for (const ef of oldItem.effects) {
-            if (ef.type === 'heal_hp') {
-              newEffects.push({
-                type: 'immediate',
-                hpFormula: ef.formula,
-                hpType: 'heal',
-                origin: 'item',
-              });
-            }
-          }
-        }
-
-        delete (item as any).modifiers;
-        delete (item as any).effects;
-        (item as any).effects = newEffects;
-      }
-    }
-
-    saved.schemaVersion = 2;
-    this.saveImmediate(saved);
-
-    return this.restoreToMemory(saved.campaignId);
-  }
-
   restoreToMemory(campaignId: string): boolean {
     const saved = this.campaigns.get(campaignId);
     if (!saved) return false;
-
-    if (!saved.schemaVersion || saved.schemaVersion < 2) {
-      return this.migrateV1ToV2(saved);
-    }
 
     this.roomService.createWithId(
       campaignId,

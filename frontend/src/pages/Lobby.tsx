@@ -13,9 +13,8 @@ export function Lobby() {
   const handleCreate = async (
     name: string,
     language: NarrativeLanguage,
-    campaignTheme?: string,
   ) => {
-    await createRoom(name, language, campaignTheme);
+    await createRoom(name, language);
   };
 
   const handleJoin = async (roomId: string) => {

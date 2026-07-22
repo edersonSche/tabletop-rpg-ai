@@ -38,12 +38,11 @@ export class RoomGateway {
   @SubscribeMessage('lobby:create')
   async handleCreateRoom(
     @ConnectedSocket() client: Socket,
-    @MessageBody() data: { name: string; language?: string; campaignTheme?: string },
+    @MessageBody() data: { name: string; language?: string },
   ) {
     const room = this.roomService.create(
       data.name,
       data.language as NarrativeLanguage,
-      data.campaignTheme,
     );
 
     return {
@@ -143,7 +142,7 @@ export class RoomGateway {
     const state = this.gameState.getRoom(data.roomId);
     if (!state) return { kits: [] };
 
-    const kits = getKitsForTheme(state.campaignTheme, state.language);
+    const kits = getKitsForTheme(state.language);
     return { kits };
   }
 

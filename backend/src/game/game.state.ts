@@ -252,7 +252,8 @@ export class GameState {
     return state;
   }
 
-  createRoom(roomId: string, name: string, language: NarrativeLanguage = 'english', campaignTheme = 'A classic medieval fantasy world of magic, ancient ruins, warring kingdoms, and mythical creatures.'): GameStateData {
+  createRoom(roomId: string, name: string, language: NarrativeLanguage = 'english'): GameStateData {
+    const campaignTheme = 'A classic medieval fantasy world of magic, ancient ruins, warring kingdoms, and mythical creatures.';
     const state: GameStateData = {
       campaignId: roomId,
       campaignName: name,
@@ -317,7 +318,7 @@ export class GameState {
     let coins = 50;
 
     if (kitId) {
-      const itemEntries = getKitItemEntries(room.campaignTheme, kitId);
+      const itemEntries = getKitItemEntries(kitId);
       for (const entry of itemEntries) {
         const localized = getLocalizedItem(entry.key, lang, entry.quantity);
         if (localized) {
