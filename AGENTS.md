@@ -24,6 +24,8 @@ No workspace root scripts — always `cd` into the package. Both must run simult
 
 Frontend connects to `window.location.origin` via Socket.IO (`transports: ['websocket', 'polling']`). Vite proxies `/socket.io` to `http://localhost:3000` (override via `VITE_SOCKET_HOST`). On reconnect, `AuthContext` re-emits `auth:login` and `GameContext` re-fetches `game:get_state`. 10-second disconnect timer before clearing page state.
 
+**Reconnection resilience** — `AuthService.login()` (`auth.service.ts:16-27`) handles the race condition where a new socket connects before the old one's `disconnect` fires. If the same `userId` re-authenticates with a different socket ID, the old socket is force-logged out before registering the new one. Same-socket re-login is idempotent. This prevents `auth:login` from returning `"User already connected"` during rapid reconnects.
+
 ## Page state machine
 
 `App.tsx` → `AppProviders` composes all context providers. `AuthContext` owns `useReducer` (`routing/pageRouter.ts`) over 5 pages:

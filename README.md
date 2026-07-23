@@ -146,6 +146,10 @@ cd frontend && npm run preview     # vite preview
 | `game:condition_tick` | `{ players: [{ id, hp, maxHp, ac, activeConditions, tickResult }] }` |
 | `game:antidote_result` | `{ success, conditionRemoved? }` |
 
+### Authentication & Reconnection
+
+`auth:login` is required for all game/room operations. The backend handles reconnection race conditions: if a new socket connects before the old one's `disconnect` fires (e.g., brief network drop), `AuthService.login()` force-logs out the old socket and registers the new one. Same-socket re-login is idempotent.
+
 ## AI Integration
 
 The backend uses a **provider pattern**:
