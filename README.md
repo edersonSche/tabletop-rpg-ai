@@ -159,9 +159,9 @@ Template files (`.env.example`) are committed for both packages — copy to `.en
 
 The backend uses a **provider pattern**:
 
-- **`AiModule`** configures `AI_CONFIG` and `AI_PROVIDER` via factories (using `ConfigService`), and exports `AiService`, `AI_PROVIDER`, and `AI_CONFIG`.
+- **`AiModule`** configures `AI_CONFIG` via a factory and `AI_PROVIDER` as a DI alias (`useExisting: OpencodeProvider`), exporting `AiService`, `AI_PROVIDER`, and `AI_CONFIG`.
 - **`AiService`** dispatches to `OpencodeProvider`. Also exposes `onRoomReady()` and `onRoomEmpty()` lifecycle methods for session management.
-- **`OpencodeProvider`** — raw HTTP fetch to a local Opencode session; manages sessions per room.
+- **`OpencodeProvider`** — `@Injectable()` class configured via `OnModuleInit()` (NestJS DI), raw HTTP fetch to a local Opencode session; manages sessions per room.
 - **Fallback** — if `AI_API_KEY` is empty, `AiService.generate()` returns a static narration without calling any provider.
 
 The system prompt supports **English**, **Portuguese (Brazil)**, and **Spanish** narration. The AI responds in strict JSON with `narration`, mandatory `location`, optional `conditions` (narrative conditions with effects on players), optional `merchants` (array of merchants with items/prices using unified `statValue`/`statOperation`), and `next` (with `type`, `target`, `skill`, `dc`). Narration supports **Markdown** formatting rendered via `react-markdown`.
@@ -246,7 +246,9 @@ Set at room creation via `lobby:create { campaignTheme }`. The theme is injected
 
 ```
 backend/src/
-├── main.ts                  # NestJS entry point (port 3000) + global CORS via CorsIoAdapter
+├── main.ts                  # NestJS entry point (port from PORT env var, default 3000) + global CORS via CorsIoAdapter
+├── utils/
+│   └── is-unknown-location.ts  # Shared utility: checks if location is "unknown location"
 ├── app.module.ts            # Root module (imports only — all providers moved to feature modules)
 ├── shared/
 │   └── shared.module.ts     # @Global module — exports GameState, DiceService
@@ -256,17 +258,17 @@ backend/src/
 │   ├── auth.service.ts      # userId/socketId + playerId/socketId mapping
 │   └── auth.guard.ts        # AuthWsGuard
 ├── ai/
-│   ├── ai.module.ts         # AiModule (providers: AiService, AI_CONFIG factory, AI_PROVIDER factory)
+│   ├── ai.module.ts         # AiModule (providers: AiService, OpencodeProvider, AI_CONFIG factory, AI_PROVIDER alias via useExisting)
 │   ├── ai.interface.ts      # AIConfig / AIProvider interface (includes summarize)
 │   ├── ai.service.ts        # Provider dispatcher + onRoomReady/onRoomEmpty lifecycle + summarizeHistory()
 │   ├── prompts/
 │   │   └── system.prompt.ts # Multilingual system prompt builder (memory, markdown, levels, conditions, merchants with effects)
 │   └── providers/
-│       └── opencode.provider.ts  # Per-room sessions, summarization, error recovery
+│       └── opencode.provider.ts  # @Injectable provider — per-room sessions, summarization, error recovery (DI-configured via OnModuleInit)
 ├── game/
 │   ├── game.module.ts       # GameModule (imports AuthModule, AiModule — exports all game services)
 │   ├── game.gateway.ts      # Game WebSocket handlers (thin delegation layer, no GameState injection)
-│   ├── game.service.ts      # Turn orchestration + AI response processing + data-access methods for gateways
+│   ├── game.service.ts      # Turn orchestration (handleAction/handleRoll delegate to shared processTurn) + AI response processing + data-access methods for gateways
 │   ├── game.state.ts        # Data layer: rooms Map, types/interfaces, recomputePlayer, addHistory, setTurn (services only)
 │   ├── dice.service.ts      # Dice rolling (rollDice, rollDiceFormula)
 │   ├── condition.engine.ts  # Condition/effect lifecycle: apply/remove/tick, getPlayerModifier

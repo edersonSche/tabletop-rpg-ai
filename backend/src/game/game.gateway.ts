@@ -23,6 +23,7 @@ import { AuthService } from '../auth/auth.service';
 import { AuthWsGuard } from '../auth/auth.guard';
 import { CampaignStore } from '../campaign/campaign.store';
 import { ZodValidationPipe } from '../pipes/zod-validation.pipe';
+import { isUnknownLocation } from '../utils/is-unknown-location';
 import {
   RoomJoinSchema,
   GameActionSchema,
@@ -724,10 +725,4 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       return { success: false, error: error.message };
     }
   }
-}
-
-function isUnknownLocation(location: string | null | undefined): boolean {
-  if (!location) return true;
-  const normalized = location.toLowerCase().trim();
-  return normalized === 'unknown location' || normalized === 'local desconhecido';
 }

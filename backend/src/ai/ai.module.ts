@@ -7,6 +7,7 @@ import { AIConfig } from './ai.interface';
 @Module({
   providers: [
     AiService,
+    OpencodeProvider,
     {
       provide: 'AI_CONFIG',
       useFactory: (configService: ConfigService): AIConfig => ({
@@ -19,12 +20,7 @@ import { AIConfig } from './ai.interface';
     },
     {
       provide: 'AI_PROVIDER',
-      useFactory: (aiConfig: AIConfig) => {
-        const provider = new OpencodeProvider();
-        provider.configure(aiConfig);
-        return provider;
-      },
-      inject: ['AI_CONFIG'],
+      useExisting: OpencodeProvider,
     },
   ],
   exports: [AiService, 'AI_PROVIDER', 'AI_CONFIG'],

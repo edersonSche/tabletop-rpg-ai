@@ -1,4 +1,5 @@
 import { NestFactory } from '@nestjs/core';
+import { ConfigService } from '@nestjs/config';
 import { IoAdapter } from '@nestjs/platform-socket.io';
 import { AppModule } from './app.module';
 import { ZodValidationPipe } from './pipes/zod-validation.pipe';
@@ -21,7 +22,9 @@ async function bootstrap() {
     credentials: true,
   });
   app.useWebSocketAdapter(new CorsIoAdapter(app));
-  await app.listen(3000);
-  console.log('Server running on http://localhost:3000');
+  const configService = app.get(ConfigService);
+  const port = configService.get('PORT', 3000);
+  await app.listen(port);
+  console.log('Server running on http://localhost:' + port);
 }
 bootstrap();

@@ -32,6 +32,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
   const playerRef = useRef(player);
   playerRef.current = player;
+  const lastHistoryLengthRef = useRef(0);
 
   useEffect(() => {
     const handleConnect = () => {
@@ -53,36 +54,53 @@ export function GameProvider({ children }: { children: ReactNode }) {
       setTurnUpdate(null);
     };
 
+    const processHistoryEntries = (history: GameState['history'], players: GameState['players']): Message[] => {
+      const playerMap = new Map((players || []).map(p => [p.id, p.name]));
+      const result: Message[] = [];
+
+      for (const entry of history) {
+        if (entry.role === 'player') {
+          result.push({
+            type: 'action',
+            content: entry.content,
+            characterName: playerMap.get(entry.playerId || '') || 'Unknown',
+            timestamp: Date.now(),
+          });
+        } else if (entry.role === 'assistant') {
+          let narration = entry.content;
+          try {
+            const parsed = JSON.parse(entry.content);
+            if (parsed.narration) narration = parsed.narration;
+          } catch {}
+          if (narration) {
+            result.push({ type: 'narration', content: narration, timestamp: Date.now() });
+          }
+        } else if (entry.role === 'system') {
+          result.push({ type: 'system', content: entry.content, timestamp: Date.now() });
+        }
+      }
+
+      return result;
+    };
+
     const handleGameState = (data: GameState) => {
       setGameState(data);
       if (data.gameStarted) dispatch({ type: 'CAMPAIGN_STARTED' });
       if (data.history) {
-        const playerMap = new Map((data.players || []).map(p => [p.id, p.name]));
-        const newMessages: Message[] = [];
+        const prevLength = lastHistoryLengthRef.current;
+        const newLength = data.history.length;
 
-        for (const entry of data.history) {
-          if (entry.role === 'player') {
-            newMessages.push({
-              type: 'action',
-              content: entry.content,
-              characterName: playerMap.get(entry.playerId || '') || 'Unknown',
-              timestamp: Date.now(),
-            });
-          } else if (entry.role === 'assistant') {
-            let narration = entry.content;
-            try {
-              const parsed = JSON.parse(entry.content);
-              if (parsed.narration) narration = parsed.narration;
-            } catch {}
-            if (narration) {
-              newMessages.push({ type: 'narration', content: narration, timestamp: Date.now() });
-            }
-          } else if (entry.role === 'system') {
-            newMessages.push({ type: 'system', content: entry.content, timestamp: Date.now() });
-          }
+        if (newLength > prevLength) {
+          const newEntries = data.history.slice(prevLength);
+          const parsed = processHistoryEntries(newEntries, data.players);
+          setMessages(prev => [...prev, ...parsed]);
+        } else if (newLength < prevLength) {
+          const parsed = processHistoryEntries(data.history, data.players);
+          setMessages(parsed);
         }
 
-        setMessages(newMessages);
+        lastHistoryLengthRef.current = newLength;
+
         setTurnUpdate({
           currentTurn: data.currentTurn,
           type: data.turnType,
@@ -233,6 +251,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     setMessages([]);
     setTypingPlayers(new Map());
     setIsAiProcessing(false);
+    lastHistoryLengthRef.current = 0;
   }, [player.roomId]);
 
   const sendAction = useCallback((message: string) => {

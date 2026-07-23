@@ -1,3 +1,4 @@
+import { Injectable, Inject, OnModuleInit } from '@nestjs/common';
 import { AIProvider, AIConfig, AIContext } from '../ai.interface';
 import { AIResponse } from '../../dto/ai-response.dto';
 import { getSystemPrompt } from '../prompts/system.prompt';
@@ -16,19 +17,22 @@ interface MessageResponse {
   parts: MessagePart[];
 }
 
-export class OpencodeProvider implements AIProvider {
+@Injectable()
+export class OpencodeProvider implements AIProvider, OnModuleInit {
   private baseUrl: string;
   private auth: string | null = null;
   private model: string | null = null;
   private sessions = new Map<string, string>();
   private sessionContextSent = new Set<string>();
 
-  configure(config: AIConfig): void {
-    this.baseUrl = config.baseUrl || 'http://localhost:4096';
-    this.model = config.model || null;
+  constructor(@Inject('AI_CONFIG') private config: AIConfig) {}
 
-    if (config.apiKey) {
-      this.auth = 'Basic ' + Buffer.from(`opencode:${config.apiKey}`).toString('base64');
+  onModuleInit(): void {
+    this.baseUrl = this.config.baseUrl || 'http://localhost:4096';
+    this.model = this.config.model || null;
+
+    if (this.config.apiKey) {
+      this.auth = 'Basic ' + Buffer.from(`opencode:${this.config.apiKey}`).toString('base64');
     }
   }
 

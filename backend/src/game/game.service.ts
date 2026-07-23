@@ -6,6 +6,7 @@ import { DiceService } from './dice.service';
 import { LevelingService } from './leveling.service';
 import { TurnManager } from './turn.manager';
 import { AiService } from '../ai/ai.service';
+import { isUnknownLocation } from '../utils/is-unknown-location';
 import { AIResponse, MerchantSeed, ConditionSeed } from '../dto/ai-response.dto';
 
 const MAX_NARRATION_DEPTH = 5;
@@ -25,77 +26,56 @@ export class GameService {
   ) {}
 
   async handleAction(roomId: string, playerId: string, message: string): Promise<{ response: AIResponse; tickResults: TickResult[] }> {
-    const room = this.gameState.getRoom(roomId);
-    if (!room) throw new Error('Room not found');
-
-    const check = this.turnManager.canPlayerAct(roomId, playerId);
-    if (!check.allowed) throw new Error(check.reason);
-
-    this.turnManager.lock(roomId);
-
-    const player = room.players.find(p => p.id === playerId);
-
-    this.gameState.addHistory(roomId, {
-      role: 'player',
-      playerId,
-      content: message,
+    return this.processTurn(roomId, playerId, (player) => {
+      this.gameState.addHistory(roomId, {
+        role: 'player',
+        playerId,
+        content: message,
+      });
+      return { playerId, characterName: player?.name, action: message };
     });
-
-    try {
-      let response: AIResponse = { narration: '', next: { type: 'group_action' } };
-      let allTickResults: TickResult[] = [];
-
-      for (let depth = 0; depth <= MAX_NARRATION_DEPTH; depth++) {
-        const currentRoom = this.gameState.getRoom(roomId);
-        if (!currentRoom) throw new Error('Room deleted');
-
-        response = await this.aiService.generate({
-          roomId,
-          campaignName: currentRoom.campaignName,
-          campaignTheme: currentRoom.campaignTheme,
-          language: currentRoom.language,
-          players: currentRoom.players,
-          scene: currentRoom.scene,
-          currentLocation: currentRoom.currentLocation,
-          history: currentRoom.history,
-          summary: currentRoom.summary || undefined,
-          currentAction: depth === 0
-            ? { playerId, characterName: player?.name, action: message }
-            : null,
-        });
-
-        allTickResults = allTickResults.concat(this.processAiResponse(roomId, response));
-
-        if (response.next?.type !== 'narration_only') break;
-      }
-
-      return { response, tickResults: allTickResults };
-    } finally {
-      this.turnManager.unlock(roomId);
-      this.maybeSummarize(roomId).catch(() => {});
-    }
   }
 
   async handleRoll(roomId: string, playerId: string, rollData?: { roll: number; modifier: number; total: number; skill: string; dc: number }): Promise<{ response: AIResponse; tickResults: TickResult[] }> {
     const room = this.gameState.getRoom(roomId);
     if (!room) throw new Error('Room not found');
 
+    const player = room.players.find(p => p.id === playerId);
+    if (!player) throw new Error('Player not found');
+
+    const skill = rollData?.skill ?? room.turnSkill ?? 'dexterity';
+    const dc = rollData?.dc ?? room.turnDc ?? 10;
+    const modifier = rollData?.modifier ?? this.conditionEngine.getPlayerModifier(player, skill);
+    const roll = rollData?.roll ?? this.diceService.rollDice(20);
+    const total = rollData?.total ?? roll + modifier;
+
+    return this.processTurn(roomId, playerId, () => ({
+      playerId,
+      characterName: player.name,
+      action: `Rolled ${roll} + modifier(${modifier}) = ${total} (DC ${dc})`,
+      rollResult: total,
+      skill,
+      dc,
+    }));
+  }
+
+  private async processTurn(
+    roomId: string,
+    playerId: string,
+    buildAction: (player: Player | undefined) => object | null,
+  ): Promise<{ response: AIResponse; tickResults: TickResult[] }> {
+    const room = this.gameState.getRoom(roomId);
+    if (!room) throw new Error('Room not found');
+
     const check = this.turnManager.canPlayerAct(roomId, playerId);
     if (!check.allowed) throw new Error(check.reason);
 
     this.turnManager.lock(roomId);
 
     const player = room.players.find(p => p.id === playerId);
-    if (!player) throw new Error('Player not found');
-
-    const skill = rollData?.skill ?? room.turnSkill ?? 'dexterity';
-    const dc = rollData?.dc ?? room.turnDc ?? 10;
-
-    const modifier = rollData?.modifier ?? this.conditionEngine.getPlayerModifier(player, skill);
-    const roll = rollData?.roll ?? this.diceService.rollDice(20);
-    const total = rollData?.total ?? roll + modifier;
 
     try {
+      const currentAction = buildAction(player);
       let response: AIResponse = { narration: '', next: { type: 'group_action' } };
       let allTickResults: TickResult[] = [];
 
@@ -113,16 +93,7 @@ export class GameService {
           currentLocation: currentRoom.currentLocation,
           history: currentRoom.history,
           summary: currentRoom.summary || undefined,
-          currentAction: depth === 0
-            ? {
-                playerId,
-                characterName: player.name,
-                action: `Rolled ${roll} + modifier(${modifier}) = ${total} (DC ${dc})`,
-                rollResult: total,
-                skill,
-                dc,
-              }
-            : null,
+          currentAction: depth === 0 ? currentAction : null,
         });
 
         allTickResults = allTickResults.concat(this.processAiResponse(roomId, response));
@@ -206,7 +177,7 @@ export class GameService {
       };
     }
 
-    if (!room.currentLocation || this.isUnknownLocation(room.currentLocation)) {
+    if (!room.currentLocation || isUnknownLocation(room.currentLocation)) {
       return {
         narration: '',
         next: { type: 'group_action' },
@@ -612,9 +583,4 @@ export class GameService {
     return this.levelingService.allocateAttributes(roomId, playerId, allocations);
   }
 
-  private isUnknownLocation(location: string | null | undefined): boolean {
-    if (!location) return true;
-    const normalized = location.toLowerCase().trim();
-    return normalized === 'unknown location' || normalized === 'local desconhecido';
-  }
 }
