@@ -132,6 +132,21 @@ export class OpencodeProvider implements AIProvider {
     }
   }
 
+  async destroy(): Promise<void> {
+    const deletePromises: Promise<void>[] = [];
+    for (const sessionId of this.sessions.values()) {
+      deletePromises.push(
+        fetch(`${this.baseUrl}/session/${sessionId}`, {
+          method: 'DELETE',
+          headers: this.headers(),
+        }).then(() => {}).catch(() => {})
+      );
+    }
+    await Promise.all(deletePromises);
+    this.sessions.clear();
+    this.sessionContextSent.clear();
+  }
+
   async onRoomEmpty(roomId: string): Promise<void> {
     const sessionId = this.sessions.get(roomId);
     if (!sessionId) return;

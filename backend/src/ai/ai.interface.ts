@@ -42,4 +42,5 @@ export interface AIProvider {
   onRoomReady?(roomId: string, context: AIContext): Promise<void>;
   onRoomEmpty?(roomId: string): Promise<void>;
   summarize?(entries: string[], existingSummary?: string): Promise<string>;
+  destroy?(): Promise<void>;
 }

@@ -1,9 +1,9 @@
-import { Injectable, Inject } from '@nestjs/common';
+import { Injectable, Inject, OnModuleDestroy } from '@nestjs/common';
 import { AIProvider, AIContext, AIConfig } from './ai.interface';
 import { AIResponse } from '../dto/ai-response.dto';
 
 @Injectable()
-export class AiService {
+export class AiService implements OnModuleDestroy {
   constructor(
     @Inject('AI_PROVIDER') private provider: AIProvider,
     @Inject('AI_CONFIG') private config: AIConfig,
@@ -51,6 +51,12 @@ export class AiService {
   async onRoomEmpty(roomId: string): Promise<void> {
     if (this.provider.onRoomEmpty) {
       await this.provider.onRoomEmpty(roomId);
+    }
+  }
+
+  async onModuleDestroy(): Promise<void> {
+    if (this.provider.destroy) {
+      await this.provider.destroy();
     }
   }
 
