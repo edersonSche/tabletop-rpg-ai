@@ -16,6 +16,7 @@ import {
   Target,
   Heart,
   Crown,
+  Shield,
 } from "pixelarticons/react";
 import { Player } from "../../types/game.types";
 
@@ -39,6 +40,7 @@ export const ITEM_TYPE_ICONS: Record<
 > = {
   weapon: Sword,
   armor: Human,
+  shield: Shield,
   potion: Potion,
   scroll: BookOpen,
   key_item: Star,

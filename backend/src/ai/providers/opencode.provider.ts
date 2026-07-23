@@ -236,7 +236,7 @@ export class OpencodeProvider implements AIProvider {
       lines.push('');
       lines.push('For each item:');
       lines.push('- name, description (in the campaign language)');
-      lines.push('- type: "weapon" | "armor" | "potion" | "scroll" | "key_item" | "misc"');
+      lines.push('- type: "weapon" | "armor" | "shield" | "potion" | "scroll" | "key_item" | "misc"');
       lines.push('- slot: "body" | "hand" | "two-handed" (only for equippable items)');
       lines.push('- baseBuyPrice: what the merchant charges TO SELL (higher price)');
       lines.push('- baseSellPrice: what the merchant pays TO BUY (lower, roughly 40-60% of baseBuyPrice)');

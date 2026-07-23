@@ -64,7 +64,7 @@ export interface InventoryItem {
   id: string;
   name: string;
   description: string;
-  type: 'weapon' | 'armor' | 'potion' | 'scroll' | 'key_item' | 'misc';
+  type: 'weapon' | 'armor' | 'shield' | 'potion' | 'scroll' | 'key_item' | 'misc';
   quantity: number;
   slot?: 'body' | 'hand' | 'two-handed';
   effects: Effect[];
@@ -157,7 +157,7 @@ export interface MerchantItem {
   id: string;
   name: string;
   description: string;
-  type: 'weapon' | 'armor' | 'potion' | 'scroll' | 'key_item' | 'misc';
+  type: 'weapon' | 'armor' | 'shield' | 'potion' | 'scroll' | 'key_item' | 'misc';
   slot?: 'body' | 'hand' | 'two-handed';
   buyPrice: number;
   sellPrice: number;
