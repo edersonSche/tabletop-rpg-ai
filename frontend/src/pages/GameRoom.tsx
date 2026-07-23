@@ -34,6 +34,7 @@ export function GameRoom() {
   const { tradeState, isTradeLocked, initiateTrade, buyItem, sellItem, endTrade } = useTrade();
   const { emitUseItem } = useInventory();
 
+  const isLoadingState = !gameState && !!player.roomId;
   const me = gameState?.players.find(p => p.id === player.playerId);
   const isCreator = player.playerId === gameState?.creatorId;
 
@@ -58,6 +59,30 @@ export function GameRoom() {
       setLeaving(false);
     }
   };
+
+  if (isLoadingState) {
+    return (
+      <ErrorBoundary
+        onRetry={refetchGameState}
+        onGoToLobby={() => dispatch({ type: 'LEFT_ROOM' })}
+      >
+        <div className="h-screen bg-navy-950 flex flex-col items-center justify-center">
+          <Header />
+          <div className="flex-1 flex flex-col items-center justify-center">
+            <div className="animate-crystal-pulse mb-4">
+              <div className="w-12 h-12 border-2 border-cyan-400/50 rotate-45" />
+            </div>
+            <p className="font-pixel text-[11px] text-gold-400 text-shadow-glow-gold mb-2">
+              SUMMONING THE REALM...
+            </p>
+            <p className="font-pixel text-[7px] text-stone-600">
+              The ancient forces are gathering
+            </p>
+          </div>
+        </div>
+      </ErrorBoundary>
+    );
+  }
 
   return (
     <ErrorBoundary

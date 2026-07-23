@@ -349,12 +349,13 @@ frontend/src/
     └── game.types.ts        # Shared TypeScript interfaces (Message, Player incl. activeConditions, Effect, inventory/coins/equipment, UseAntidoteResult, ConditionTickPayload, Merchant, plus typed socket response interfaces: LoginResponse, CreateRoomResponse, JoinRoomResponse, etc.)
 ```
 
-### Error Boundaries
+### Error Boundaries & Loading States
 
 Two-layer error boundary system prevents white-screen crashes:
 
 - **Root `ErrorBoundary`** (`App.tsx`) — wraps `RoomRouter` + `Toast`. Catches render errors across all pages. Shows a styled fallback with "GO TO LOBBY" button that dispatches `LEFT_ROOM` to navigate back to the lobby.
 - **GameRoom `ErrorBoundary`** (`GameRoom.tsx`) — isolates game room render errors. Adds a "RETRY" button that calls `GameContext.refetchGameState()` to re-emit `game:get_state` and recover game state without leaving the room. "GO TO LOBBY" dispatches `LEFT_ROOM`.
+- **Loading overlay** — while `gameState` is null (during `game:get_state` initial fetch or reconnection), `GameRoom.tsx` renders a full-screen loading overlay with an animated crystal pulse and "SUMMONING THE REALM..." text, matching the `WaitingRoom` AI processing pattern. Once state arrives, the chat layout renders normally.
 - **Error reporting** — all caught errors are logged to console via `componentDidCatch`.
 - The `ErrorBoundary` class component is in `components/Layout/ErrorBoundary.tsx`. Props: `onRetry?` (reset + retry), `onGoToLobby?` (navigate to lobby).
 
