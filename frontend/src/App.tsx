@@ -1,6 +1,7 @@
 import { useEffect } from "react";
-import { SocketProvider } from "./hooks/SocketContext";
-import { useSocket } from "./hooks/useSocket";
+import { AppProviders } from "./contexts/AppProviders";
+import { useAuth } from "./hooks/useAuth";
+import { useGame } from "./hooks/useGame";
 import { Login } from "./pages/Login";
 import { Lobby } from "./pages/Lobby";
 import { CharacterCreation } from "./pages/CharacterCreation";
@@ -9,7 +10,8 @@ import { GameRoom } from "./pages/GameRoom";
 import { Toast } from "./components/Layout/Toast";
 
 function RoomRouter() {
-  const { page, gameState } = useSocket();
+  const { page } = useAuth();
+  const { gameState } = useGame();
 
   useEffect(() => {
     const name = gameState?.campaignName;
@@ -50,9 +52,9 @@ function RoomRouter() {
 
 export default function App() {
   return (
-    <SocketProvider>
+    <AppProviders>
       <RoomRouter />
       <Toast />
-    </SocketProvider>
+    </AppProviders>
   );
 }

@@ -1,8 +1,12 @@
-import { useSocket } from "../../hooks/useSocket";
+import { useAuth } from "../../hooks/useAuth";
+import { usePlayer } from "../../hooks/usePlayer";
+import { useGame } from "../../hooks/useGame";
 import logo from "../../assets/logo.png";
 
 export function Header() {
-  const { connected, player, gameState } = useSocket();
+  const { connected } = useAuth();
+  const { player } = usePlayer();
+  const { gameState } = useGame();
 
   return (
     <header className="card-wood border-b border-wood-500/30 px-4 py-3 relative">

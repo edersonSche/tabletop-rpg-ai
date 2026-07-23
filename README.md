@@ -15,7 +15,7 @@ AI-powered tabletop role-playing game platform with a real-time multiplayer expe
 ┌─────────────────────────────────────────────────────────────┐
 │                    Frontend (React 19 + Vite 6)             │
 │  Login → Lobby → CharacterCreation → WaitingRoom → GameRoom │
-│  SocketContext (Socket.IO client)                           │
+│  Contexts: Auth, Player, Game, Trade, Inventory              │
 └───────────────────────┬─────────────────────────────────────┘
                         │  WebSocket (Socket.IO)
                         ▼
@@ -282,11 +282,22 @@ backend/src/
 
 frontend/src/
 ├── main.tsx                 # React entry point
-├── App.tsx                  # Page router (state machine via useReducer)
+├── App.tsx                  # Page router (AppProviders wrapper)
 ├── index.css                # Tailwind + custom layers (pixel fonts, colors)
+├── contexts/
+│   ├── AppProviders.tsx     # Composes all providers (single wrapper)
+│   ├── SocketContext.tsx    # Socket.IO connection + event routing (internal)
+│   ├── AuthContext.tsx       # userId, page (useReducer), connected, error
+│   ├── PlayerContext.tsx     # player identity + room lobby operations
+│   ├── GameContext.tsx       # gameState, messages, turnUpdate, typingPlayers, isAiProcessing
+│   ├── TradeContext.tsx      # tradeState, isTradeLocked + trade actions
+│   └── InventoryContext.tsx  # equip/unequip/useItem/antidote actions
 ├── hooks/
-│   ├── SocketContext.tsx    # Socket.IO context provider + state (incl. emitEquip, emitUnequip, emitUseAntidote, game:condition_tick, game:antidote_result)
-│   ├── useSocket.ts         # Context re-export
+│   ├── useAuth.ts           # useAuth() — AuthContext consumer
+│   ├── usePlayer.ts         # usePlayer() — PlayerContext consumer
+│   ├── useGame.ts           # useGame() — GameContext consumer
+│   ├── useTrade.ts          # useTrade() — TradeContext consumer
+│   ├── useInventory.ts      # useInventory() — InventoryContext consumer
 │   └── useGameTurn.ts       # Turn logic hook (isMyTurn, isRollRequest, etc.)
 ├── routing/
 │   └── pageRouter.ts        # Page state machine (reducer + types)

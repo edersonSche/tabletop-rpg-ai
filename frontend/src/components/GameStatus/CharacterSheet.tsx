@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Close, Sword, Target, Heart, BookOpen, Star, Crown, Archive, Shield, Wallet, Box, Potion, Backpack, Human, Skull, Fire, Zap, CloudMoon, Moon, Lock, Circle } from 'pixelarticons/react';
 import { Player, InventoryItem, ActiveCondition, Effect } from '../../types/game.types';
-import { useSocketContext } from '../../hooks/SocketContext';
+import { useInventory } from '../../hooks/useInventory';
 
 interface CharacterSheetProps {
   player: Player | undefined;
@@ -481,7 +481,7 @@ function InventoryTab({ player, onEquip, onUnequip, onUseItem }: { player: Playe
 
 export function CharacterSheet({ player, isOpen, onClose }: CharacterSheetProps) {
   const [tab, setTab] = useState<Tab>('attributes');
-  const { emitEquip, emitUnequip, emitUseItem, emitUseAntidote } = useSocketContext();
+  const { emitEquip, emitUnequip, emitUseItem, emitUseAntidote } = useInventory();
 
   if (!isOpen || !player) return null;
 

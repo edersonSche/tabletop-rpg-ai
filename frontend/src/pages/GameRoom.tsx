@@ -1,6 +1,9 @@
 import { File, Users, AiSettings2, Logout, Wallet } from 'pixelarticons/react';
 import { useState } from 'react';
-import { useSocket } from '../hooks/useSocket';
+import { usePlayer } from '../hooks/usePlayer';
+import { useGame } from '../hooks/useGame';
+import { useTrade } from '../hooks/useTrade';
+import { useInventory } from '../hooks/useInventory';
 import { useGameTurn } from '../hooks/useGameTurn';
 import { Header } from '../components/Layout/Header';
 import { MessageList } from '../components/Chat/MessageList';
@@ -23,28 +26,10 @@ export function GameRoom() {
   const [showAttributeAllocation, setShowAttributeAllocation] = useState(false);
   const [leaving, setLeaving] = useState(false);
 
-  const {
-    player,
-    gameState,
-    messages,
-    turnUpdate,
-    typingPlayers,
-    isAiProcessing,
-    sendAction,
-    sendRoll,
-    startCampaign,
-    leaveRoom,
-    emitTyping,
-    emitTypingStop,
-    allocateAttributes,
-    emitUseItem,
-    initiateTrade,
-    buyItem,
-    sellItem,
-    endTrade,
-    tradeState,
-    isTradeLocked,
-  } = useSocket();
+  const { player, leaveRoom, allocateAttributes } = usePlayer();
+  const { gameState, messages, turnUpdate, typingPlayers, isAiProcessing, sendAction, sendRoll, startCampaign, emitTyping, emitTypingStop } = useGame();
+  const { tradeState, isTradeLocked, initiateTrade, buyItem, sellItem, endTrade } = useTrade();
+  const { emitUseItem } = useInventory();
 
   const me = gameState?.players.find(p => p.id === player.playerId);
   const isCreator = player.playerId === gameState?.creatorId;

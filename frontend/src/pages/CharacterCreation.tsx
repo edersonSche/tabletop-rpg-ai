@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { Logout } from "pixelarticons/react";
-import { useSocket } from "../hooks/useSocket";
+import { usePlayer } from "../hooks/usePlayer";
+import { useGame } from "../hooks/useGame";
 import type { CharacterKit } from "../types/game.types";
 import logo from "../assets/logo.png";
 
@@ -74,7 +75,8 @@ function getRecommendedKit(attributes: Attributes, kits: CharacterKit[]): string
 }
 
 export function CharacterCreation() {
-  const { createCharacter, player, backToLobby, fetchKits, gameState } = useSocket();
+  const { createCharacter, player, backToLobby, fetchKits } = usePlayer();
+  const { gameState } = useGame();
   const [name, setName] = useState("");
   const [loading, setLoading] = useState(false);
   const [attributes, setAttributes] = useState<Attributes>(defaultAttributes);

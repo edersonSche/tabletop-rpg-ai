@@ -2,12 +2,12 @@ import { useState } from "react";
 import { CreateRoom } from "../components/Lobby/CreateRoom";
 import { RoomList } from "../components/Lobby/RoomList";
 import { SavedCampaigns } from "../components/Lobby/SavedCampaigns";
-import { useSocket } from "../hooks/useSocket";
+import { usePlayer } from "../hooks/usePlayer";
 import type { NarrativeLanguage } from "../types/game.types";
 import logo from "../assets/logo.png";
 
 export function Lobby() {
-  const { createRoom, joinRoom, resumeCampaign } = useSocket();
+  const { createRoom, joinRoom, resumeCampaign } = usePlayer();
   const [mode, setMode] = useState<"create" | "join" | "resume">("join");
 
   const handleCreate = async (

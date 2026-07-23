@@ -1,9 +1,9 @@
 import { useEffect } from 'react';
 import { Close } from 'pixelarticons/react';
-import { useSocket } from '../../hooks/useSocket';
+import { useAuth } from '../../hooks/useAuth';
 
 export function Toast() {
-  const { error, setError } = useSocket();
+  const { error, setError } = useAuth();
 
   useEffect(() => {
     if (!error) return;

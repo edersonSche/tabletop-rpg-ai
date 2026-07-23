@@ -1,9 +1,9 @@
 import { useState } from "react";
-import { useSocket } from "../hooks/useSocket";
+import { useAuth } from "../hooks/useAuth";
 import logo from "../assets/logo.png";
 
 export function Login() {
-  const { login } = useSocket();
+  const { login } = useAuth();
   const [userId, setUserId] = useState("");
   const [loading, setLoading] = useState(false);
 

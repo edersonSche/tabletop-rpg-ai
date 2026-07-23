@@ -1,11 +1,12 @@
 import { useState } from "react";
 import { Play, Logout } from "pixelarticons/react";
-import { useSocket } from "../hooks/useSocket";
+import { usePlayer } from "../hooks/usePlayer";
+import { useGame } from "../hooks/useGame";
 import logo from "../assets/logo.png";
 
 export function WaitingRoom() {
-  const { player, gameState, startCampaign, leaveRoom, isAiProcessing } =
-    useSocket();
+  const { player, leaveRoom } = usePlayer();
+  const { gameState, startCampaign, isAiProcessing } = useGame();
   const [starting, setStarting] = useState(false);
   const [leaving, setLeaving] = useState(false);
 

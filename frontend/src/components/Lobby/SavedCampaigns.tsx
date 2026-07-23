@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Play, Check, Close, Reload, Trash } from 'pixelarticons/react';
 import { SavedCampaignInfo } from '../../types/game.types';
-import { useSocket } from '../../hooks/useSocket';
+import { usePlayer } from '../../hooks/usePlayer';
 
 interface SavedCampaignsProps {
   onResume: (campaignId: string) => Promise<void>;
@@ -20,7 +20,7 @@ function timeAgo(dateStr: string): string {
 }
 
 export function SavedCampaigns({ onResume }: SavedCampaignsProps) {
-  const { listSavedCampaigns, deleteSavedCampaign } = useSocket();
+  const { listSavedCampaigns, deleteSavedCampaign } = usePlayer();
   const [campaigns, setCampaigns] = useState<SavedCampaignInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [confirmingDelete, setConfirmingDelete] = useState<string | null>(null);

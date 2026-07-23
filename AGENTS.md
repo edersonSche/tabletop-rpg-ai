@@ -22,11 +22,11 @@ No workspace root scripts — always `cd` into the package. Both must run simult
 
 **Auth is required.** Client sends `auth:login { userId }` → `{ success: true }`. Any `userId` string works — no password/token. CORS origin: `*`. `AuthWsGuard` emits `game:error` with `"Authentication required"` when unauthenticated; frontend catches this and auto-logs out.
 
-Frontend connects to `window.location.origin` via Socket.IO (`transports: ['websocket', 'polling']`). Vite proxies `/socket.io` to `http://localhost:3000` (override via `VITE_SOCKET_HOST`). On reconnect, `SocketContext` re-emits `auth:login` + `game:get_state`. 10-second disconnect timer before clearing page state.
+Frontend connects to `window.location.origin` via Socket.IO (`transports: ['websocket', 'polling']`). Vite proxies `/socket.io` to `http://localhost:3000` (override via `VITE_SOCKET_HOST`). On reconnect, `AuthContext` re-emits `auth:login` and `GameContext` re-fetches `game:get_state`. 10-second disconnect timer before clearing page state.
 
 ## Page state machine
 
-`App.tsx` → `SocketContext` owns `useReducer` (`routing/pageRouter.ts`) over 5 pages:
+`App.tsx` → `AppProviders` composes all context providers. `AuthContext` owns `useReducer` (`routing/pageRouter.ts`) over 5 pages:
 ```
 login → lobby → character_creation → waiting_room → game_room
 ```
@@ -73,9 +73,15 @@ RoomModule ↔ CampaignModule circular dependency is resolved via `forwardRef()`
 - `ai/` — Provider pattern: `AiService` → `OpencodeProvider` (raw HTTP with per-room sessions). `summarizeHistory()` for long-term memory. Empty `AI_API_KEY` → fallback narration. `onRoomReady()`/`onRoomEmpty()` lifecycle for session create/delete. `OpencodeProvider` has private helpers: `createSession()` (shared session creation), `formatHistoryEntries()` (history formatting), `buildTradePrompt()` (verbose/condensed trade prompt), `buildActionLines()` (action rendering + roll DC hint). `buildIncrementalPrompt()` and `buildPrompt()` use these shared helpers to avoid duplication.
 
 **Frontend** — under `frontend/src/`:
-- `hooks/SocketContext.tsx` — Socket.IO context provider; owns all server event subscriptions, page dispatches, messages, gameState, turnUpdate, isAiProcessing, typingPlayers, emitUseAntidote
-- `hooks/useSocket.ts` — re-exports `useSocketContext()`
-- `hooks/useGameTurn.ts` — derives `isMyTurn`, `isRollRequest`, `canAct`, etc. from `gameState` + `turnUpdate`
+- `contexts/AppProviders.tsx` — Composes all providers in a single wrapper (Socket → Auth → Player → Game → Trade → Inventory)
+- `contexts/SocketContext.tsx` — Socket.IO connection + event routing via `on`/`off`/`emit` (internal, not consumed by components)
+- `contexts/AuthContext.tsx` — `userId`, `page` (useReducer), `connected`, `error`, `login`, `logout`. Listens: `connect` (re-auth), `disconnect` (10s timer), `game:error` (auth required)
+- `contexts/PlayerContext.tsx` — `player` identity + room lobby ops (`createRoom`, `joinRoom`, `leaveRoom`, `backToLobby`, `createCharacter`, `allocateAttributes`, `fetchKits`, `resumeCampaign`, `listSavedCampaigns`, `deleteSavedCampaign`). Listens: `player:registered`, `disconnect`
+- `contexts/GameContext.tsx` — `gameState`, `messages`, `turnUpdate`, `typingPlayers`, `isAiProcessing` + game actions (`sendAction`, `sendRoll`, `startCampaign`, `emitTyping`, `emitTypingStop`). Listens: `game:state`, `game:narration`, `game:turn`, `game:message`, `game:player_action`, `game:processing`, `game:typing`, `game:typing_stop`, `game:condition_tick`, `game:level_up`, `game:antidote_result`, `game:disband`
+- `contexts/TradeContext.tsx` — `tradeState`, `isTradeLocked` + trade actions (`initiateTrade`, `buyItem`, `sellItem`, `endTrade`). Listens: `game:trade_state`
+- `contexts/InventoryContext.tsx` — equip/unequip/useItem/antidote actions (`emitEquip`, `emitUnequip`, `emitUseItem`, `emitUseAntidote`). No listeners.
+- `hooks/useAuth.ts`, `usePlayer.ts`, `useGame.ts`, `useTrade.ts`, `useInventory.ts` — Thin re-exports of `useContext` for each context
+- `hooks/useGameTurn.ts` — derives `isMyTurn`, `isRollRequest`, `canAct`, etc. from `gameState` + `turnUpdate` (pure, no context dependency)
 - `types/game.types.ts` — TS interfaces mirroring backend DTOs
 - `pages/` — `Login`, `Lobby`, `CharacterCreation`, `WaitingRoom`, `GameRoom`
 - `components/` — `Chat/` (MessageList, MessageInput, DiceRollButton), `GameStatus/` (LocationBadge, TurnIndicator, PlayerList, PlayerCard, CharacterSheet with active conditions + EffectRow, TypingIndicator, CampaignStatusBar, MyCharacterStatus with condition indicators, PlayerCircles, AttributeAllocationModal, CharacterListModal, OptionsModal), `Trade/` (TradeModal uses EffectRow from CharacterSheet + antidoteFor display), `Layout/` (Header, Toast), `Lobby/` (CreateRoom, RoomList, SavedCampaigns)
