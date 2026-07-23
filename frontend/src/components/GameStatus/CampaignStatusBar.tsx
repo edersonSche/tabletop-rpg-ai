@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { LocationBadge } from './LocationBadge';
 import { TurnIndicator } from './TurnIndicator';
 
@@ -10,7 +11,7 @@ interface CampaignStatusBarProps {
   playerId: string;
 }
 
-export function CampaignStatusBar({ location, currentTurn, turnType, turnTarget, players, playerId }: CampaignStatusBarProps) {
+export const CampaignStatusBar = memo(function CampaignStatusBar({ location, currentTurn, turnType, turnTarget, players, playerId }: CampaignStatusBarProps) {
   return (
     <div className="flex items-center gap-3 px-4 py-2.5 bg-navy-800/80 border-b border-stone-700/15">
       <LocationBadge location={location} />
@@ -26,4 +27,4 @@ export function CampaignStatusBar({ location, currentTurn, turnType, turnTarget,
       />
     </div>
   );
-}
+});

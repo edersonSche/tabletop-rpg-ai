@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { Play, Circle } from 'pixelarticons/react';
 
 interface PlayerCardProps {
@@ -7,7 +8,7 @@ interface PlayerCardProps {
   isMe: boolean;
 }
 
-export function PlayerCard({ name, level, isActive, isMe }: PlayerCardProps) {
+export const PlayerCard = memo(function PlayerCard({ name, level, isActive, isMe }: PlayerCardProps) {
   return (
     <div className={`p-2 pixel-border transition-all ${
       isActive ? 'bg-navy-700 pixel-border-gold' : 'bg-navy-800'
@@ -22,4 +23,4 @@ export function PlayerCard({ name, level, isActive, isMe }: PlayerCardProps) {
       </div>
     </div>
   );
-}
+});

@@ -1,9 +1,11 @@
+import { memo } from 'react';
+
 interface PlayerCirclesProps {
   players: Array<{ id: string; name: string }>;
   currentTurn: string | null;
 }
 
-export function PlayerCircles({ players, currentTurn }: PlayerCirclesProps) {
+export const PlayerCircles = memo(function PlayerCircles({ players, currentTurn }: PlayerCirclesProps) {
   return (
     <div className="flex items-center gap-1.5">
       {players.map(p => (
@@ -21,4 +23,4 @@ export function PlayerCircles({ players, currentTurn }: PlayerCirclesProps) {
       ))}
     </div>
   );
-}
+});

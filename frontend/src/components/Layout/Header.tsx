@@ -1,9 +1,10 @@
+import { memo } from 'react';
 import { useAuth } from "../../hooks/useAuth";
 import { usePlayer } from "../../hooks/usePlayer";
 import { useGame } from "../../hooks/useGame";
 import logo from "../../assets/logo.png";
 
-export function Header() {
+export const Header = memo(function Header() {
   const { connected } = useAuth();
   const { player } = usePlayer();
   const { gameState } = useGame();
@@ -49,4 +50,4 @@ export function Header() {
       </div>
     </header>
   );
-}
+});

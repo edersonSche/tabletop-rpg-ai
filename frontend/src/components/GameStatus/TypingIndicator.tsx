@@ -1,9 +1,11 @@
+import { memo } from 'react';
+
 interface TypingIndicatorProps {
   typingPlayers: Map<string, string>;
   playerId: string;
 }
 
-export function TypingIndicator({ typingPlayers, playerId }: TypingIndicatorProps) {
+export const TypingIndicator = memo(function TypingIndicator({ typingPlayers, playerId }: TypingIndicatorProps) {
   const others = Array.from(typingPlayers.entries()).filter(([id]) => id !== playerId);
 
   if (others.length === 0) return null;
@@ -18,4 +20,4 @@ export function TypingIndicator({ typingPlayers, playerId }: TypingIndicatorProp
       <span className="font-pixel text-[7px] text-gold-500/60 italic">{text}</span>
     </div>
   );
-}
+});

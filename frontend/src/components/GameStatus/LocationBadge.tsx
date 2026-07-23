@@ -1,10 +1,11 @@
+import { memo } from 'react';
 import { MapPin } from 'pixelarticons/react';
 
 interface LocationBadgeProps {
   location: string | null;
 }
 
-export function LocationBadge({ location }: LocationBadgeProps) {
+export const LocationBadge = memo(function LocationBadge({ location }: LocationBadgeProps) {
   if (!location) return null;
 
   return (
@@ -13,4 +14,4 @@ export function LocationBadge({ location }: LocationBadgeProps) {
       <span className="font-pixel text-[8px] text-stone-300 tracking-wider">{location}</span>
     </div>
   );
-}
+});

@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { memo, type ReactNode } from 'react';
 import { BookOpen, Sword, Target, Clock } from 'pixelarticons/react';
 
 interface TurnIndicatorProps {
@@ -9,7 +9,7 @@ interface TurnIndicatorProps {
   playerId: string;
 }
 
-export function TurnIndicator({ currentTurn, type, target, players, playerId }: TurnIndicatorProps) {
+export const TurnIndicator = memo(function TurnIndicator({ currentTurn, type, target, players, playerId }: TurnIndicatorProps) {
   const getTurnDescription = (): { icon: ReactNode; text: string; accent?: boolean } => {
     if (!type || type === 'narration_only') {
       return { icon: <BookOpen width={12} height={12} className="text-gold-500 shrink-0" />, text: 'NARRATIVE PHASE' };
@@ -40,4 +40,4 @@ export function TurnIndicator({ currentTurn, type, target, players, playerId }: 
       </span>
     </div>
   );
-}
+});

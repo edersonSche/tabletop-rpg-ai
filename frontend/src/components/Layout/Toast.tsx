@@ -1,8 +1,8 @@
-import { useEffect } from 'react';
+import { useEffect, memo } from 'react';
 import { Close } from 'pixelarticons/react';
 import { useAuth } from '../../hooks/useAuth';
 
-export function Toast() {
+export const Toast = memo(function Toast() {
   const { error, setError } = useAuth();
 
   useEffect(() => {
@@ -25,4 +25,4 @@ export function Toast() {
       </button>
     </div>
   );
-}
+});

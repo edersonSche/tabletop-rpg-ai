@@ -347,6 +347,16 @@ frontend/src/
     └── game.types.ts        # Shared TypeScript interfaces (Message, Player incl. activeConditions, Effect, inventory/coins/equipment, UseAntidoteResult, ConditionTickPayload, Merchant, Room, etc.)
 ```
 
+### Frontend Performance
+
+9 leaf components are wrapped with `React.memo` to prevent unnecessary re-renders from Socket-driven context updates:
+
+- **Context consumers** — `Header`, `Toast` (decoupled from parent page re-renders)
+- **Pure props** — `LocationBadge`, `PlayerCard`, `TypingIndicator` (primitive or stable reference props)
+- **Array props** — `CampaignStatusBar`, `TurnIndicator`, `PlayerCircles`, `PlayerList` (stable references via `gameState?.players ?? []` — the array reference only changes when `gameState` actually updates, not on unrelated context changes like `messages`/`typingPlayers`/`isAiProcessing`)
+
+No custom comparators needed — default shallow comparison is sufficient. New pure leaf components should follow this pattern.
+
 ## Limitations
 
 - **Active rooms are in-memory** — restarting the backend wipes active rooms, but saved campaigns persist in `data/campaigns.json` (schema v2) and can be resumed. Old v1 saves (with nested `modifiers`/`effects`) are auto-migrated to v2 on restore via `migrateV1ToV2()`.
