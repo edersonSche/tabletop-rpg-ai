@@ -154,11 +154,16 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
     this.playerService.disconnectPlayer(roomId, playerId);
 
-    if (this.gameService.isTradeLocked(roomId)) {
-      const shouldUnlock = this.tradeService.removeFromTrade(roomId, playerId);
-      if (shouldUnlock) {
-        this.emitTradeUnlock(roomId);
+    this.turnManager.lock(roomId);
+    try {
+      if (this.gameService.isTradeLocked(roomId)) {
+        const shouldUnlock = this.tradeService.removeFromTrade(roomId, playerId);
+        if (shouldUnlock) {
+          this.emitTradeUnlock(roomId);
+        }
       }
+    } finally {
+      this.turnManager.unlock(roomId);
     }
 
     this.emitGameState(roomId);
@@ -558,8 +563,13 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const { roomId, playerId } = data as { roomId: string; playerId: string };
 
     if (this.gameService.hasMerchantsAtLocation(roomId)) {
-      this.tradeService.lockTrade(roomId);
-      this.emitTradeStateToAll(roomId);
+      this.turnManager.lock(roomId);
+      try {
+        this.tradeService.lockTrade(roomId);
+        this.emitTradeStateToAll(roomId);
+      } finally {
+        this.turnManager.unlock(roomId);
+      }
       this.campaignStore.saveFromMemory(roomId);
       return { success: true };
     }
@@ -582,8 +592,13 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       }
 
       if (this.gameService.hasMerchants(roomId)) {
-        this.tradeService.lockTrade(roomId);
-        this.emitTradeStateToAll(roomId);
+        this.turnManager.lock(roomId);
+        try {
+          this.tradeService.lockTrade(roomId);
+          this.emitTradeStateToAll(roomId);
+        } finally {
+          this.turnManager.unlock(roomId);
+        }
       } else {
         client.emit('game:message', {
           type: 'system',
@@ -686,12 +701,20 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const { roomId, playerId } = data as { roomId: string; playerId: string };
 
     try {
-      const allDone = this.tradeService.markDone(roomId, playerId);
+      this.turnManager.lock(roomId);
+      let allDone = false;
+      try {
+        allDone = this.tradeService.markDone(roomId, playerId);
+
+        if (allDone) {
+          this.tradeService.unlockTrade(roomId);
+          this.emitTradeUnlock(roomId);
+        }
+      } finally {
+        this.turnManager.unlock(roomId);
+      }
 
       if (allDone) {
-        this.tradeService.unlockTrade(roomId);
-        this.emitTradeUnlock(roomId);
-
         if (this.gameService.hasMerchants(roomId)) {
           this.emitNarrationText(roomId, 'The party finishes their business with the local merchants.', { type: 'group_action' });
         }

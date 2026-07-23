@@ -202,7 +202,7 @@ Two-handed weapons block the off-hand slot when equipped. `game:equip` auto-uneq
 
 Players can trade with AI-generated merchants at known locations:
 
-- **Initiate trade** — `game:initiate_trade` sends a request to the AI, which generates 1–10 merchants depending on location type (cities have many, wilderness has few). Each merchant has a unique name, specialty, greeting, coins, and 3–8 items.
+- **Initiate trade** — `game:initiate_trade` sends a request to the AI, which generates 1–10 merchants depending on location type (cities have many, wilderness has few). Each merchant has a unique name, specialty, greeting, coins, and 3–8 items. All trade mutations (`lockTrade`/`unlockTrade`/`markDone`/`removeFromTrade`) are guarded by the `TurnManager` per-room lock to prevent races between concurrent disconnect, buy/sell, and end-trade operations.
 - **Location‑gated** — if the current location is `"unknown location"`, no merchants are available. Changing locations clears the merchant state.
 - **Price adjustments** — prices are modified per player by Charisma modifier (±5% per mod point). Each player sees their own adjusted prices via `game:trade_state`.
 - **Buying** — `game:buy_item` deducts coins and adds the item to the player's inventory. Merchant stock decreases.
