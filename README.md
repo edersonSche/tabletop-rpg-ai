@@ -56,13 +56,15 @@ Both backend and frontend must run simultaneously.
 ```sh
 # Terminal 1 — Backend
 cd backend
+cp .env.example .env   # create local env (edit if needed)
 npm install
-npm run dev        # nest start --watch, port 3000
+npm run dev            # nest start --watch, port 3000
 
 # Terminal 2 — Frontend
 cd frontend
+cp .env.example .env   # create local env
 npm install
-npm run dev        # vite, port 5173
+npm run dev            # vite, port 5173
 ```
 
 Open **http://localhost:5173** in your browser.
@@ -76,6 +78,8 @@ cd frontend && npm run preview     # vite preview
 ```
 
 ## Environment Variables
+
+Template files (`.env.example`) are committed for both packages — copy to `.env` and adjust as needed.
 
 ### Backend (`backend/.env`)
 

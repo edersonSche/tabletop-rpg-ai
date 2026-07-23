@@ -31,7 +31,6 @@ export function useGameTurn({ gameState, turnUpdate, playerId, isAiProcessing, i
   const disabledReason = useMemo(() => {
     if (isTradeLocked) return 'Trade in progress';
     if (!isMyTurn) return 'Not your turn';
-    //if (isAiProcessing) return 'AI is processing...';
     return undefined;
   }, [isMyTurn, isAiProcessing, isTradeLocked]);
 

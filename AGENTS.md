@@ -4,7 +4,7 @@ Two-package monorepo: `backend/` (NestJS 11, Socket.IO 4.8), `frontend/` (React 
 
 **Game state is in-memory** — restarting wipes active rooms (but not saved campaigns). **Campaign persistence** writes per-campaign files to `data/campaigns/{id}.json` (schema v2 with flattened `SavedEffect` format, atomic temp+rename writes) on every action/roll/start/disconnect/create_character/leave — `saveFromMemory()` skips if `!gameStarted`, so pre-start creates/leaves do not persist. Old v1 saves (with nested `modifiers`/`effects`) are auto-migrated to v2 on restore via `migrateV1ToV2()`. Saved campaigns survive restarts and can be resumed via `lobby:resume`.
 
-**`.gitignore`**: root gitignores `docs` and `backend/data` (campaigns live there); each package gitignores `dist/`, `node_modules/`, `.env` independently. `npm run build` is the only validation gate (frontend: `tsc && vite build`).
+**`.gitignore`**: root gitignores `docs`, `backend/data`, `.tsbuildinfo`, and `.DS_Store`; each package gitignores `dist/`, `node_modules/`, `.env` independently. Template env files (`.env.example`) are committed for both packages. `npm run build` is the only validation gate (frontend: `tsc && vite build`).
 
 ## Commands
 
