@@ -8,6 +8,7 @@ import { CharacterCreation } from "./pages/CharacterCreation";
 import { WaitingRoom } from "./pages/WaitingRoom";
 import { GameRoom } from "./pages/GameRoom";
 import { Toast } from "./components/Layout/Toast";
+import { ErrorBoundary } from "./components/Layout/ErrorBoundary";
 
 function RoomRouter() {
   const { page } = useAuth();
@@ -50,11 +51,20 @@ function RoomRouter() {
   }
 }
 
+function AppContent() {
+  const { dispatch } = useAuth();
+  return (
+    <ErrorBoundary onGoToLobby={() => dispatch({ type: 'LEFT_ROOM' })}>
+      <RoomRouter />
+      <Toast />
+    </ErrorBoundary>
+  );
+}
+
 export default function App() {
   return (
     <AppProviders>
-      <RoomRouter />
-      <Toast />
+      <AppContent />
     </AppProviders>
   );
 }

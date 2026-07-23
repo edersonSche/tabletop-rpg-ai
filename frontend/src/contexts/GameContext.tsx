@@ -15,6 +15,7 @@ interface GameContextValue {
   startCampaign: () => void;
   emitTyping: (username: string) => void;
   emitTypingStop: () => void;
+  refetchGameState: () => void;
 }
 
 const GameContext = createContext<GameContextValue | null>(null);
@@ -263,10 +264,23 @@ export function GameProvider({ children }: { children: ReactNode }) {
     emit('game:typing_stop', { roomId: player.roomId, playerId: player.playerId });
   }, [player, emit]);
 
+  const refetchGameState = useCallback(() => {
+    if (!player.roomId) return;
+    emit('game:get_state', { roomId: player.roomId }, (response: any) => {
+      if (response?.error === 'Room not found') {
+        setGameState(null);
+        setTurnUpdate(null);
+        setMessages([{ type: 'system', content: 'Campaign is no longer available. Returning to lobby.', timestamp: Date.now() }]);
+        dispatch({ type: 'LEFT_ROOM' });
+      }
+    });
+  }, [player.roomId, emit, dispatch]);
+
   return (
     <GameContext.Provider value={{
       gameState, messages, turnUpdate, typingPlayers, isAiProcessing,
       sendAction, sendRoll, startCampaign, emitTyping, emitTypingStop,
+      refetchGameState,
     }}>
       {children}
     </GameContext.Provider>

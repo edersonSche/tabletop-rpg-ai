@@ -334,7 +334,8 @@ frontend/src/
 │   │   └── TradeModal.tsx  # Merchant trading UI (uses shared HoverPopup, ITEM_TYPE_ICONS)
 │   ├── Layout/
 │   │   ├── Header.tsx
-│   │   └── Toast.tsx
+│   │   ├── Toast.tsx
+│   │   └── ErrorBoundary.tsx  # React error boundary with retry/lobby fallback
 │   ├── Lobby/
 │   │   ├── CreateRoom.tsx
 │   │   ├── RoomList.tsx
@@ -346,6 +347,15 @@ frontend/src/
 └── types/
     └── game.types.ts        # Shared TypeScript interfaces (Message, Player incl. activeConditions, Effect, inventory/coins/equipment, UseAntidoteResult, ConditionTickPayload, Merchant, Room, etc.)
 ```
+
+### Error Boundaries
+
+Two-layer error boundary system prevents white-screen crashes:
+
+- **Root `ErrorBoundary`** (`App.tsx`) — wraps `RoomRouter` + `Toast`. Catches render errors across all pages. Shows a styled fallback with "GO TO LOBBY" button that dispatches `LEFT_ROOM` to navigate back to the lobby.
+- **GameRoom `ErrorBoundary`** (`GameRoom.tsx`) — isolates game room render errors. Adds a "RETRY" button that calls `GameContext.refetchGameState()` to re-emit `game:get_state` and recover game state without leaving the room. "GO TO LOBBY" dispatches `LEFT_ROOM`.
+- **Error reporting** — all caught errors are logged to console via `componentDidCatch`.
+- The `ErrorBoundary` class component is in `components/Layout/ErrorBoundary.tsx`. Props: `onRetry?` (reset + retry), `onGoToLobby?` (navigate to lobby).
 
 ### Frontend Performance
 

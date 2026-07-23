@@ -5,7 +5,9 @@ import { useGame } from '../hooks/useGame';
 import { useTrade } from '../hooks/useTrade';
 import { useInventory } from '../hooks/useInventory';
 import { useGameTurn } from '../hooks/useGameTurn';
+import { useAuth } from '../hooks/useAuth';
 import { Header } from '../components/Layout/Header';
+import { ErrorBoundary } from '../components/Layout/ErrorBoundary';
 import { MessageList } from '../components/Chat/MessageList';
 import { MessageInput } from '../components/Chat/MessageInput';
 import { DiceRollButton } from '../components/Chat/DiceRollButton';
@@ -27,7 +29,8 @@ export function GameRoom() {
   const [leaving, setLeaving] = useState(false);
 
   const { player, leaveRoom, allocateAttributes } = usePlayer();
-  const { gameState, messages, turnUpdate, typingPlayers, isAiProcessing, sendAction, sendRoll, startCampaign, emitTyping, emitTypingStop } = useGame();
+  const { gameState, messages, turnUpdate, typingPlayers, isAiProcessing, sendAction, sendRoll, startCampaign, emitTyping, emitTypingStop, refetchGameState } = useGame();
+  const { dispatch } = useAuth();
   const { tradeState, isTradeLocked, initiateTrade, buyItem, sellItem, endTrade } = useTrade();
   const { emitUseItem } = useInventory();
 
@@ -57,6 +60,10 @@ export function GameRoom() {
   };
 
   return (
+    <ErrorBoundary
+      onRetry={refetchGameState}
+      onGoToLobby={() => dispatch({ type: 'LEFT_ROOM' })}
+    >
     <div className="h-screen flex flex-col bg-navy-900">
       <Header />
 
@@ -200,6 +207,7 @@ export function GameRoom() {
         />
       )}
     </div>
+    </ErrorBoundary>
   );
 }
 
