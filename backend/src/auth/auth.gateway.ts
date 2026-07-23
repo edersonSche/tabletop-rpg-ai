@@ -11,12 +11,7 @@ import { AuthService } from './auth.service';
 import { ZodValidationPipe } from '../pipes/zod-validation.pipe';
 import { AuthLoginSchema } from '../dto/schemas';
 
-@WebSocketGateway({
-  cors: {
-    origin: '*',
-    credentials: true,
-  },
-})
+@WebSocketGateway()
 export class AuthGateway implements OnGatewayDisconnect {
   constructor(private authService: AuthService) {}
 

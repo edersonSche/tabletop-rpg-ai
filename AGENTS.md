@@ -20,7 +20,7 @@ No workspace root scripts — always `cd` into the package. Both must run simult
 
 ## Auth & connection
 
-**Auth is required.** Client sends `auth:login { userId }` → `{ success: true }`. Any `userId` string works — no password/token. CORS origin: `*`. `AuthWsGuard` emits `game:error` with `"Authentication required"` when unauthenticated; frontend catches this and auto-logs out.
+**Auth is required.** Client sends `auth:login { userId }` → `{ success: true }`. Any `userId` string works — no password/token. CORS origin is configured globally via `CorsIoAdapter` in `main.ts` (default: `http://localhost:5173`, configurable via `CORS_ORIGIN` env var, supports comma-separated for multiple origins). `AuthWsGuard` emits `game:error` with `"Authentication required"` when unauthenticated; frontend catches this and auto-logs out.
 
 Frontend connects to `window.location.origin` via Socket.IO (`transports: ['websocket', 'polling']`). Vite proxies `/socket.io` to `http://localhost:3000` (override via `VITE_SOCKET_HOST`). On reconnect, `AuthContext` re-emits `auth:login` and `GameContext` re-fetches `game:get_state`. 10-second disconnect timer before clearing page state.
 

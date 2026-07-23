@@ -42,12 +42,7 @@ import {
   EndTradeSchema,
 } from '../dto/schemas';
 
-@WebSocketGateway({
-  cors: {
-    origin: '*',
-    credentials: true,
-  },
-})
+@WebSocketGateway()
 @UseGuards(AuthWsGuard)
 export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()

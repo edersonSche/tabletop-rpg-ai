@@ -27,12 +27,7 @@ import {
   RoomLeaveSchema,
 } from '../dto/schemas';
 
-@WebSocketGateway({
-  cors: {
-    origin: '*',
-    credentials: true,
-  },
-})
+@WebSocketGateway()
 @UseGuards(AuthWsGuard)
 export class RoomGateway {
   @WebSocketServer()

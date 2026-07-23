@@ -85,6 +85,7 @@ cd frontend && npm run preview     # vite preview
 | `AI_API_KEY` | `(empty)` | API key; empty → fallback narration (no LLM call) |
 | `AI_MODEL` | `(empty)` | Model identifier for the provider |
 | `AI_BASE_URL` | `http://localhost:4096` | Base URL for the AI API |
+| `CORS_ORIGIN` | `http://localhost:5173` | Allowed CORS origin(s); comma-separated for multiple |
 
 **Repo default** points to local Opencode (`AI_PROVIDER=opencode`, `AI_API_KEY=none`, `AI_BASE_URL=http://localhost:4096`).
 
@@ -241,7 +242,7 @@ Set at room creation via `lobby:create { campaignTheme }`. The theme is injected
 
 ```
 backend/src/
-├── main.ts                  # NestJS entry point (port 3000)
+├── main.ts                  # NestJS entry point (port 3000) + global CORS via CorsIoAdapter
 ├── app.module.ts            # Root module (imports only — all providers moved to feature modules)
 ├── shared/
 │   └── shared.module.ts     # @Global module — exports GameState, DiceService
