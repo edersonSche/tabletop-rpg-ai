@@ -70,14 +70,22 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   // ─── Emission Helpers ───────────────────────────────────────────────
 
-  private emitGameState(roomId: string, socket?: Socket): void {
+  private emitGameState(roomId: string): void {
     const state = this.gameService.getState(roomId);
     if (!state) return;
-    if (socket) {
-      socket.emit('game:state', state);
-    } else {
-      this.server.to(roomId).emit('game:state', state);
-    }
+    this.server.to(roomId).emit('game:state', state);
+  }
+
+  private emitNarrationText(roomId: string, narration: string, next: AIResponse['next']): void {
+    this.server.to(roomId).emit('game:narration', {
+      narration,
+      next,
+      state: this.gameService.getState(roomId),
+    });
+  }
+
+  private emitTradeUnlock(roomId: string): void {
+    this.server.to(roomId).emit('game:trade_state', { locked: false });
   }
 
   private emitNarration(roomId: string, response: AIResponse, tickResults: TickResult[]): void {
@@ -149,7 +157,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     if (this.gameService.isTradeLocked(roomId)) {
       const shouldUnlock = this.tradeService.removeFromTrade(roomId, playerId);
       if (shouldUnlock) {
-        this.server.to(roomId).emit('game:trade_state', { locked: false });
+        this.emitTradeUnlock(roomId);
       }
     }
 
@@ -570,11 +578,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       const response = await this.gameService.initiateTrade(roomId, playerId);
 
       if (response.narration) {
-        this.server.to(roomId).emit('game:narration', {
-          narration: response.narration,
-          next: response.next,
-          state: this.gameService.getState(roomId),
-        });
+        this.emitNarrationText(roomId, response.narration, response.next);
       }
 
       if (this.gameService.hasMerchants(roomId)) {
@@ -686,14 +690,10 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
       if (allDone) {
         this.tradeService.unlockTrade(roomId);
-        this.server.to(roomId).emit('game:trade_state', { locked: false });
+        this.emitTradeUnlock(roomId);
 
         if (this.gameService.hasMerchants(roomId)) {
-          this.server.to(roomId).emit('game:narration', {
-            narration: 'The party finishes their business with the local merchants.',
-            next: { type: 'group_action' },
-            state: this.gameService.getState(roomId),
-          });
+          this.emitNarrationText(roomId, 'The party finishes their business with the local merchants.', { type: 'group_action' });
         }
       } else {
         this.emitTradeStateToAll(roomId);

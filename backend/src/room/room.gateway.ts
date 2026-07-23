@@ -47,6 +47,23 @@ export class RoomGateway {
     private aiService: AiService,
   ) {}
 
+  // ─── Emission Helpers ───────────────────────────────────────────────
+
+  private emitGameStateToClient(client: Socket, roomId: string): void {
+    const state = this.gameService.getState(roomId);
+    if (state) client.emit('game:state', state);
+  }
+
+  private emitGameStateToRoom(roomId: string): void {
+    const state = this.gameService.getState(roomId);
+    if (state) this.server.to(roomId).emit('game:state', state);
+  }
+
+  private emitGameStateToOthers(client: Socket, roomId: string): void {
+    const state = this.gameService.getState(roomId);
+    if (state) client.to(roomId).emit('game:state', state);
+  }
+
   @SubscribeMessage('lobby:create')
   @UsePipes(new ZodValidationPipe(LobbyCreateSchema))
   async handleCreateRoom(
@@ -111,9 +128,8 @@ export class RoomGateway {
 
     const state = this.gameService.getRoomContext(roomId);
     if (state) {
-      client.emit('game:state', this.gameService.getState(roomId));
-
-      this.server.to(roomId).emit('game:state', this.gameService.getState(roomId));
+      this.emitGameStateToClient(client, roomId);
+      this.emitGameStateToRoom(roomId);
 
       this.server.to(roomId).emit('game:message', {
         type: 'system',
@@ -172,9 +188,8 @@ export class RoomGateway {
       client.emit('player:registered', { playerId: existing.id });
 
       if (state) {
-        client.to(roomId).emit('game:state', this.gameService.getState(roomId));
-
-        client.emit('game:state', this.gameService.getState(roomId));
+        this.emitGameStateToOthers(client, roomId);
+        this.emitGameStateToClient(client, roomId);
       }
 
       return {
@@ -267,7 +282,7 @@ export class RoomGateway {
 
       const state = this.gameService.getRoomContext(campaignId);
       if (state) {
-        client.emit('game:state', this.gameService.getState(campaignId));
+        this.emitGameStateToClient(client, campaignId);
       }
 
       return {
@@ -293,7 +308,7 @@ export class RoomGateway {
 
     const state = this.gameService.getRoomContext(savedCampaign.campaignId);
     if (state) {
-      client.emit('game:state', this.gameService.getState(savedCampaign.campaignId));
+      this.emitGameStateToClient(client, savedCampaign.campaignId);
     }
 
     return {
@@ -342,7 +357,7 @@ export class RoomGateway {
       this.aiService.onRoomEmpty(roomId);
           this.roomService.removeRoom(roomId);
         } else {
-          this.server.to(roomId).emit('game:state', this.gameService.getState(roomId));
+          this.emitGameStateToRoom(roomId);
         }
       }
     }
