@@ -2,7 +2,7 @@ import { createContext, useContext, useState, useEffect, useCallback, useRef, Re
 import { useSocketContext } from './SocketContext';
 import { usePlayerContext } from './PlayerContext';
 import { useAuthContext } from './AuthContext';
-import { GameState, TurnUpdate, ConditionTickPayload, Message } from '../types/game.types';
+import { GameState, TurnUpdate, ConditionTickPayload, Message, GetStateResponse } from '../types/game.types';
 
 interface GameContextValue {
   gameState: GameState | null;
@@ -37,7 +37,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     const handleConnect = () => {
       const currentRoomId = playerRef.current.roomId;
       if (currentRoomId) {
-        emit('game:get_state', { roomId: currentRoomId }, (response: any) => {
+        emit('game:get_state', { roomId: currentRoomId }, (response: GetStateResponse) => {
           if (response?.error === 'Room not found') {
             setGameState(null);
             setTurnUpdate(null);
@@ -266,7 +266,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
   const refetchGameState = useCallback(() => {
     if (!player.roomId) return;
-    emit('game:get_state', { roomId: player.roomId }, (response: any) => {
+    emit('game:get_state', { roomId: player.roomId }, (response: GetStateResponse) => {
       if (response?.error === 'Room not found') {
         setGameState(null);
         setTurnUpdate(null);

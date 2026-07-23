@@ -248,9 +248,13 @@ export interface CharacterKit {
   items: Array<{ name: string; quantity: number }>;
 }
 
-export interface Room {
-  id: string;
-  name: string;
-  players: Array<{ id: string; name: string }>;
-  campaignStarted: boolean;
-}
+export interface LoginResponse { success: boolean; error?: string }
+export interface CreateRoomResponse { success: boolean; room: { id: string }; error?: string }
+export interface CreateCharacterResponse { success: boolean; playerId: string; campaignStarted?: boolean; error?: string }
+export interface JoinRoomResponse { success: boolean; needsCharacter?: boolean; room?: { id: string }; playerId?: string; campaignStarted?: boolean; error?: string }
+export interface ResumeCampaignResponse { success: boolean; room: { id: string }; playerId: string; campaignStarted?: boolean; error?: string }
+export interface ListSavedCampaignsResponse { campaigns?: SavedCampaignInfo[] }
+export interface DeleteSavedCampaignResponse { success: boolean; error?: string }
+export interface LeaveRoomResponse { success: boolean; error?: string }
+export interface GetKitsResponse { kits?: CharacterKit[] }
+export interface GetStateResponse { error?: string }

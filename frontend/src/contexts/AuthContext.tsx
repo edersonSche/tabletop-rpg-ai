@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, useCallback, useRef, useReducer, ReactNode } from 'react';
 import { useSocketContext } from './SocketContext';
 import { Page, PageAction, pageReducer } from '../routing/pageRouter';
+import type { LoginResponse } from '../types/game.types';
 
 interface AuthContextValue {
   userId: string | null;
@@ -27,13 +28,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = useCallback((uid: string): Promise<boolean> => {
     return new Promise((resolve) => {
-      emit('auth:login', { userId: uid }, (response: any) => {
+      emit('auth:login', { userId: uid }, (response: LoginResponse) => {
         if (response.success) {
           setUserId(uid);
           dispatch({ type: 'LOGGED_IN' });
           resolve(true);
         } else {
-          setError(response.error);
+          setError(response.error ?? null);
           resolve(false);
         }
       });
@@ -49,7 +50,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const handleConnect = () => {
       const currentUserId = userIdRef.current;
       if (currentUserId) {
-        emit('auth:login', { userId: currentUserId }, (response: any) => {
+        emit('auth:login', { userId: currentUserId }, (response: LoginResponse) => {
           if (!response.success) {
             setUserId(null);
             dispatch({ type: 'LOGGED_OUT' });

@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useEffect, useCallback, useRef, ReactNode } from 'react';
 import { useSocketContext } from './SocketContext';
 import { useAuthContext } from './AuthContext';
-import { GameState, SavedCampaignInfo, CharacterKit, Player } from '../types/game.types';
+import { GameState, SavedCampaignInfo, CharacterKit, Player, CreateRoomResponse, CreateCharacterResponse, JoinRoomResponse, ResumeCampaignResponse, ListSavedCampaignsResponse, DeleteSavedCampaignResponse, LeaveRoomResponse, GetKitsResponse } from '../types/game.types';
 
 interface PlayerInfo {
   playerId: string;
@@ -57,14 +57,14 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
 
   const createRoom = useCallback((name: string, language?: string, campaignTheme?: string): Promise<void> => {
     return new Promise((resolve, reject) => {
-      emit('lobby:create', { name, language, campaignTheme }, (response: any) => {
+      emit('lobby:create', { name, language, campaignTheme }, (response: CreateRoomResponse) => {
         if (response.success) {
           setPlayer(prev => ({ ...prev, roomId: response.room.id }));
           dispatch({ type: 'CREATED_ROOM' });
           resolve();
         } else {
-          setError(response.error);
-          reject(new Error(response.error));
+          setError(response.error ?? null);
+          reject(new Error(response.error ?? 'Unknown error'));
         }
       });
     });
@@ -72,7 +72,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
 
   const createCharacter = useCallback((roomId: string, name: string, attributes?: Player['attributes'], kitId?: string): Promise<void> => {
     return new Promise((resolve, reject) => {
-      emit('lobby:create_character', { roomId, name, attributes, kitId }, (response: any) => {
+      emit('lobby:create_character', { roomId, name, attributes, kitId }, (response: CreateCharacterResponse) => {
         if (response.success) {
           setPlayer(prev => ({ ...prev, playerId: response.playerId }));
           if (response.campaignStarted) {
@@ -82,8 +82,8 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
           }
           resolve();
         } else {
-          setError(response.error);
-          reject(new Error(response.error));
+          setError(response.error ?? null);
+          reject(new Error(response.error ?? 'Unknown error'));
         }
       });
     });
@@ -91,13 +91,13 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
 
   const joinRoom = useCallback((roomId: string): Promise<void> => {
     return new Promise((resolve, reject) => {
-      emit('lobby:join', { roomId }, (response: any) => {
+      emit('lobby:join', { roomId }, (response: JoinRoomResponse) => {
         if (response.success) {
           if (response.needsCharacter) {
             setPlayer(prev => ({ ...prev, roomId }));
             dispatch({ type: 'JOIN_NEEDS_CHARACTER' });
           } else {
-            setPlayer(prev => ({ ...prev, roomId: response.room.id, playerId: response.playerId }));
+            setPlayer(prev => ({ ...prev, roomId: response.room!.id, playerId: response.playerId! }));
             if (response.campaignStarted) {
               dispatch({ type: 'CHARACTER_CREATED_AND_STARTED' });
             } else {
@@ -106,8 +106,8 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
           }
           resolve();
         } else {
-          setError(response.error);
-          reject(new Error(response.error));
+          setError(response.error ?? null);
+          reject(new Error(response.error ?? 'Unknown error'));
         }
       });
     });
@@ -115,12 +115,12 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
 
   const resumeCampaign = useCallback((campaignId: string): Promise<void> => {
     return new Promise((resolve, reject) => {
-      emit('lobby:resume', { campaignId }, (response: any) => {
+      emit('lobby:resume', { campaignId }, (response: ResumeCampaignResponse) => {
         if (response.success) {
           setPlayer(prev => ({
             ...prev,
-            roomId: response.room.id,
-            playerId: response.playerId,
+            roomId: response.room!.id,
+            playerId: response.playerId!,
           }));
           if (response.campaignStarted) {
             dispatch({ type: 'CHARACTER_CREATED_AND_STARTED' });
@@ -129,8 +129,8 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
           }
           resolve();
         } else {
-          setError(response.error);
-          reject(new Error(response.error));
+          setError(response.error ?? null);
+          reject(new Error(response.error ?? 'Unknown error'));
         }
       });
     });
@@ -138,17 +138,17 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
 
   const listSavedCampaigns = useCallback((): Promise<SavedCampaignInfo[]> => {
     return new Promise((resolve) => {
-      emit('lobby:list_saved', (response: any) => resolve(response?.campaigns || []));
+      emit('lobby:list_saved', (response: ListSavedCampaignsResponse) => resolve(response?.campaigns || []));
     });
   }, [emit]);
 
   const deleteSavedCampaign = useCallback((campaignId: string): Promise<boolean> => {
     return new Promise((resolve) => {
-      emit('lobby:delete_saved', { campaignId }, (response: any) => {
+      emit('lobby:delete_saved', { campaignId }, (response: DeleteSavedCampaignResponse) => {
         if (response.success) {
           resolve(true);
         } else {
-          setError(response.error);
+          setError(response.error ?? null);
           resolve(false);
         }
       });
@@ -158,13 +158,13 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const leaveRoom = useCallback((): Promise<void> => {
     return new Promise((resolve, reject) => {
       if (!playerRef.current.roomId || !playerRef.current.playerId) { reject(new Error('Not connected')); return; }
-      emit('room:leave', { roomId: playerRef.current.roomId, playerId: playerRef.current.playerId }, (response: any) => {
+      emit('room:leave', { roomId: playerRef.current.roomId, playerId: playerRef.current.playerId }, (response: LeaveRoomResponse) => {
         if (response.success) {
           setPlayer({ playerId: '', roomId: null });
           dispatch({ type: 'LEFT_ROOM' });
           resolve();
         } else {
-          reject(new Error(response.error || 'Failed to leave'));
+          reject(new Error(response.error ?? 'Failed to leave'));
         }
       });
     });
@@ -186,7 +186,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
 
   const fetchKits = useCallback((roomId: string): Promise<CharacterKit[]> => {
     return new Promise((resolve) => {
-      emit('game:get_kits', { roomId }, (response: any) => {
+      emit('game:get_kits', { roomId }, (response: GetKitsResponse) => {
         resolve(response?.kits || []);
       });
     });

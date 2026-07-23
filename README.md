@@ -345,7 +345,7 @@ frontend/src/
 │       ├── HoverPopup.tsx    # Generic render-prop hover popup (portal + boundary clamping + mouse-leave detection)
 │       └── ConfirmUseModal.tsx  # Unified fullscreen item confirmation modal
 └── types/
-    └── game.types.ts        # Shared TypeScript interfaces (Message, Player incl. activeConditions, Effect, inventory/coins/equipment, UseAntidoteResult, ConditionTickPayload, Merchant, Room, etc.)
+    └── game.types.ts        # Shared TypeScript interfaces (Message, Player incl. activeConditions, Effect, inventory/coins/equipment, UseAntidoteResult, ConditionTickPayload, Merchant, plus typed socket response interfaces: LoginResponse, CreateRoomResponse, JoinRoomResponse, etc.)
 ```
 
 ### Error Boundaries

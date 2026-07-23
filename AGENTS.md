@@ -84,7 +84,7 @@ RoomModule ↔ CampaignModule circular dependency is resolved via `forwardRef()`
 - `contexts/InventoryContext.tsx` — equip/unequip/useItem/antidote actions (`emitEquip`, `emitUnequip`, `emitUseItem`, `emitUseAntidote`). No listeners.
 - `hooks/useAuth.ts`, `usePlayer.ts`, `useGame.ts`, `useTrade.ts`, `useInventory.ts` — Thin re-exports of `useContext` for each context
 - `hooks/useGameTurn.ts` — derives `isMyTurn`, `isRollRequest`, `canAct`, etc. from `gameState` + `turnUpdate` (pure, no context dependency)
-- `types/game.types.ts` — TS interfaces mirroring backend DTOs (includes `Message` with 4 types: system/action/narration/roll)
+- `types/game.types.ts` — TS interfaces mirroring backend DTOs (includes `Message` with 4 types: system/action/narration/roll). Also includes typed response interfaces (`LoginResponse`, `CreateRoomResponse`, etc.) for all socket emit callbacks — no `any` typed responses remain. `Room` type was removed as unused (room listing not exposed in UI).
 - `pages/` — `Login`, `Lobby`, `CharacterCreation`, `WaitingRoom`, `GameRoom`
 - `components/` — `Chat/` (MessageList, MessageInput, DiceRollButton, UseItemButton uses shared ConfirmUseModal), `GameStatus/` (CharacterSheet with active conditions + EffectRow + shared HoverPopup/ConfirmUseModal, MyCharacterStatus with condition indicators + shared CONDITION_ICONS, AttributeAllocationModal uses shared ATTRIBUTE_ICONS/ATTRIB_KEYS, and more), `Trade/` (TradeModal uses shared HoverPopup + ITEM_TYPE_ICONS), `Layout/` (Header, Toast, ErrorBoundary), `Lobby/` (CreateRoom, RoomList, SavedCampaigns), `shared/` (constants.ts with 4 icon maps, HoverPopup.tsx generic render-prop popup, ConfirmUseModal.tsx unified item confirmation)
 
