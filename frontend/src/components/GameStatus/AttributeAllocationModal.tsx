@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { Close, Plus, Minus, Sword, Target, Heart, BookOpen, Star, Crown } from 'pixelarticons/react';
+import { Close, Plus, Minus } from 'pixelarticons/react';
 import { Player } from '../../types/game.types';
+import { ATTRIBUTE_ICONS, ATTRIB_KEYS } from '../shared/constants';
 
 interface AttributeAllocationModalProps {
   player: Player | undefined;
@@ -8,17 +9,6 @@ interface AttributeAllocationModalProps {
   onClose: () => void;
   onAllocate: (allocations: Record<string, number>) => void;
 }
-
-const ATTRIBUTE_ICONS: Record<keyof Player['attributes'], { label: string; icon: React.ComponentType<{ width?: number; height?: number; className?: string }> }> = {
-  strength:     { label: 'STR',     icon: Sword },
-  dexterity:    { label: 'DEX',    icon: Target },
-  constitution: { label: 'CON', icon: Heart },
-  intelligence: { label: 'INT', icon: BookOpen },
-  wisdom:       { label: 'WIS',       icon: Star },
-  charisma:     { label: 'CHA',     icon: Crown },
-};
-
-const ATTRIB_KEYS = Object.keys(ATTRIBUTE_ICONS) as Array<keyof Player['attributes']>;
 const MAX_ATTRIBUTE = 20;
 
 export function AttributeAllocationModal({ player, isOpen, onClose, onAllocate }: AttributeAllocationModalProps) {

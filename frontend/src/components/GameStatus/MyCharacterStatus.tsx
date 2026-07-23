@@ -1,16 +1,6 @@
-import { Skull, Fire, Star, Close, Zap, CloudMoon, Lock, Moon, Circle } from 'pixelarticons/react';
+import { Circle } from 'pixelarticons/react';
 import { Player, ActiveCondition } from '../../types/game.types';
-
-const CONDITION_ICONS: Record<string, React.ComponentType<{ width?: number; height?: number; className?: string }>> = {
-  Poisoned: Skull,
-  Burning: Fire,
-  Blessed: Star,
-  Cursed: Close,
-  Stunned: Zap,
-  Frozen: CloudMoon,
-  Paralyzed: Lock,
-  Unconscious: Moon,
-};
+import { CONDITION_ICONS } from '../shared/constants';
 
 function ConditionIcon({ condition }: { condition: string }) {
   const Icon = CONDITION_ICONS[condition] || Circle;

@@ -1,8 +1,10 @@
-import { useState, useRef, useEffect } from 'react';
-import { createPortal } from 'react-dom';
-import { Close, Sword, Target, Heart, BookOpen, Star, Crown, Archive, Shield, Wallet, Box, Potion, Backpack, Human, Skull, Fire, Zap, CloudMoon, Moon, Lock, Circle } from 'pixelarticons/react';
+import { useState } from 'react';
+import { Close, Sword, Shield, Wallet, Backpack, Human, Circle, Box, Star } from 'pixelarticons/react';
 import { Player, InventoryItem, ActiveCondition, Effect } from '../../types/game.types';
 import { useInventory } from '../../hooks/useInventory';
+import { CONDITION_ICONS, ITEM_TYPE_ICONS, ATTRIBUTE_ICONS, ATTRIB_KEYS } from '../shared/constants';
+import { HoverPopup } from '../shared/HoverPopup';
+import { ConfirmUseModal } from '../shared/ConfirmUseModal';
 
 interface CharacterSheetProps {
   player: Player | undefined;
@@ -12,17 +14,6 @@ interface CharacterSheetProps {
 
 type Tab = 'attributes' | 'inventory';
 type SlotKey = 'body' | 'mainHand' | 'offHand';
-
-const ATTRIBUTE_ICONS: Record<keyof Player['attributes'], { label: string; icon: React.ComponentType<{ width?: number; height?: number; className?: string }> }> = {
-  strength:     { label: 'STR',     icon: Sword },
-  dexterity:    { label: 'DEX',    icon: Target },
-  constitution: { label: 'CON', icon: Heart },
-  intelligence: { label: 'INT', icon: BookOpen },
-  wisdom:       { label: 'WIS',       icon: Star },
-  charisma:     { label: 'CHA',     icon: Crown },
-};
-
-const ATTRIB_KEYS = Object.keys(ATTRIBUTE_ICONS) as Array<keyof Player['attributes']>;
 
 const SLOT_ICONS: Record<SlotKey, React.ComponentType<{ width?: number; height?: number; className?: string }>> = {
   body: Human,
@@ -34,17 +25,6 @@ const SLOT_LABELS: Record<SlotKey, string> = {
   body: 'Body',
   mainHand: 'Main Hand',
   offHand: 'Off Hand',
-};
-
-const CONDITION_ICONS: Record<string, React.ComponentType<{ width?: number; height?: number; className?: string }>> = {
-  Poisoned: Skull,
-  Burning: Fire,
-  Blessed: Star,
-  Cursed: Close,
-  Stunned: Zap,
-  Frozen: CloudMoon,
-  Paralyzed: Lock,
-  Unconscious: Moon,
 };
 
 function ConditionIcon({ condition, className }: { condition: string; className?: string }) {
@@ -121,15 +101,6 @@ function ActiveConditionsSection({ player, onUseAntidote }: { player: Player; on
     </div>
   );
 }
-
-const ITEM_TYPE_ICONS: Record<string, React.ComponentType<{ width?: number; height?: number; className?: string }>> = {
-  weapon: Sword,
-  armor: Archive,
-  potion: Potion,
-  scroll: BookOpen,
-  key_item: Star,
-  misc: Box,
-};
 
 function AttributesTab({ player, onUseAntidote }: { player: Player; onUseAntidote: (conditionName: string) => void }) {
   const hpPct = player.maxHp > 0 ? Math.round((player.hp / player.maxHp) * 100) : 0;
@@ -238,46 +209,6 @@ function EquipmentCard({ slot, item }: { slot: SlotKey; item: InventoryItem | un
   );
 }
 
-function ConfirmUseModal({ item, onUse, onClose }: { item: InventoryItem; onUse: () => void; onClose: () => void }) {
-  const TypeIcon = ITEM_TYPE_ICONS[item.type] || Box;
-
-  return (
-    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-navy-950/80" onClick={onClose}>
-      <div className="pixel-border bg-navy-800 max-w-xs w-full mx-4 p-4" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center gap-3 mb-3">
-          <div className="w-10 h-10 bg-navy-900 pixel-border flex items-center justify-center">
-            <TypeIcon width={20} height={20} className="text-gold-400" />
-          </div>
-          <div>
-            <div className="font-pixel text-[9px] text-gold-400">Use {item.name}?</div>
-            {item.quantity > 1 && (
-              <div className="font-pixel text-[7px] text-stone-600">x{item.quantity}</div>
-            )}
-          </div>
-        </div>
-
-        <div className="font-pixel text-[7px] text-stone-400 mb-4">
-          {item.effects?.map((ef, i) => (
-            <div key={i} className="mb-1">
-              {ef.hpChange?.type === 'heal' && <span>Restores <span className="text-forest-600">{ef.hpChange.formula}</span> HP</span>}
-              {ef.hpChange?.type === 'damage' && <span>Deals <span className="text-blood-600">{ef.hpChange.formula}</span> damage</span>}
-            </div>
-          ))}
-        </div>
-
-        <div className="space-y-1.5">
-          <button onClick={() => { onUse(); onClose(); }} className="w-full bg-forest-800/50 border border-forest-600/30 pixel-border py-2 font-pixel text-[8px] text-forest-600 hover:bg-forest-700/50 transition-all">
-            USE
-          </button>
-          <button onClick={onClose} className="w-full bg-navy-700 pixel-border py-2 font-pixel text-[8px] text-stone-400 hover:bg-navy-600 transition-all">
-            CANCEL
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 function ItemPopupContent({ item, player, onEquip, onUnequip, onUseItem, onClose }: {
   item: InventoryItem;
   player: Player;
@@ -370,62 +301,6 @@ function ItemPopupContent({ item, player, onEquip, onUnequip, onUseItem, onClose
   );
 }
 
-function HoverItemPopup({ item, player, onEquip, onUnequip, onUseItem, children }: {
-  item: InventoryItem;
-  player: Player;
-  onEquip: (itemId: string, slot: 'body' | 'mainHand' | 'offHand') => void;
-  onUnequip: (slot: SlotKey) => void;
-  onUseItem: (itemId: string) => void;
-  children: React.ReactNode;
-}) {
-  const [isOpen, setIsOpen] = useState(false);
-  const [pos, setPos] = useState({ top: 0, left: 0 });
-  const popupRef = useRef<HTMLDivElement>(null);
-  const triggerRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!isOpen) return;
-    const popup = popupRef.current;
-    const trigger = triggerRef.current;
-    if (!popup || !trigger) return;
-
-    const onMouseMove = (e: MouseEvent) => {
-      const tr = trigger.getBoundingClientRect();
-      const pr = popup.getBoundingClientRect();
-      const x = e.clientX, y = e.clientY;
-      const insideTrigger = x >= tr.left && x <= tr.right && y >= tr.top && y <= tr.bottom;
-      const insidePopup = x >= pr.left && x <= pr.right && y >= pr.top && y <= pr.bottom;
-      if (!insideTrigger && !insidePopup) setIsOpen(false);
-    };
-
-    document.addEventListener('mousemove', onMouseMove);
-    return () => document.removeEventListener('mousemove', onMouseMove);
-  }, [isOpen]);
-
-  const handleMouseEnter = () => {
-    const el = triggerRef.current;
-    if (el) {
-      const rect = el.getBoundingClientRect();
-      setPos({ top: rect.bottom, left: rect.left });
-    }
-    setIsOpen(true);
-  };
-
-  return (
-    <div ref={triggerRef} onMouseEnter={handleMouseEnter}>
-      {children}
-      {isOpen && createPortal(
-        <div ref={popupRef} className="fixed z-[60]" style={{ top: pos.top, left: pos.left, width: '256px' }}>
-          <div className="pixel-border bg-navy-800 shadow-lg border border-stone-700/20">
-            <ItemPopupContent item={item} player={player} onEquip={onEquip} onUnequip={onUnequip} onUseItem={onUseItem} onClose={() => setIsOpen(false)} />
-          </div>
-        </div>,
-        document.body
-      )}
-    </div>
-  );
-}
-
 function InventoryTab({ player, onEquip, onUnequip, onUseItem }: { player: Player; onEquip: (itemId: string, slot: 'body' | 'mainHand' | 'offHand') => void; onUnequip: (slot: SlotKey) => void; onUseItem: (itemId: string) => void }) {
   const equipItem = (slot: SlotKey): InventoryItem | undefined => {
     const id = player.equipment[slot];
@@ -447,9 +322,9 @@ function InventoryTab({ player, onEquip, onUnequip, onUseItem }: { player: Playe
         ) : (
           <div className="space-y-1 max-h-64 overflow-y-auto pr-1 scrollbar-quest">
             {player.inventory.map(item => (
-              <HoverItemPopup key={item.id} item={item} player={player} onEquip={onEquip} onUnequip={onUnequip} onUseItem={onUseItem}>
+              <HoverPopup key={item.id} content={(close) => <ItemPopupContent item={item} player={player} onEquip={onEquip} onUnequip={onUnequip} onUseItem={onUseItem} onClose={close} />}>
                 <ItemCell item={item} isEquipped={equippedIds.has(item.id)} />
-              </HoverItemPopup>
+              </HoverPopup>
             ))}
           </div>
         )}
@@ -459,19 +334,19 @@ function InventoryTab({ player, onEquip, onUnequip, onUseItem }: { player: Playe
         <div className="font-pixel text-[7px] text-stone-500 mb-2 tracking-wider">EQUIPPED</div>
         <div className="space-y-1.5">
           {!bodyItem ? <EquipmentCard slot="body" item={bodyItem} /> : (
-            <HoverItemPopup item={bodyItem} player={player} onEquip={onEquip} onUnequip={onUnequip} onUseItem={onUseItem}>
+            <HoverPopup content={(close) => <ItemPopupContent item={bodyItem} player={player} onEquip={onEquip} onUnequip={onUnequip} onUseItem={onUseItem} onClose={close} />}>
               <EquipmentCard slot="body" item={bodyItem} />
-            </HoverItemPopup>
+            </HoverPopup>
           )}
           {!mainHandItem ? <EquipmentCard slot="mainHand" item={mainHandItem} /> : (
-            <HoverItemPopup item={mainHandItem} player={player} onEquip={onEquip} onUnequip={onUnequip} onUseItem={onUseItem}>
+            <HoverPopup content={(close) => <ItemPopupContent item={mainHandItem} player={player} onEquip={onEquip} onUnequip={onUnequip} onUseItem={onUseItem} onClose={close} />}>
               <EquipmentCard slot="mainHand" item={mainHandItem} />
-            </HoverItemPopup>
+            </HoverPopup>
           )}
           {!offHandItem ? <EquipmentCard slot="offHand" item={offHandItem} /> : (
-            <HoverItemPopup item={offHandItem} player={player} onEquip={onEquip} onUnequip={onUnequip} onUseItem={onUseItem}>
+            <HoverPopup content={(close) => <ItemPopupContent item={offHandItem} player={player} onEquip={onEquip} onUnequip={onUnequip} onUseItem={onUseItem} onClose={close} />}>
               <EquipmentCard slot="offHand" item={offHandItem} />
-            </HoverItemPopup>
+            </HoverPopup>
           )}
         </div>
       </div>

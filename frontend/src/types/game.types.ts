@@ -100,6 +100,13 @@ export interface Player {
   activeConditions: ActiveCondition[];
 }
 
+export interface Message {
+  type: 'system' | 'action' | 'narration' | 'roll';
+  content: string;
+  characterName?: string;
+  timestamp: number;
+}
+
 export type TurnType = 'group_action' | 'call_player' | 'call_roll' | 'narration_only';
 
 export interface AIResponse {

@@ -315,31 +315,36 @@ frontend/src/
 │   ├── Chat/
 │   │   ├── MessageList.tsx
 │   │   ├── MessageInput.tsx
-│   │   └── DiceRollButton.tsx
+│   │   ├── DiceRollButton.tsx
+│   │   └── UseItemButton.tsx  # Consumable dropdown + shared ConfirmUseModal
 │   ├── GameStatus/
 │   │   ├── LocationBadge.tsx
 │   │   ├── TurnIndicator.tsx
 │   │   ├── PlayerList.tsx
 │   │   ├── PlayerCard.tsx
-│   │   ├── CharacterSheet.tsx   # Attributes + Inventory tabs, equip/unequip UI, active conditions section with antidote button, EffectRow (exported)
+│   │   ├── CharacterSheet.tsx   # Attributes + Inventory tabs, equip/unequip UI, active conditions section with antidote button, EffectRow (exported); uses shared HoverPopup/ConfirmUseModal
 │   │   ├── TypingIndicator.tsx
 │   │   ├── CampaignStatusBar.tsx
-│   │   ├── MyCharacterStatus.tsx   # HP/XP bars + condition indicators with hover tooltip
+│   │   ├── MyCharacterStatus.tsx   # HP/XP bars + condition indicators with hover tooltip (uses shared CONDITION_ICONS)
 │   │   ├── PlayerCircles.tsx
-│   │   ├── AttributeAllocationModal.tsx
+│   │   ├── AttributeAllocationModal.tsx  # ASI point allocation (uses shared ATTRIBUTE_ICONS/ATTRIB_KEYS)
 │   │   ├── CharacterListModal.tsx
 │   │   └── OptionsModal.tsx
 │   ├── Trade/
-│   │   └── TradeModal.tsx
+│   │   └── TradeModal.tsx  # Merchant trading UI (uses shared HoverPopup, ITEM_TYPE_ICONS)
 │   ├── Layout/
 │   │   ├── Header.tsx
 │   │   └── Toast.tsx
-│   └── Lobby/
-│       ├── CreateRoom.tsx
-│       ├── RoomList.tsx
-│       └── SavedCampaigns.tsx
+│   ├── Lobby/
+│   │   ├── CreateRoom.tsx
+│   │   ├── RoomList.tsx
+│   │   └── SavedCampaigns.tsx
+│   └── shared/
+│       ├── constants.ts      # Shared icon maps: CONDITION_ICONS, ITEM_TYPE_ICONS, ATTRIBUTE_ICONS, ATTRIB_KEYS
+│       ├── HoverPopup.tsx    # Generic render-prop hover popup (portal + boundary clamping + mouse-leave detection)
+│       └── ConfirmUseModal.tsx  # Unified fullscreen item confirmation modal
 └── types/
-    └── game.types.ts        # Shared TypeScript interfaces (Player incl. activeConditions, Effect, inventory/coins/equipment, UseAntidoteResult, ConditionTickPayload)
+    └── game.types.ts        # Shared TypeScript interfaces (Message, Player incl. activeConditions, Effect, inventory/coins/equipment, UseAntidoteResult, ConditionTickPayload, Merchant, Room, etc.)
 ```
 
 ## Limitations

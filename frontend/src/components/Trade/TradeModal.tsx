@@ -1,8 +1,9 @@
-import { useState, useRef, useEffect } from 'react';
-import { createPortal } from 'react-dom';
-import { Close, Wallet, Sword, Archive, Potion, BookOpen, Star, Box } from 'pixelarticons/react';
+import { useState } from 'react';
+import { Close, Wallet, Box } from 'pixelarticons/react';
 import { Merchant, MerchantItem, InventoryItem } from '../../types/game.types';
 import { EffectRow } from '../GameStatus/CharacterSheet';
+import { ITEM_TYPE_ICONS } from '../shared/constants';
+import { HoverPopup } from '../shared/HoverPopup';
 
 interface TradeModalProps {
   merchants: Merchant[];
@@ -17,70 +18,6 @@ interface TradeModalProps {
   onSellItem: (merchantId: string, itemId: string, quantity: number) => void;
   onEndTrade: () => void;
   onForceEnd?: () => void;
-}
-
-const ITEM_TYPE_ICONS: Record<string, React.ComponentType<{ width?: number; height?: number; className?: string }>> = {
-  weapon: Sword,
-  armor: Archive,
-  potion: Potion,
-  scroll: BookOpen,
-  key_item: Star,
-  misc: Box,
-};
-
-function TradeHoverPopup({ content, children }: {
-  content: (close: () => void) => React.ReactNode;
-  children: React.ReactNode;
-}) {
-  const [isOpen, setIsOpen] = useState(false);
-  const [pos, setPos] = useState({ top: 0, left: 0 });
-  const popupRef = useRef<HTMLDivElement>(null);
-  const triggerRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!isOpen) return;
-    const popup = popupRef.current;
-    const trigger = triggerRef.current;
-    if (!popup || !trigger) return;
-
-    const onMouseMove = (e: MouseEvent) => {
-      const tr = trigger.getBoundingClientRect();
-      const pr = popup.getBoundingClientRect();
-      const x = e.clientX, y = e.clientY;
-      const insideTrigger = x >= tr.left && x <= tr.right && y >= tr.top && y <= tr.bottom;
-      const insidePopup = x >= pr.left && x <= pr.right && y >= pr.top && y <= pr.bottom;
-      if (!insideTrigger && !insidePopup) setIsOpen(false);
-    };
-
-    document.addEventListener('mousemove', onMouseMove);
-    return () => document.removeEventListener('mousemove', onMouseMove);
-  }, [isOpen]);
-
-  const handleMouseEnter = () => {
-    const el = triggerRef.current;
-    if (el) {
-      const rect = el.getBoundingClientRect();
-      let left = rect.left;
-      if (left + 256 > window.innerWidth) left = window.innerWidth - 260;
-      if (left < 0) left = 4;
-      setPos({ top: rect.bottom, left });
-    }
-    setIsOpen(true);
-  };
-
-  return (
-    <div ref={triggerRef} onMouseEnter={handleMouseEnter}>
-      {children}
-      {isOpen && createPortal(
-        <div ref={popupRef} className="fixed z-[60]" style={{ top: pos.top, left: pos.left, width: '256px' }}>
-          <div className="pixel-border bg-navy-800 shadow-lg border border-stone-700/20">
-            {content(() => setIsOpen(false))}
-          </div>
-        </div>,
-        document.body
-      )}
-    </div>
-  );
 }
 
 function MerchantItemDetail({ item, playerCoins }: { item: MerchantItem; playerCoins: number }) {
@@ -256,9 +193,9 @@ export function TradeModal({
                         </div>
                       );
                       return (
-                        <TradeHoverPopup key={item.id} content={(close) => <MerchantItemDetail item={item} playerCoins={playerCoins} />}>
+                        <HoverPopup key={item.id} content={(close) => <MerchantItemDetail item={item} playerCoins={playerCoins} />}>
                           {row}
-                        </TradeHoverPopup>
+                        </HoverPopup>
                       );
                     })
                   )}
@@ -299,9 +236,9 @@ export function TradeModal({
                         </div>
                       );
                       return (
-                        <TradeHoverPopup key={item.id} content={(close) => <PlayerItemDetail item={item} sellPrice={sellPrice} merchantCoins={merchant.coins} />}>
+                        <HoverPopup key={item.id} content={(close) => <PlayerItemDetail item={item} sellPrice={sellPrice} merchantCoins={merchant.coins} />}>
                           {row}
-                        </TradeHoverPopup>
+                        </HoverPopup>
                       );
                     })
                   )}

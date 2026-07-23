@@ -2,13 +2,7 @@ import { useEffect, useRef, ReactNode } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Sword, Star, Crown, AvatarCircle } from 'pixelarticons/react';
-
-interface Message {
-  type: 'system' | 'action' | 'narration' | 'roll';
-  content: string;
-  characterName?: string;
-  timestamp: number;
-}
+import { Message } from '../../types/game.types';
 
 interface MessageListProps {
   messages: Message[];

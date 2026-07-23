@@ -2,18 +2,11 @@ import { createContext, useContext, useState, useEffect, useCallback, useRef, Re
 import { useSocketContext } from './SocketContext';
 import { usePlayerContext } from './PlayerContext';
 import { useAuthContext } from './AuthContext';
-import { GameState, TurnUpdate, ConditionTickPayload } from '../types/game.types';
-
-interface MessageEntry {
-  type: 'system' | 'action' | 'narration' | 'roll';
-  content: string;
-  characterName?: string;
-  timestamp: number;
-}
+import { GameState, TurnUpdate, ConditionTickPayload, Message } from '../types/game.types';
 
 interface GameContextValue {
   gameState: GameState | null;
-  messages: MessageEntry[];
+  messages: Message[];
   turnUpdate: TurnUpdate | null;
   typingPlayers: Map<string, string>;
   isAiProcessing: boolean;
@@ -31,7 +24,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const { player } = usePlayerContext();
   const { dispatch } = useAuthContext();
   const [gameState, setGameState] = useState<GameState | null>(null);
-  const [messages, setMessages] = useState<MessageEntry[]>([]);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [turnUpdate, setTurnUpdate] = useState<TurnUpdate | null>(null);
   const [typingPlayers, setTypingPlayers] = useState<Map<string, string>>(new Map());
   const [isAiProcessing, setIsAiProcessing] = useState(false);
@@ -64,7 +57,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       if (data.gameStarted) dispatch({ type: 'CAMPAIGN_STARTED' });
       if (data.history) {
         const playerMap = new Map((data.players || []).map(p => [p.id, p.name]));
-        const newMessages: MessageEntry[] = [];
+        const newMessages: Message[] = [];
 
         for (const entry of data.history) {
           if (entry.role === 'player') {
@@ -154,7 +147,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
         };
       });
 
-      const newMessages: MessageEntry[] = [];
+      const newMessages: Message[] = [];
       for (const p of data.players) {
         const tr = p.tickResult;
         if (tr.hpChange < 0) {
