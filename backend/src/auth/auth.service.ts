@@ -14,8 +14,12 @@ export class AuthService {
   private socketByPlayerId = new Map<string, string>();
 
   login(userId: string, socketId: string): boolean {
-    if (this.activeUsers.has(userId)) {
-      return false;
+    const existingSocketId = this.activeUsers.get(userId);
+    if (existingSocketId) {
+      if (existingSocketId === socketId) {
+        return true;
+      }
+      this.logout(existingSocketId);
     }
     this.activeUsers.set(userId, socketId);
     this.socketUsers.set(socketId, userId);

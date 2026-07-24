@@ -21,30 +21,28 @@ export function OptionsModal({ roomId, isOpen, onClose }: OptionsModalProps) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-dungeon-900/80" onClick={onClose}>
-      <div className="pixel-border bg-dungeon-700 w-full max-w-sm mx-4 p-6 relative" onClick={e => e.stopPropagation()}>
-        <button
-          onClick={onClose}
-          className="absolute top-3 right-3 text-dungeon-100 hover:text-dungeon-100 transition-colors"
-        >
-          <Close width={18} height={18} />
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-navy-950/80" onClick={onClose}>
+      <div className="pixel-border bg-navy-800 w-full max-w-sm mx-4 p-5 relative" onClick={e => e.stopPropagation()}>
+        <button onClick={onClose} className="absolute top-3 right-3 text-stone-500 hover:text-stone-300 transition-colors">
+          <Close width={16} height={16} />
         </button>
 
-        <h2 className="text-pixel text-xs text-gold mb-4 tracking-wider">OPTIONS</h2>
+        <h2 className="font-pixel text-[10px] text-gold-400 mb-4 tracking-wider text-shadow-glow-gold">OPTIONS</h2>
 
-        <div className="flex items-center justify-between bg-dungeon-800 pixel-border p-3">
-          <span className="text-mono text-sm text-gold">{roomId || '---'}</span>
+        <div className="font-pixel text-[7px] text-stone-500 mb-2 tracking-wider">ROOM CODE</div>
+        <div className="flex items-center justify-between bg-navy-900 pixel-border p-3">
+          <span className="font-pixel text-[10px] text-gold-400 tracking-widest">{roomId || '---'}</span>
           <button
             onClick={handleCopy}
-            className="text-dungeon-100 hover:text-gold transition-colors"
+            className="text-stone-500 hover:text-gold-400 transition-colors"
             title="Copy room code"
           >
-            <Copy width={16} height={16} />
+            <Copy width={14} height={14} />
           </button>
         </div>
 
         {copied && (
-          <p className="text-mono text-xs text-green-400 mt-2">Copied!</p>
+          <p className="font-pixel text-[7px] text-forest-600 mt-2">COPIED TO SCROLL</p>
         )}
       </div>
     </div>

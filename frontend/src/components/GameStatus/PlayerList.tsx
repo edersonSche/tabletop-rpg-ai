@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { Player } from '../../types/game.types';
 import { PlayerCard } from './PlayerCard';
 
@@ -7,10 +8,10 @@ interface PlayerListProps {
   playerId: string;
 }
 
-export function PlayerList({ players, currentTurn, playerId }: PlayerListProps) {
+export const PlayerList = memo(function PlayerList({ players, currentTurn, playerId }: PlayerListProps) {
   return (
-    <div className="space-y-2">
-      <h3 className="text-pixel text-xs text-gold mb-3 tracking-wider">CHARACTERS</h3>
+    <div className="space-y-1.5">
+      <div className="font-pixel text-[7px] text-stone-500 mb-2 tracking-wider">PARTY</div>
       {players.map(p => (
         <PlayerCard
           key={p.id}
@@ -22,4 +23,4 @@ export function PlayerList({ players, currentTurn, playerId }: PlayerListProps) 
       ))}
     </div>
   );
-}
+});

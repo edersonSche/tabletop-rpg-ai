@@ -13,9 +13,9 @@ export function DiceRollButton({ onRoll, disabled, show }: DiceRollButtonProps) 
     <button
       onClick={onRoll}
       disabled={disabled}
-      className="bg-dungeon-600 hover:bg-dungeon-500 text-gold px-4 py-3 text-mono text-lg pixel-border hover:brightness-110 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+      className="h-11 px-4 flex items-center gap-2 bg-cyan-400 text-navy-900 font-pixel text-[9px] pixel-border hover:bg-cyan-300 hover:shadow-glow-cyan transition-all disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
     >
-      <Box width={20} height={20} />
+      <Box width={16} height={16} />
       <span className="hidden sm:inline">ROLL</span>
     </button>
   );

@@ -6,7 +6,7 @@ export interface ItemTranslation {
 }
 
 export interface ItemDefinition {
-  type: 'weapon' | 'armor' | 'potion' | 'scroll' | 'key_item' | 'misc';
+  type: 'weapon' | 'armor' | 'shield' | 'potion' | 'scroll' | 'key_item' | 'misc';
   slot?: 'body' | 'hand' | 'two-handed';
   effects: Effect[];
   coins?: number;
@@ -203,7 +203,7 @@ const ITEMS: Record<string, ItemDefinition> = {
   },
 
   shield: {
-    type: 'armor',
+    type: 'shield',
     slot: 'hand',
     effects: [{ type: 'permanent', statModifiers: [{ target: 'ac', value: 2, operation: 'add' }], origin: 'item' }],
     translations: {

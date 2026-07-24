@@ -2,20 +2,19 @@ import { useState } from "react";
 import { CreateRoom } from "../components/Lobby/CreateRoom";
 import { RoomList } from "../components/Lobby/RoomList";
 import { SavedCampaigns } from "../components/Lobby/SavedCampaigns";
-import { useSocket } from "../hooks/useSocket";
+import { usePlayer } from "../hooks/usePlayer";
 import type { NarrativeLanguage } from "../types/game.types";
-import logo from "../assets/logo_text.png";
+import logo from "../assets/logo.png";
 
 export function Lobby() {
-  const { createRoom, joinRoom, resumeCampaign } = useSocket();
+  const { createRoom, joinRoom, resumeCampaign } = usePlayer();
   const [mode, setMode] = useState<"create" | "join" | "resume">("join");
 
   const handleCreate = async (
     name: string,
     language: NarrativeLanguage,
-    campaignTheme?: string,
   ) => {
-    await createRoom(name, language, campaignTheme);
+    await createRoom(name, language);
   };
 
   const handleJoin = async (roomId: string) => {
@@ -27,43 +26,24 @@ export function Lobby() {
   };
 
   return (
-    <div className="min-h-screen bg-dungeon-800 bg-noise flex items-center justify-center p-4 relative">
-      <div className="w-full max-w-2xl space-y-6">
+    <div className="min-h-screen flex items-center justify-center p-4 relative bg-starfield">
+      <div className="absolute inset-0 bg-gradient-navy pointer-events-none" />
+
+      <div className="w-full max-w-2xl space-y-6 relative z-10">
         <div className="flex flex-col items-center">
-          <img className="max-w-[350px]" src={logo} />
+          <img className="max-w-[300px]" src={logo} alt="Tabletop RPG AI" />
         </div>
 
-        <div className="flex gap-4 justify-center">
-          <button
-            onClick={() => setMode("create")}
-            className={`text-mono text-sm px-4 py-2 pixel-border transition-all ${
-              mode === "create"
-                ? "bg-gold text-dungeon-900"
-                : "bg-dungeon-600 text-dungeon-100 hover:text-gold"
-            }`}
-          >
-            [CREATE]
-          </button>
-          <button
-            onClick={() => setMode("join")}
-            className={`text-mono text-sm px-4 py-2 pixel-border transition-all ${
-              mode === "join"
-                ? "bg-gold text-dungeon-900"
-                : "bg-dungeon-600 text-dungeon-100 hover:text-gold"
-            }`}
-          >
-            [JOIN]
-          </button>
-          <button
-            onClick={() => setMode("resume")}
-            className={`text-mono text-sm px-4 py-2 pixel-border transition-all ${
-              mode === "resume"
-                ? "bg-gold text-dungeon-900"
-                : "bg-dungeon-600 text-dungeon-100 hover:text-gold"
-            }`}
-          >
-            [RESUME]
-          </button>
+        <div className="flex gap-2 justify-center">
+          <TabButton active={mode === "create"} onClick={() => setMode("create")}>
+            CREATE
+          </TabButton>
+          <TabButton active={mode === "join"} onClick={() => setMode("join")}>
+            JOIN
+          </TabButton>
+          <TabButton active={mode === "resume"} onClick={() => setMode("resume")}>
+            RESUME
+          </TabButton>
         </div>
 
         {mode === "create" ? (
@@ -75,5 +55,28 @@ export function Lobby() {
         )}
       </div>
     </div>
+  );
+}
+
+function TabButton({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`font-pixel text-[9px] px-5 py-2.5 tracking-wider transition-all ${
+        active
+          ? 'bg-gold-500 text-navy-900 shadow-glow-gold'
+          : 'bg-navy-700 text-stone-500 pixel-border hover:text-gold-400 hover:bg-navy-600'
+      }`}
+    >
+      [{children}]
+    </button>
   );
 }

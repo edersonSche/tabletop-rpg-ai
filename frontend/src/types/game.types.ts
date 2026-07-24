@@ -64,7 +64,7 @@ export interface InventoryItem {
   id: string;
   name: string;
   description: string;
-  type: 'weapon' | 'armor' | 'potion' | 'scroll' | 'key_item' | 'misc';
+  type: 'weapon' | 'armor' | 'shield' | 'potion' | 'scroll' | 'key_item' | 'misc';
   quantity: number;
   slot?: 'body' | 'hand' | 'two-handed';
   effects: Effect[];
@@ -98,6 +98,13 @@ export interface Player {
   };
   ac: number;
   activeConditions: ActiveCondition[];
+}
+
+export interface Message {
+  type: 'system' | 'action' | 'narration' | 'roll';
+  content: string;
+  characterName?: string;
+  timestamp: number;
 }
 
 export type TurnType = 'group_action' | 'call_player' | 'call_roll' | 'narration_only';
@@ -150,7 +157,7 @@ export interface MerchantItem {
   id: string;
   name: string;
   description: string;
-  type: 'weapon' | 'armor' | 'potion' | 'scroll' | 'key_item' | 'misc';
+  type: 'weapon' | 'armor' | 'shield' | 'potion' | 'scroll' | 'key_item' | 'misc';
   slot?: 'body' | 'hand' | 'two-handed';
   buyPrice: number;
   sellPrice: number;
@@ -241,9 +248,13 @@ export interface CharacterKit {
   items: Array<{ name: string; quantity: number }>;
 }
 
-export interface Room {
-  id: string;
-  name: string;
-  players: Array<{ id: string; name: string }>;
-  campaignStarted: boolean;
-}
+export interface LoginResponse { success: boolean; error?: string }
+export interface CreateRoomResponse { success: boolean; room: { id: string }; error?: string }
+export interface CreateCharacterResponse { success: boolean; playerId: string; campaignStarted?: boolean; error?: string }
+export interface JoinRoomResponse { success: boolean; needsCharacter?: boolean; room?: { id: string }; playerId?: string; campaignStarted?: boolean; error?: string }
+export interface ResumeCampaignResponse { success: boolean; room: { id: string }; playerId: string; campaignStarted?: boolean; error?: string }
+export interface ListSavedCampaignsResponse { campaigns?: SavedCampaignInfo[] }
+export interface DeleteSavedCampaignResponse { success: boolean; error?: string }
+export interface LeaveRoomResponse { success: boolean; error?: string }
+export interface GetKitsResponse { kits?: CharacterKit[] }
+export interface GetStateResponse { error?: string }

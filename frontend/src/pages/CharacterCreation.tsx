@@ -1,8 +1,9 @@
 import { useState, useEffect, useMemo } from "react";
 import { Logout } from "pixelarticons/react";
-import { useSocket } from "../hooks/useSocket";
+import { usePlayer } from "../hooks/usePlayer";
+import { useGame } from "../hooks/useGame";
 import type { CharacterKit } from "../types/game.types";
-import logo from "../assets/logo_text.png";
+import logo from "../assets/logo.png";
 
 type StatKey =
   | "strength"
@@ -13,12 +14,12 @@ type StatKey =
   | "charisma";
 
 const STATS: Array<{ key: StatKey; label: string }> = [
-  { key: "strength", label: "STRENGTH" },
-  { key: "dexterity", label: "DEXTERITY" },
-  { key: "constitution", label: "CONSTITUTION" },
-  { key: "intelligence", label: "INTELLIGENCE" },
-  { key: "wisdom", label: "WISDOM" },
-  { key: "charisma", label: "CHARISMA" },
+  { key: "strength", label: "STR" },
+  { key: "dexterity", label: "DEX" },
+  { key: "constitution", label: "CON" },
+  { key: "intelligence", label: "INT" },
+  { key: "wisdom", label: "WIS" },
+  { key: "charisma", label: "CHA" },
 ];
 
 const MIN = 8;
@@ -36,13 +37,7 @@ type Attributes = {
 };
 
 const COST: Record<number, number> = {
-  8: 1,
-  9: 1,
-  10: 1,
-  11: 1,
-  12: 1,
-  13: 2,
-  14: 2,
+  8: 1, 9: 1, 10: 1, 11: 1, 12: 1, 13: 2, 14: 2,
 };
 
 function costToReach(value: number): number {
@@ -55,46 +50,33 @@ function costToReach(value: number): number {
 
 function defaultAttributes(): Attributes {
   return {
-    strength: DEFAULT,
-    dexterity: DEFAULT,
-    constitution: DEFAULT,
-    intelligence: DEFAULT,
-    wisdom: DEFAULT,
-    charisma: DEFAULT,
+    strength: DEFAULT, dexterity: DEFAULT, constitution: DEFAULT,
+    intelligence: DEFAULT, wisdom: DEFAULT, charisma: DEFAULT,
   };
 }
 
 function totalCost(attrs: Attributes): number {
   return (Object.values(attrs) as number[]).reduce(
-    (sum, v) => sum + costToReach(v),
-    0,
+    (sum, v) => sum + costToReach(v), 0,
   );
 }
 
-function getRecommendedKit(
-  attributes: Attributes,
-  kits: CharacterKit[],
-): string | null {
+function getRecommendedKit(attributes: Attributes, kits: CharacterKit[]): string | null {
   const entries = Object.entries(attributes) as [string, number][];
   const sorted = entries
     .filter(([key]) => key !== "constitution")
     .sort(([, a], [, b]) => b - a);
-
   if (sorted.length === 0) return null;
   const topStat = sorted[0][0];
-
   for (const kit of kits) {
-    if (kit.recommendedStats.includes(topStat)) {
-      return kit.id;
-    }
+    if (kit.recommendedStats.includes(topStat)) return kit.id;
   }
-
   return kits[0]?.id || null;
 }
 
 export function CharacterCreation() {
-  const { createCharacter, player, backToLobby, fetchKits, gameState } =
-    useSocket();
+  const { createCharacter, player, backToLobby, fetchKits } = usePlayer();
+  const { gameState } = useGame();
   const [name, setName] = useState("");
   const [loading, setLoading] = useState(false);
   const [attributes, setAttributes] = useState<Attributes>(defaultAttributes);
@@ -112,16 +94,11 @@ export function CharacterCreation() {
   }, [player.roomId, fetchKits]);
 
   const recommendedKit = useMemo(
-    () => getRecommendedKit(attributes, kits),
-    [attributes, kits],
+    () => getRecommendedKit(attributes, kits), [attributes, kits],
   );
 
   const remaining = POINTS - totalCost(attributes);
-  const canSubmit =
-    name.trim().length > 0 &&
-    remaining === 0 &&
-    !loading &&
-    selectedKit !== null;
+  const canSubmit = name.trim().length > 0 && remaining === 0 && !loading && selectedKit !== null;
 
   const adjust = (key: StatKey, delta: number) => {
     setAttributes((prev) => {
@@ -131,8 +108,7 @@ export function CharacterCreation() {
       if (delta > 0) {
         const costStep = COST[current];
         if (costStep === undefined) return prev;
-        const spent = totalCost(prev);
-        if (spent + costStep > POINTS) return prev;
+        if (totalCost(prev) + costStep > POINTS) return prev;
       }
       return { ...prev, [key]: next };
     });
@@ -143,136 +119,120 @@ export function CharacterCreation() {
     if (!canSubmit || !player.roomId) return;
     setLoading(true);
     try {
-      await createCharacter(
-        player.roomId,
-        name.trim(),
-        attributes,
-        selectedKit!,
-      );
+      await createCharacter(player.roomId, name.trim(), attributes, selectedKit!);
     } catch {
       setLoading(false);
     }
   };
 
-  const handleKitSelect = (kitId: string) => {
-    setSelectedKit(kitId);
-  };
-
   return (
-    <div className="min-h-screen bg-dungeon-800 bg-noise flex items-start justify-center p-4 pt-8 relative">
-      <div className="w-full max-w-2xl space-y-6">
+    <div className="min-h-screen flex items-start justify-center p-4 pt-8 relative bg-starfield">
+      <div className="absolute inset-0 bg-gradient-navy pointer-events-none" />
+
+      <div className="w-full max-w-2xl space-y-6 relative z-10">
         <div className="flex flex-col items-center">
-          <img className="max-w-[350px]" src={logo} />
+          <img className="max-w-[280px]" src={logo} alt="Tabletop RPG AI" />
+          <p className="font-pixel text-[8px] text-gold-500/70 mt-3 tracking-widest">
+            FORGE YOUR HERO
+          </p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Left column: Name + Attributes */}
-          <div className="pixel-border bg-dungeon-500 p-6 rounded-none">
-            <h2 className="text-pixel text-gold text-lg mb-4 text-center">
+          <div className="card-stone p-5">
+            <h2 className="font-pixel text-[10px] text-gold-400 mb-4 text-center text-shadow-glow-gold">
               NEW CHARACTER
             </h2>
 
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label className="text-mono text-sm text-dungeon-100 block mb-1">
-                  Character Name
+                <label className="font-pixel text-[7px] text-stone-400 block mb-2 tracking-wider">
+                  HERO NAME
                 </label>
                 <input
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="w-full bg-dungeon-700 text-dungeon-100 p-3 text-mono text-lg pixel-border outline-none focus:border-gold transition-colors"
-                  placeholder="e.g. Aragorn"
+                  className="input-field"
+                  placeholder="Name your hero..."
                   autoFocus
                 />
               </div>
 
-              <div className="border-t border-dungeon-400 pt-4">
-                <p className="text-mono text-sm text-dungeon-100 mb-3 text-center">
-                  Points remaining:{" "}
-                  <span className="text-gold">{remaining}</span>
+              <div className="divider-gold pt-4">
+                <p className="font-pixel text-[8px] text-stone-400 mb-3 text-center">
+                  POINTS: <span className="text-gold-400">{remaining}</span> / {POINTS}
                 </p>
 
-                {STATS.map(({ key, label }) => (
-                  <div
-                    key={key}
-                    className="flex items-center justify-between mb-2"
-                  >
-                    <span className="text-mono text-sm text-dungeon-100 w-32">
-                      {label}
-                    </span>
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => adjust(key, -1)}
-                        disabled={attributes[key] <= MIN}
-                        className="w-8 h-8 bg-dungeon-700 text-dungeon-100 pixel-border hover:bg-dungeon-600 transition-colors disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center text-lg"
-                      >
-                        −
-                      </button>
-                      <span className="text-mono text-lg text-gold w-8 text-center">
-                        {attributes[key]}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => adjust(key, 1)}
-                        disabled={
-                          attributes[key] >= MAX ||
-                          remaining < (COST[attributes[key]] ?? 0)
-                        }
-                        className="w-8 h-8 bg-dungeon-700 text-dungeon-100 pixel-border hover:bg-dungeon-600 transition-colors disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center text-lg"
-                      >
-                        +
-                      </button>
+                <div className="space-y-1.5">
+                  {STATS.map(({ key, label }) => (
+                    <div key={key} className="flex items-center justify-between bg-navy-800 px-3 py-2 pixel-border">
+                      <span className="font-pixel text-[8px] text-stone-400 w-10">{label}</span>
+                      <div className="flex items-center gap-3">
+                        <button
+                          type="button"
+                          onClick={() => adjust(key, -1)}
+                          disabled={attributes[key] <= MIN}
+                          className="w-7 h-7 bg-navy-700 text-stone-400 pixel-border hover:bg-navy-600 hover:text-blood-500 transition-all disabled:opacity-20 disabled:cursor-not-allowed flex items-center justify-center font-pixel text-[10px]"
+                        >
+                          -
+                        </button>
+                        <span className="font-pixel text-[11px] text-gold-400 w-6 text-center font-bold">
+                          {attributes[key]}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => adjust(key, 1)}
+                          disabled={attributes[key] >= MAX || remaining < (COST[attributes[key]] ?? 0)}
+                          className="w-7 h-7 bg-navy-700 text-stone-400 pixel-border hover:bg-navy-600 hover:text-cyan-400 transition-all disabled:opacity-20 disabled:cursor-not-allowed flex items-center justify-center font-pixel text-[10px]"
+                        >
+                          +
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
 
-              <button
-                type="submit"
-                disabled={!canSubmit}
-                className="w-full bg-gold text-dungeon-900 font-bold py-3 px-4 text-mono text-lg pixel-border hover:brightness-110 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {loading ? "CREATING..." : "CREATE CHARACTER"}
+              <button type="submit" disabled={!canSubmit} className="btn-gold w-full">
+                {loading ? "FORGING..." : "CREATE HERO"}
               </button>
             </form>
 
             <div className="flex justify-center mt-4">
               <button
                 onClick={backToLobby}
-                className="text-mono text-sm text-blood hover:text-blood/80 transition-colors flex items-center gap-1"
+                className="font-pixel text-[7px] text-blood-600 hover:text-blood-500 transition-colors flex items-center gap-1"
               >
-                <Logout width={14} height={14} />
-                Back
+                <Logout width={12} height={12} />
+                ABANDON
               </button>
             </div>
           </div>
 
           {/* Right column: Kit Selection */}
-          <div className="pixel-border bg-dungeon-500 p-6 rounded-none">
-            <h2 className="text-pixel text-gold text-lg mb-4 text-center">
+          <div className="card-stone p-5">
+            <h2 className="font-pixel text-[10px] text-gold-400 mb-3 text-center text-shadow-glow-gold">
               STARTING KIT
             </h2>
-            <p className="text-mono text-xs text-dungeon-100 mb-4 text-center">
-              Choose your starting equipment. Your highest attribute suggests a
-              kit.
+            <p className="font-pixel text-[7px] text-stone-500 mb-4 text-center">
+              CHOOSE YOUR GEAR
             </p>
 
             {kitsLoading ? (
               <div className="flex items-center justify-center py-8">
-                <span className="text-mono text-dungeon-100">
-                  Loading kits...
+                <span className="font-pixel text-[8px] text-stone-500">
+                  <span className="thinking-dot inline-block">.</span>
+                  <span className="thinking-dot inline-block">.</span>
+                  <span className="thinking-dot inline-block">.</span>
                 </span>
               </div>
             ) : kits.length === 0 ? (
               <div className="flex items-center justify-center py-8">
-                <span className="text-mono text-dungeon-100">
-                  No kits available
-                </span>
+                <span className="font-pixel text-[8px] text-stone-500">NO KITS AVAILABLE</span>
               </div>
             ) : (
-              <div className="space-y-3">
+              <div className="space-y-2">
                 {kits.map((kit) => {
                   const isRecommended = recommendedKit === kit.id;
                   const isSelected = selectedKit === kit.id;
@@ -281,49 +241,46 @@ export function CharacterCreation() {
                     <button
                       key={kit.id}
                       type="button"
-                      onClick={() => handleKitSelect(kit.id)}
-                      className={`w-full text-left p-3 pixel-border transition-all ${
+                      onClick={() => setSelectedKit(kit.id)}
+                      className={`w-full text-left p-3 transition-all ${
                         isSelected
-                          ? "bg-dungeon-600 border-gold"
-                          : "bg-dungeon-700 border-dungeon-400 hover:bg-dungeon-600"
-                      } ${isRecommended ? "ring-1 ring-gold/50" : ""}`}
+                          ? 'bg-navy-600 pixel-border-gold'
+                          : 'bg-navy-800 pixel-border hover:bg-navy-700'
+                      } ${isRecommended && !isSelected ? 'ring-1 ring-gold-500/30' : ''}`}
                     >
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
-                          <div className="text-mono text-sm text-gold font-bold truncate">
+                          <div className="font-pixel text-[8px] text-gold-400 truncate">
                             {kit.name}
                           </div>
-                          <div className="text-mono text-xs text-dungeon-100 mt-1 line-clamp-2">
+                          <div className="font-pixel text-[6px] text-stone-500 mt-1 line-clamp-2 leading-relaxed">
                             {kit.description}
                           </div>
                           <div className="flex flex-wrap gap-1 mt-2">
                             {kit.items.map((item, idx) => (
                               <span
                                 key={idx}
-                                className="text-mono text-xs bg-dungeon-800 text-dungeon-100 px-2 py-0.5"
+                                className="font-pixel text-[6px] bg-navy-900 text-stone-400 px-1.5 py-0.5 pixel-border-light"
                               >
-                                {item.name}
-                                {item.quantity > 1 ? ` (${item.quantity})` : ""}
+                                {item.name}{item.quantity > 1 ? ` x${item.quantity}` : ""}
                               </span>
                             ))}
                           </div>
                         </div>
                         <div className="flex flex-col items-end gap-1 shrink-0">
                           {isRecommended && (
-                            <span className="text-mono text-xs text-gold bg-gold/20 px-2 py-0.5 border border-gold/30">
-                              RECOMMENDED
+                            <span className="font-pixel text-[6px] text-gold-400 bg-gold-500/10 px-2 py-0.5 border border-gold-500/20">
+                              SUGGESTED
                             </span>
                           )}
                           <div
-                            className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
+                            className={`w-4 h-4 border-2 flex items-center justify-center ${
                               isSelected
-                                ? "border-gold bg-gold"
-                                : "border-dungeon-100"
+                                ? 'border-gold-400 bg-gold-500'
+                                : 'border-stone-600'
                             }`}
                           >
-                            {isSelected && (
-                              <div className="w-2 h-2 rounded-full bg-dungeon-900" />
-                            )}
+                            {isSelected && <div className="w-1.5 h-1.5 bg-navy-900" />}
                           </div>
                         </div>
                       </div>

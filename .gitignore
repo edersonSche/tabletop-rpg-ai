@@ -1,2 +1,4 @@
 docs
 backend/data
+.tsbuildinfo
+.DS_Store

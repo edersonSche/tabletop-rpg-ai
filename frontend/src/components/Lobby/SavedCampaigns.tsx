@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Play, Check, Close, Reload, Trash } from 'pixelarticons/react';
 import { SavedCampaignInfo } from '../../types/game.types';
-import { useSocket } from '../../hooks/useSocket';
+import { usePlayer } from '../../hooks/usePlayer';
 
 interface SavedCampaignsProps {
   onResume: (campaignId: string) => Promise<void>;
@@ -10,7 +10,7 @@ interface SavedCampaignsProps {
 function timeAgo(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime();
   const mins = Math.floor(diff / 60000);
-  if (mins < 1) return 'just now';
+  if (mins < 1) return 'moments ago';
   if (mins < 60) return `${mins}m ago`;
   const hours = Math.floor(mins / 60);
   if (hours < 24) return `${hours}h ago`;
@@ -20,7 +20,7 @@ function timeAgo(dateStr: string): string {
 }
 
 export function SavedCampaigns({ onResume }: SavedCampaignsProps) {
-  const { listSavedCampaigns, deleteSavedCampaign } = useSocket();
+  const { listSavedCampaigns, deleteSavedCampaign } = usePlayer();
   const [campaigns, setCampaigns] = useState<SavedCampaignInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [confirmingDelete, setConfirmingDelete] = useState<string | null>(null);
@@ -60,82 +60,85 @@ export function SavedCampaigns({ onResume }: SavedCampaignsProps) {
 
   if (loading) {
     return (
-      <div className="pixel-border bg-dungeon-500 p-6 rounded-none">
-        <h2 className="text-pixel text-gold text-lg mb-4">RESUME CAMPAIGN</h2>
-        <p className="text-mono text-dungeon-100 text-center py-8">Loading saved campaigns...</p>
+      <div className="card-stone p-5">
+        <h2 className="font-pixel text-[10px] text-gold-400 mb-4 text-shadow-glow-gold">RESUME CAMPAIGN</h2>
+        <p className="font-pixel text-[8px] text-stone-500 text-center py-8">
+          Consulting the archives
+          <span className="thinking-dot inline-block ml-0.5">.</span>
+          <span className="thinking-dot inline-block">.</span>
+          <span className="thinking-dot inline-block">.</span>
+        </p>
       </div>
     );
   }
 
   if (campaigns.length === 0) {
     return (
-      <div className="pixel-border bg-dungeon-500 p-6 rounded-none">
-        <h2 className="text-pixel text-gold text-lg mb-4">RESUME CAMPAIGN</h2>
-        <p className="text-mono text-dungeon-100 text-center py-8">No saved campaigns found.</p>
+      <div className="card-stone p-5">
+        <h2 className="font-pixel text-[10px] text-gold-400 mb-4 text-shadow-glow-gold">RESUME CAMPAIGN</h2>
+        <p className="font-pixel text-[8px] text-stone-500 text-center py-8">NO SAVED QUESTS FOUND</p>
       </div>
     );
   }
 
   return (
-    <div className="pixel-border bg-dungeon-500 p-6 rounded-none">
-      <h2 className="text-pixel text-gold text-lg mb-4">RESUME CAMPAIGN</h2>
+    <div className="card-stone p-5">
+      <h2 className="font-pixel text-[10px] text-gold-400 mb-4 text-shadow-glow-gold">RESUME CAMPAIGN</h2>
 
-      <div className="space-y-3">
+      <div className="space-y-2">
         {campaigns.map(c => (
-          <div key={c.campaignId} className="bg-dungeon-600 p-4 pixel-border">
+          <div key={c.campaignId} className="bg-navy-800 p-3 pixel-border">
             <div className="flex items-center gap-2">
               <div className="flex-1 min-w-0">
-                <h3 className="text-mono text-base text-dungeon-100 truncate">
-                  {c.campaignName}
-                </h3>
-                <p className="text-mono text-xs text-dungeon-200 mt-0.5">
-                  {c.playersCount} player{c.playersCount !== 1 ? 's' : ''} &middot; {timeAgo(c.lastSavedAt)}
+                <h3 className="font-pixel text-[9px] text-stone-300 truncate">{c.campaignName}</h3>
+                <p className="font-pixel text-[6px] text-stone-600 mt-0.5">
+                  {c.playersCount} hero{c.playersCount !== 1 ? 'es' : ''} &middot; {timeAgo(c.lastSavedAt)}
                 </p>
               </div>
               {c.isCreator ? (
-                <div className="flex items-center gap-2 shrink-0">
+                <div className="flex items-center gap-1.5 shrink-0">
                   <button
                     onClick={() => handleResume(c.campaignId)}
                     disabled={resumingId === c.campaignId || deletingId === c.campaignId}
-                    className="w-8 h-8 bg-gold text-dungeon-900 flex items-center justify-center text-mono text-sm pixel-border hover:brightness-110 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-7 h-7 bg-gold-500 text-navy-900 flex items-center justify-center pixel-border hover:bg-gold-400 transition-all disabled:opacity-40"
                     title="Resume"
                   >
-                    {resumingId === c.campaignId ? <Reload width={14} height={14} className="animate-spin" /> : <Play width={14} height={14} />}
+                    {resumingId === c.campaignId ? <Reload width={12} height={12} className="animate-spin" /> : <Play width={12} height={12} />}
                   </button>
                   {confirmingDelete === c.campaignId ? (
                     <>
                       <button
                         onClick={() => handleDelete(c.campaignId)}
                         disabled={deletingId === c.campaignId}
-                        className="w-8 h-8 bg-blood text-dungeon-100 flex items-center justify-center text-mono text-sm pixel-border hover:brightness-110 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="w-7 h-7 bg-blood-700 text-stone-300 flex items-center justify-center pixel-border hover:bg-blood-600 transition-all disabled:opacity-40"
                         title="Confirm delete"
                       >
-                        {deletingId === c.campaignId ? <Reload width={14} height={14} className="animate-spin" /> : <Check width={14} height={14} />}
+                        {deletingId === c.campaignId ? <Reload width={12} height={12} className="animate-spin" /> : <Check width={12} height={12} />}
                       </button>
                       <button
                         onClick={() => setConfirmingDelete(null)}
                         disabled={deletingId === c.campaignId}
-                        className="w-8 h-8 bg-dungeon-400 text-dungeon-200 flex items-center justify-center text-mono text-sm pixel-border hover:text-dungeon-100 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="w-7 h-7 bg-navy-700 text-stone-500 flex items-center justify-center pixel-border hover:text-stone-300 transition-all disabled:opacity-40"
                         title="Cancel"
                       >
-                        <Close width={14} height={14} />
+                        <Close width={12} height={12} />
                       </button>
                     </>
                   ) : (
                     <button
                       onClick={() => setConfirmingDelete(c.campaignId)}
                       disabled={resumingId === c.campaignId || deletingId === c.campaignId}
-                      className="w-8 h-8 bg-dungeon-700 text-dungeon-100 flex items-center justify-center text-mono text-sm pixel-border hover:text-blood transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="w-7 h-7 bg-navy-700 text-stone-500 flex items-center justify-center pixel-border hover:text-blood-500 transition-all disabled:opacity-40"
                       title="Delete"
                     >
-                      <Trash width={14} height={14} />
+                      <Trash width={12} height={12} />
                     </button>
                   )}
                 </div>
               ) : (
-                <div className="flex items-center gap-2 shrink-0">
-                  <span className="text-mono text-xs text-dungeon-200">
-                    Code: <span className="text-gold select-all">{c.campaignId}</span>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <span className="font-pixel text-[7px] text-stone-600">
+                    <span className="text-gold-500 select-all">{c.campaignId}</span>
                   </span>
                 </div>
               )}

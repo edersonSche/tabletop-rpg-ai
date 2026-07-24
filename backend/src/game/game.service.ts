@@ -1,8 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import { v4 as uuid } from 'uuid';
-import { GameState, Player, Merchant, MerchantItem, TickResult, GameStateData, Condition, Effect } from './game.state';
+import { GameState, Player, Merchant, MerchantItem, InventoryItem, TickResult, GameStateData, Condition, Effect } from './game.state';
+import { ConditionEngine } from './condition.engine';
+import { DiceService } from './dice.service';
+import { LevelingService } from './leveling.service';
 import { TurnManager } from './turn.manager';
 import { AiService } from '../ai/ai.service';
+import { isUnknownLocation } from '../utils/is-unknown-location';
 import { AIResponse, MerchantSeed, ConditionSeed } from '../dto/ai-response.dto';
 
 const MAX_NARRATION_DEPTH = 5;
@@ -14,82 +18,64 @@ export class GameService {
 
   constructor(
     private gameState: GameState,
+    private conditionEngine: ConditionEngine,
+    private diceService: DiceService,
+    private levelingService: LevelingService,
     private turnManager: TurnManager,
     private aiService: AiService,
   ) {}
 
   async handleAction(roomId: string, playerId: string, message: string): Promise<{ response: AIResponse; tickResults: TickResult[] }> {
-    const room = this.gameState.getRoom(roomId);
-    if (!room) throw new Error('Room not found');
-
-    const check = this.turnManager.canPlayerAct(roomId, playerId);
-    if (!check.allowed) throw new Error(check.reason);
-
-    this.turnManager.lock(roomId);
-
-    const player = room.players.find(p => p.id === playerId);
-
-    this.gameState.addHistory(roomId, {
-      role: 'player',
-      playerId,
-      content: message,
+    return this.processTurn(roomId, playerId, (player) => {
+      this.gameState.addHistory(roomId, {
+        role: 'player',
+        playerId,
+        content: message,
+      });
+      return { playerId, characterName: player?.name, action: message };
     });
-
-    try {
-      let response: AIResponse = { narration: '', next: { type: 'group_action' } };
-      let allTickResults: TickResult[] = [];
-
-      for (let depth = 0; depth <= MAX_NARRATION_DEPTH; depth++) {
-        const currentRoom = this.gameState.getRoom(roomId);
-        if (!currentRoom) throw new Error('Room deleted');
-
-        response = await this.aiService.generate({
-          roomId,
-          campaignName: currentRoom.campaignName,
-          campaignTheme: currentRoom.campaignTheme,
-          language: currentRoom.language,
-          players: currentRoom.players,
-          scene: currentRoom.scene,
-          currentLocation: currentRoom.currentLocation,
-          history: currentRoom.history,
-          summary: currentRoom.summary || undefined,
-          currentAction: depth === 0
-            ? { playerId, characterName: player?.name, action: message }
-            : null,
-        });
-
-        allTickResults = allTickResults.concat(this.processAiResponse(roomId, response));
-
-        if (response.next?.type !== 'narration_only') break;
-      }
-
-      return { response, tickResults: allTickResults };
-    } finally {
-      this.turnManager.unlock(roomId);
-      this.maybeSummarize(roomId).catch(() => {});
-    }
   }
 
   async handleRoll(roomId: string, playerId: string, rollData?: { roll: number; modifier: number; total: number; skill: string; dc: number }): Promise<{ response: AIResponse; tickResults: TickResult[] }> {
     const room = this.gameState.getRoom(roomId);
     if (!room) throw new Error('Room not found');
 
+    const player = room.players.find(p => p.id === playerId);
+    if (!player) throw new Error('Player not found');
+
+    const skill = rollData?.skill ?? room.turnSkill ?? 'dexterity';
+    const dc = rollData?.dc ?? room.turnDc ?? 10;
+    const modifier = rollData?.modifier ?? this.conditionEngine.getPlayerModifier(player, skill);
+    const roll = rollData?.roll ?? this.diceService.rollDice(20);
+    const total = rollData?.total ?? roll + modifier;
+
+    return this.processTurn(roomId, playerId, () => ({
+      playerId,
+      characterName: player.name,
+      action: `Rolled ${roll} + modifier(${modifier}) = ${total} (DC ${dc})`,
+      rollResult: total,
+      skill,
+      dc,
+    }));
+  }
+
+  private async processTurn(
+    roomId: string,
+    playerId: string,
+    buildAction: (player: Player | undefined) => object | null,
+  ): Promise<{ response: AIResponse; tickResults: TickResult[] }> {
+    const room = this.gameState.getRoom(roomId);
+    if (!room) throw new Error('Room not found');
+
     const check = this.turnManager.canPlayerAct(roomId, playerId);
     if (!check.allowed) throw new Error(check.reason);
 
     this.turnManager.lock(roomId);
 
     const player = room.players.find(p => p.id === playerId);
-    if (!player) throw new Error('Player not found');
-
-    const skill = rollData?.skill ?? room.turnSkill ?? 'dexterity';
-    const dc = rollData?.dc ?? room.turnDc ?? 10;
-
-    const modifier = rollData?.modifier ?? this.gameState.getPlayerModifier(player, skill);
-    const roll = rollData?.roll ?? this.gameState.rollDice(20);
-    const total = rollData?.total ?? roll + modifier;
 
     try {
+      const currentAction = buildAction(player);
       let response: AIResponse = { narration: '', next: { type: 'group_action' } };
       let allTickResults: TickResult[] = [];
 
@@ -107,16 +93,7 @@ export class GameService {
           currentLocation: currentRoom.currentLocation,
           history: currentRoom.history,
           summary: currentRoom.summary || undefined,
-          currentAction: depth === 0
-            ? {
-                playerId,
-                characterName: player.name,
-                action: `Rolled ${roll} + modifier(${modifier}) = ${total} (DC ${dc})`,
-                rollResult: total,
-                skill,
-                dc,
-              }
-            : null,
+          currentAction: depth === 0 ? currentAction : null,
         });
 
         allTickResults = allTickResults.concat(this.processAiResponse(roomId, response));
@@ -200,7 +177,7 @@ export class GameService {
       };
     }
 
-    if (!room.currentLocation || this.isUnknownLocation(room.currentLocation)) {
+    if (!room.currentLocation || isUnknownLocation(room.currentLocation)) {
       return {
         narration: '',
         next: { type: 'group_action' },
@@ -301,7 +278,7 @@ export class GameService {
       });
     }
 
-    const tickResults = this.gameState.tickEffects(room);
+    const tickResults = this.conditionEngine.tickEffects(room);
     return tickResults;
   }
 
@@ -414,7 +391,7 @@ export class GameService {
         origin: 'narrative',
       };
 
-      this.gameState.applyConditionToPlayer(targetPlayer, condition, room);
+      this.conditionEngine.applyConditionToPlayer(targetPlayer, condition, room);
 
       this.gameState.addHistory(room.campaignId, {
         role: 'system',
@@ -510,7 +487,92 @@ export class GameService {
       currentLocation: room.currentLocation,
       scene: room.scene,
       gameStarted: room.gameStarted,
+      creatorId: room.creatorId,
+      history: room.history,
     };
+  }
+
+  getRoomContext(roomId: string): GameStateData | null {
+    return this.gameState.getRoom(roomId) || null;
+  }
+
+  findPlayer(roomId: string, playerId: string): Player | null {
+    const room = this.gameState.getRoom(roomId);
+    if (!room) return null;
+    return room.players.find(p => p.id === playerId) || null;
+  }
+
+  findPlayerWithItem(roomId: string, playerId: string, itemId: string): { player: Player; item: InventoryItem } | null {
+    const player = this.findPlayer(roomId, playerId);
+    if (!player) return null;
+    const item = player.inventory.find(i => i.id === itemId);
+    if (!item) return null;
+    return { player, item };
+  }
+
+  getTurnContext(roomId: string): { turnSkill: string; turnDc: number } | null {
+    const room = this.gameState.getRoom(roomId);
+    if (!room) return null;
+    return { turnSkill: room.turnSkill || 'dexterity', turnDc: room.turnDc ?? 10 };
+  }
+
+  getTradeEmitData(roomId: string): { merchants: Merchant[]; tradeParticipants: string[]; tradeDone: string[]; players: Array<{ playerId: string; chaMod: number }> } | null {
+    const room = this.gameState.getRoom(roomId);
+    if (!room || !room.merchants) return null;
+    return {
+      merchants: room.merchants,
+      tradeParticipants: room.tradeParticipants,
+      tradeDone: room.tradeDone,
+      players: room.players.filter(p => p.active).map(p => ({
+        playerId: p.id,
+        chaMod: Math.floor((p.attributes.charisma - 10) / 2),
+      })),
+    };
+  }
+
+  getRoomAiContext(roomId: string) {
+    const room = this.gameState.getRoom(roomId);
+    if (!room) return null;
+    return {
+      roomId,
+      campaignName: room.campaignName,
+      campaignTheme: room.campaignTheme,
+      language: room.language,
+      players: room.players,
+      scene: room.scene,
+      currentLocation: room.currentLocation,
+      history: room.history,
+    };
+  }
+
+  hasMerchantsAtLocation(roomId: string): boolean {
+    const room = this.gameState.getRoom(roomId);
+    if (!room || !room.merchants || room.merchants.length === 0) return false;
+    return room.merchantsLocation === room.currentLocation;
+  }
+
+  hasMerchants(roomId: string): boolean {
+    const room = this.gameState.getRoom(roomId);
+    return !!(room && room.merchants && room.merchants.length > 0);
+  }
+
+  isTradeLocked(roomId: string): boolean {
+    const room = this.gameState.getRoom(roomId);
+    return !!room?.isTradeLocked;
+  }
+
+  setCreatorId(roomId: string, playerId: string): void {
+    const room = this.gameState.getRoom(roomId);
+    if (room && !room.creatorId) {
+      room.creatorId = playerId;
+    }
+  }
+
+  setGameStarted(roomId: string, value: boolean): void {
+    const room = this.gameState.getRoom(roomId);
+    if (room) {
+      room.gameStarted = value;
+    }
   }
 
   allocateAttributes(
@@ -518,12 +580,7 @@ export class GameService {
     playerId: string,
     allocations: Partial<Record<keyof Player['attributes'], number>>,
   ) {
-    return this.gameState.allocateAttributes(roomId, playerId, allocations);
+    return this.levelingService.allocateAttributes(roomId, playerId, allocations);
   }
 
-  private isUnknownLocation(location: string | null | undefined): boolean {
-    if (!location) return true;
-    const normalized = location.toLowerCase().trim();
-    return normalized === 'unknown location' || normalized === 'local desconhecido';
-  }
 }

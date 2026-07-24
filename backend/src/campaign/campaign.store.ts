@@ -1,13 +1,14 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import * as path from 'path';
 import * as fs from 'fs';
+import * as fsp from 'fs/promises';
 import { GameState, Player, Effect, EffectTarget, InventoryItem } from '../game/game.state';
 import { RoomService } from '../room/room.service';
 import { SavedCampaign, SavedCampaignInfo, SavedPlayer, SavedEffect } from './campaign.types';
 
 @Injectable()
-export class CampaignStore {
-  private filePath: string;
+export class CampaignStore implements OnModuleInit, OnModuleDestroy {
+  private dataDir: string;
   private campaigns: Map<string, SavedCampaign> = new Map();
   private saveTimer: NodeJS.Timeout | null = null;
   private pendingSaves = new Set<string>();
@@ -16,8 +17,22 @@ export class CampaignStore {
     private gameState: GameState,
     private roomService: RoomService,
   ) {
-    this.filePath = path.resolve(process.cwd(), 'data', 'campaigns.json');
-    this.loadFromDisk();
+    this.dataDir = path.resolve(process.cwd(), 'data', 'campaigns');
+  }
+
+  async onModuleInit(): Promise<void> {
+    await this.loadFromDisk();
+  }
+
+  onModuleDestroy(): void {
+    if (this.saveTimer) {
+      clearTimeout(this.saveTimer);
+      this.saveTimer = null;
+    }
+    for (const campaignId of this.campaigns.keys()) {
+      this.pendingSaves.add(campaignId);
+    }
+    this.flushPending();
   }
 
   private serializeEffect(ef: Effect): SavedEffect {
@@ -156,13 +171,61 @@ export class CampaignStore {
     };
   }
 
+  private async loadFromDisk(): Promise<void> {
+    try {
+      await fsp.mkdir(this.dataDir, { recursive: true });
+      const files = await fsp.readdir(this.dataDir);
+      for (const file of files) {
+        if (!file.endsWith('.json')) continue;
+        const campaignId = file.slice(0, -5);
+        const raw = await fsp.readFile(path.join(this.dataDir, file), 'utf-8');
+        this.campaigns.set(campaignId, JSON.parse(raw) as SavedCampaign);
+      }
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
+        console.error('Failed to load campaigns:', err.message);
+      }
+    }
+  }
+
   saveFromMemory(campaignId: string): void {
     const state = this.gameState.getRoom(campaignId);
     if (!state || !state.gameStarted) return;
     const snapshot = this.snapshotFromMemory(campaignId);
     if (!snapshot) return;
     this.campaigns.set(campaignId, snapshot);
-    this.scheduleWrite();
+    this.scheduleWrite(campaignId);
+  }
+
+  private scheduleWrite(campaignId: string): void {
+    this.pendingSaves.add(campaignId);
+    if (this.saveTimer) return;
+
+    this.saveTimer = setTimeout(() => {
+      this.saveTimer = null;
+      this.flushPending();
+    }, 1000);
+  }
+
+  private flushPending(): void {
+    try {
+      for (const campaignId of this.pendingSaves) {
+        this.writeCampaignFile(campaignId);
+      }
+      this.pendingSaves.clear();
+    } catch (err) {
+      console.error('Failed to save campaigns:', err.message);
+    }
+  }
+
+  private writeCampaignFile(campaignId: string): void {
+    const campaign = this.campaigns.get(campaignId);
+    if (!campaign) return;
+    const filePath = path.join(this.dataDir, `${campaignId}.json`);
+    const tmpPath = filePath + '.tmp';
+    fs.mkdirSync(this.dataDir, { recursive: true });
+    fs.writeFileSync(tmpPath, JSON.stringify(campaign, null, 2), 'utf-8');
+    fs.renameSync(tmpPath, filePath);
   }
 
   load(campaignId: string): SavedCampaign | undefined {
@@ -207,64 +270,9 @@ export class CampaignStore {
     };
   }
 
-  private saveImmediate(campaign: SavedCampaign): void {
-    this.campaigns.set(campaign.campaignId, campaign);
-    this.scheduleWrite();
-  }
-
-  private migrateV1ToV2(saved: SavedCampaign): boolean {
-    for (const p of saved.players) {
-      p.activeConditions = [];
-
-      for (const item of p.inventory || []) {
-        const oldItem = item as any;
-        const newEffects: SavedEffect[] = [];
-
-        if (oldItem.modifiers) {
-          for (const mod of oldItem.modifiers) {
-            newEffects.push({
-              type: 'permanent',
-              stat: mod.stat,
-              statValue: mod.value,
-              statOperation: mod.operation,
-              dexCap: mod.dexCap,
-              origin: 'item',
-            });
-          }
-        }
-
-        if (oldItem.effects) {
-          for (const ef of oldItem.effects) {
-            if (ef.type === 'heal_hp') {
-              newEffects.push({
-                type: 'immediate',
-                hpFormula: ef.formula,
-                hpType: 'heal',
-                origin: 'item',
-              });
-            }
-          }
-        }
-
-        delete (item as any).modifiers;
-        delete (item as any).effects;
-        (item as any).effects = newEffects;
-      }
-    }
-
-    saved.schemaVersion = 2;
-    this.saveImmediate(saved);
-
-    return this.restoreToMemory(saved.campaignId);
-  }
-
   restoreToMemory(campaignId: string): boolean {
     const saved = this.campaigns.get(campaignId);
     if (!saved) return false;
-
-    if (!saved.schemaVersion || saved.schemaVersion < 2) {
-      return this.migrateV1ToV2(saved);
-    }
 
     this.roomService.createWithId(
       campaignId,
@@ -360,53 +368,14 @@ export class CampaignStore {
 
   delete(campaignId: string): void {
     this.campaigns.delete(campaignId);
-    this.scheduleWrite();
-  }
-
-  private loadFromDisk(): void {
+    this.pendingSaves.delete(campaignId);
+    const filePath = path.join(this.dataDir, `${campaignId}.json`);
     try {
-      const dir = path.dirname(this.filePath);
-      if (!fs.existsSync(dir)) {
-        fs.mkdirSync(dir, { recursive: true });
-      }
-      if (!fs.existsSync(this.filePath)) {
-        fs.writeFileSync(this.filePath, '{}', 'utf-8');
-        return;
-      }
-      const raw = fs.readFileSync(this.filePath, 'utf-8');
-      const data = JSON.parse(raw);
-      for (const [key, val] of Object.entries(data)) {
-        this.campaigns.set(key, val as SavedCampaign);
-      }
+      fs.unlinkSync(filePath);
     } catch (err) {
-      console.error('Failed to load campaigns:', err.message);
-    }
-  }
-
-  private scheduleWrite(): void {
-    this.pendingSaves.add('campaigns');
-    if (this.saveTimer) return;
-
-    this.saveTimer = setTimeout(() => {
-      this.saveTimer = null;
-      this.writeToDisk();
-    }, 1000);
-  }
-
-  private writeToDisk(): void {
-    try {
-      const obj: Record<string, SavedCampaign> = {};
-      for (const [key, val] of this.campaigns) {
-        obj[key] = val;
+      if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
+        console.error('Failed to delete campaign file:', err.message);
       }
-      const dir = path.dirname(this.filePath);
-      if (!fs.existsSync(dir)) {
-        fs.mkdirSync(dir, { recursive: true });
-      }
-      fs.writeFileSync(this.filePath, JSON.stringify(obj, null, 2), 'utf-8');
-      this.pendingSaves.clear();
-    } catch (err) {
-      console.error('Failed to save campaigns:', err.message);
     }
   }
 }
