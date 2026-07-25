@@ -72,7 +72,7 @@ RoomModule ↔ CampaignModule circular dependency is resolved via `forwardRef()`
 - `campaign/` — `CampaignStore` (persist/restore per-campaign files in `data/campaigns/{id}.json`, schema v2 with flattened `SavedEffect` format, 1s debounced write with atomic temp+rename; OnModuleInit async load, OnModuleDestroy flush; stores HP/XP/level/summary/campaignTheme/inventory/coins/equipment/merchants/trade state; `migrateV1ToV2()` auto-converts old saves)
 - `dto/` — `schemas.ts` (24 Zod schemas for all WebSocket handlers with `.strict()` mode and inferred types; replaces old class-based DTOs), `ai-response.dto.ts` (incl. `MerchantSeed`/`MerchantSeedItem`/`ConditionSeed`/`ConditionEffectSeed` with unified `statValue`/`statOperation`)
 - `pipes/` — `zod-validation.pipe.ts` (global NestJS pipe: `safeParse` → `BadRequestException` on failure, no-op when no schema attached)
-- `ai/` — Provider pattern: `AiService` → `OpencodeProvider` (`@Injectable()` with `OnModuleInit`, DI-configured). `AiService` implements `OnModuleDestroy` — calls `provider.destroy()` to clean up all active AI sessions on shutdown. `summarizeHistory()` for long-term memory. Empty `AI_API_KEY` → fallback narration. `onRoomReady()`/`onRoomEmpty()` lifecycle for session create/delete. `OpencodeProvider` has private helpers: `createSession()` (shared session creation), `extractText()` (response text extraction), `isSessionError()` (404/410/400 detection), `fallbackResponse()` (error fallback). `buildIncrementalPrompt()` uses shared `buildTradePrompt()` and `buildActionLines()` from `shared/prompt-builder.ts`.
+- `ai/` — Provider pattern: `AiService` → `OpencodeProvider` (`@Injectable()` with `OnModuleInit`, DI-configured). `AIProvider` interface requires `validateConfig(config: AIConfig): void` — each provider validates its own config at startup (e.g., OpenCode requires `AI_MODEL` + `AI_BASE_URL`, no `AI_API_KEY`). `AiService` implements `OnModuleDestroy` — calls `provider.destroy()` to clean up all active AI sessions on shutdown. `AiService` does not inject `AI_CONFIG` — auth/config validation is each provider's responsibility. `summarizeHistory()` for long-term memory. `onRoomReady()`/`onRoomEmpty()` lifecycle for session create/delete. `OpencodeProvider` has private helpers: `createSession()` (shared session creation), `extractText()` (response text extraction), `isSessionError()` (404/410/400 detection), `fallbackResponse()` (error fallback). `buildIncrementalPrompt()` uses shared `buildTradePrompt()` and `buildActionLines()` from `shared/prompt-builder.ts`.
 
 **Frontend** — under `frontend/src/`:
 - `contexts/AppProviders.tsx` — Composes all providers in a single wrapper (Socket → Auth → Player → Game → Trade → Inventory)
@@ -92,9 +92,9 @@ RoomModule ↔ CampaignModule circular dependency is resolved via `forwardRef()`
 
 | Env var | Default | Notes |
 |---------|---------|-------|
-| `AI_API_KEY` | `(empty)` | Empty → static fallback, no LLM call |
-| `AI_MODEL` | `(empty)` | Passes through; no default override |
-| `AI_BASE_URL` | `http://localhost:4096` | Opencode base URL |
+| `AI_API_KEY` | `(empty)` | Empty → provider must handle in `validateConfig()`; OpenCode works without it |
+| `AI_MODEL` | `(empty)` | Required by OpenCode; passes through to provider |
+| `AI_BASE_URL` | `http://localhost:4096` | Required by OpenCode; base URL for the AI API |
 
 Repo `.env` defaults: `AI_PROVIDER=opencode`, `AI_API_KEY=none`, `AI_BASE_URL=http://localhost:4096`. Config loaded in `ai.module.ts` via `ConfigService` factories.
 

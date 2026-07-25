@@ -35,11 +35,21 @@ export class OpencodeProvider implements AIProvider, OnModuleInit {
   constructor(@Inject('AI_CONFIG') private config: AIConfig) {}
 
   onModuleInit(): void {
+    this.validateConfig(this.config);
     this.baseUrl = this.config.baseUrl || 'http://localhost:4096';
     this.model = this.config.model || null;
 
     if (this.config.apiKey) {
       this.auth = 'Basic ' + Buffer.from(`opencode:${this.config.apiKey}`).toString('base64');
+    }
+  }
+
+  validateConfig(config: AIConfig): void {
+    if (!config.model) {
+      throw new Error('AI_MODEL is required for OpenCode provider');
+    }
+    if (!config.baseUrl) {
+      throw new Error('AI_BASE_URL is required for OpenCode provider');
     }
   }
 

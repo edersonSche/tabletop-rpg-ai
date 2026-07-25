@@ -1,19 +1,14 @@
 import { Injectable, Inject, OnModuleDestroy } from '@nestjs/common';
-import { AIProvider, AIContext, AIConfig } from './ai.interface';
+import { AIProvider, AIContext } from './ai.interface';
 import { AIResponse } from '../dto/ai-response.dto';
 
 @Injectable()
 export class AiService implements OnModuleDestroy {
   constructor(
     @Inject('AI_PROVIDER') private provider: AIProvider,
-    @Inject('AI_CONFIG') private config: AIConfig,
   ) {}
 
   async generate(context: AIContext): Promise<AIResponse> {
-    if (!this.config.apiKey) {
-      return this.fallbackResponse(context);
-    }
-
     try {
       const response = await this.provider.generate(context);
       return this.validateResponse(response);
@@ -61,7 +56,7 @@ export class AiService implements OnModuleDestroy {
   }
 
   async summarizeHistory(entries: string[], existingSummary?: string): Promise<string> {
-    if (!this.config.apiKey || !this.provider.summarize) {
+    if (!this.provider.summarize) {
       return this.fallbackSummary(entries);
     }
     try {

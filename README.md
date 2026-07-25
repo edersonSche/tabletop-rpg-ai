@@ -87,7 +87,7 @@ Template files (`.env.example`) are committed for both packages — copy to `.en
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `AI_PROVIDER` | `opencode` | AI provider identifier |
-| `AI_API_KEY` | `(empty)` | API key; empty → fallback narration (no LLM call) |
+| `AI_API_KEY` | `(empty)` | API key; empty → fallback narration (provider must handle auth in `validateConfig()`) |
 | `AI_MODEL` | `(empty)` | Model identifier for the provider |
 | `AI_BASE_URL` | `http://localhost:4096` | Base URL for the AI API |
 | `CORS_ORIGIN` | `http://localhost:5173` | Allowed CORS origin(s); comma-separated for multiple |
@@ -161,9 +161,9 @@ Template files (`.env.example`) are committed for both packages — copy to `.en
 The backend uses a **provider pattern**:
 
 - **`AiModule`** configures `AI_CONFIG` via a factory and `AI_PROVIDER` as a DI alias (`useExisting: OpencodeProvider`), exporting `AiService`, `AI_PROVIDER`, and `AI_CONFIG`.
-- **`AiService`** dispatches to `OpencodeProvider`. Also exposes `onRoomReady()` and `onRoomEmpty()` lifecycle methods for session management.
-- **`OpencodeProvider`** — `@Injectable()` class configured via `OnModuleInit()` (NestJS DI), raw HTTP fetch to a local Opencode session; manages sessions per room.
-- **Fallback** — if `AI_API_KEY` is empty, `AiService.generate()` returns a static narration without calling any provider.
+- **`AiService`** dispatches to `OpencodeProvider`. Also exposes `onRoomReady()` and `onRoomEmpty()` lifecycle methods for session management. Does not inject `AI_CONFIG` — auth/config validation is each provider's responsibility.
+- **`OpencodeProvider`** — `@Injectable()` class configured via `OnModuleInit()` (NestJS DI), raw HTTP fetch to a local Opencode session; manages sessions per room. Implements `validateConfig()` which requires `AI_MODEL` and `AI_BASE_URL` (does not require `AI_API_KEY`).
+- **Fallback** — if a provider's `generate()` throws, `AiService` catches the error and returns a static fallback narration.
 
 The system prompt supports **English**, **Portuguese (Brazil)**, and **Spanish** narration. The AI responds in strict JSON with `narration`, mandatory `location`, optional `conditions` (narrative conditions with effects on players), optional `merchants` (array of merchants with items/prices using unified `statValue`/`statOperation`), and `next` (with `type`, `target`, `skill`, `dc`). Narration supports **Markdown** formatting rendered via `react-markdown`.
 
@@ -260,14 +260,14 @@ backend/src/
 │   └── auth.guard.ts        # AuthWsGuard
 ├── ai/
 │   ├── ai.module.ts         # AiModule (providers: AiService, OpencodeProvider, AI_CONFIG factory, AI_PROVIDER alias via useExisting)
-│   ├── ai.interface.ts      # AIConfig / AIProvider interface (includes summarize)
-│   ├── ai.service.ts        # Provider dispatcher + onRoomReady/onRoomEmpty lifecycle + summarizeHistory()
+│   ├── ai.interface.ts      # AIConfig / AIProvider interface (validateConfig required, summarize optional)
+│   ├── ai.service.ts        # Provider dispatcher + onRoomReady/onRoomEmpty lifecycle + summarizeHistory() (no AI_CONFIG injection)
 │   ├── prompts/
 │   │   └── system.prompt.ts # Multilingual system prompt builder (memory, markdown, levels, conditions, merchants with effects)
 │   ├── shared/
 │   │   └── prompt-builder.ts # Pure functions: formatHistoryEntries, buildActionLines, buildTradePrompt, buildFullPrompt, parseResponse
 │   └── providers/
-│       └── opencode.provider.ts  # @Injectable provider — per-room sessions, summarization, error recovery (DI-configured via OnModuleInit)
+│       └── opencode.provider.ts  # @Injectable provider — validateConfig (model+baseUrl required), per-room sessions, summarization, error recovery (DI-configured via OnModuleInit)
 ├── game/
 │   ├── game.module.ts       # GameModule (imports AuthModule, AiModule — exports all game services)
 │   ├── game.gateway.ts      # Game WebSocket handlers (thin delegation layer, no GameState injection)
