@@ -21,7 +21,8 @@ export class OpencodeProvider implements AIProvider, OnModuleInit {
   async onModuleInit(): Promise<void> {
     this.validateConfig(this.config);
 
-    const { createOpencodeClient } = await import('@opencode-ai/sdk');
+    const sdk = await eval('import("@opencode-ai/sdk")');
+    const { createOpencodeClient } = sdk;
     const headers: Record<string, string> = {};
     if (this.config.apiKey) {
       headers['Authorization'] = 'Basic ' + Buffer.from(`opencode:${this.config.apiKey}`).toString('base64');

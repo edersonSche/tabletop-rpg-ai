@@ -3,13 +3,14 @@ import { useAuth } from "../hooks/useAuth";
 import logo from "../assets/logo.png";
 
 export function Login() {
-  const { login } = useAuth();
+  const { login, connected, error, setError } = useAuth();
   const [userId, setUserId] = useState("");
   const [loading, setLoading] = useState(false);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!userId.trim() || loading) return;
+    setError(null);
     setLoading(true);
     await login(userId.trim());
     setLoading(false);
@@ -32,6 +33,18 @@ export function Login() {
             IDENTIFY YOURSELF
           </h2>
 
+          {!connected && (
+            <p className="font-pixel text-[8px] text-blood-500 text-center mb-4">
+              DISCONNECTED FROM SERVER...
+            </p>
+          )}
+
+          {error && (
+            <p className="font-pixel text-[8px] text-blood-500 text-center mb-4">
+              {error}
+            </p>
+          )}
+
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
               <label className="font-pixel text-[8px] text-stone-400 block mb-2 tracking-wider">
@@ -49,10 +62,10 @@ export function Login() {
 
             <button
               type="submit"
-              disabled={!userId.trim() || loading}
+              disabled={!userId.trim() || loading || !connected}
               className="btn-primary w-full"
             >
-              {loading ? "CONNECTING..." : "BEGIN ADVENTURE"}
+              {!connected ? "DISCONNECTED" : loading ? "CONNECTING..." : "BEGIN ADVENTURE"}
             </button>
           </form>
         </div>
