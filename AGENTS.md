@@ -46,7 +46,7 @@ Actions: `LOGGED_IN`, `LOGGED_OUT`, `CREATED_ROOM`, `JOIN_NEEDS_CHARACTER`, `CHA
 AppModule
 ├── SharedModule (@Global)    — GameState, DiceService (available to all modules without import)
 ├── AuthModule                — AuthGateway, AuthService, AuthWsGuard
-├── AiModule                  — AiService, OpencodeProvider (@Injectable), AI_CONFIG factory, AI_PROVIDER alias via useExisting (exports all three)
+├── AiModule                  — AiService, OpencodeProvider, OpenRouterProvider (@Injectable), AI_CONFIG factory, AI_PROVIDER alias via useExisting (exports all three)
 ├── GameModule                — imports AuthModule, AiModule
 │   exports: GameGateway, GameService, PlayerService, MerchantService,
 │            TradeService, ConditionEngine, LevelingService, TurnManager
@@ -72,7 +72,7 @@ RoomModule ↔ CampaignModule circular dependency is resolved via `forwardRef()`
 - `campaign/` — `CampaignStore` (persist/restore per-campaign files in `data/campaigns/{id}.json`, schema v2 with flattened `SavedEffect` format, 1s debounced write with atomic temp+rename; OnModuleInit async load, OnModuleDestroy flush; stores HP/XP/level/summary/campaignTheme/inventory/coins/equipment/merchants/trade state; `migrateV1ToV2()` auto-converts old saves)
 - `dto/` — `schemas.ts` (24 Zod schemas for all WebSocket handlers with `.strict()` mode and inferred types; replaces old class-based DTOs), `ai-response.dto.ts` (incl. `MerchantSeed`/`MerchantSeedItem`/`ConditionSeed`/`ConditionEffectSeed` with unified `statValue`/`statOperation`)
 - `pipes/` — `zod-validation.pipe.ts` (global NestJS pipe: `safeParse` → `BadRequestException` on failure, no-op when no schema attached)
-- `ai/` — Provider pattern: `AiService` → `OpencodeProvider` (`@Injectable()` with `OnModuleInit`, DI-configured). `AIProvider` interface requires `validateConfig(config: AIConfig): void` — each provider validates its own config at startup (e.g., OpenCode requires `AI_MODEL` + `AI_BASE_URL`, no `AI_API_KEY`). `AiService` implements `OnModuleDestroy` — calls `provider.destroy()` to clean up all active AI sessions on shutdown. `AiService` does not inject `AI_CONFIG` — auth/config validation is each provider's responsibility. `summarizeHistory()` for long-term memory. `onRoomReady()`/`onRoomEmpty()` lifecycle for session create/delete. `OpencodeProvider` has private helpers: `createSession()` (shared session creation), `extractText()` (response text extraction), `isSessionError()` (404/410/400 detection), `fallbackResponse()` (error fallback). `buildIncrementalPrompt()` uses shared `buildTradePrompt()` and `buildActionLines()` from `shared/prompt-builder.ts`.
+- `ai/` — Provider pattern: `AiService` → `OpencodeProvider` / `OpenRouterProvider` (`@Injectable()` with `OnModuleInit`, DI-configured). `AIProvider` interface requires `validateConfig(config: AIConfig): void` — each provider validates its own config at startup (e.g., OpenCode requires `AI_MODEL` + `AI_BASE_URL`, no `AI_API_KEY`; OpenRouter requires all three). `AiService` implements `OnModuleDestroy` — calls `provider.destroy()` to clean up all active AI sessions on shutdown. `AiService` does not inject `AI_CONFIG` — auth/config validation is each provider's responsibility. `summarizeHistory()` for long-term memory. `onRoomReady()`/`onRoomEmpty()` lifecycle for session create/delete (stateless providers like OpenRouter skip these). `OpencodeProvider` has private helpers: `createSession()` (shared session creation), `extractText()` (response text extraction), `isSessionError()` (404/410/400 detection), `fallbackResponse()` (error fallback). `buildIncrementalPrompt()` uses shared `buildTradePrompt()` and `buildActionLines()` from `shared/prompt-builder.ts`. `OpenRouterProvider` uses `buildFullPrompt()` (full context per call, stateless) and `@openrouter/sdk` (ESM-only, dynamic `await import()` in `OnModuleInit`). Both providers use ESM-only SDKs imported via dynamic `await import()` in `OnModuleInit` — `@opencode-ai/sdk` types resolved via `paths` in tsconfig (no `main` field, `exports`-only package).
 
 **Frontend** — under `frontend/src/`:
 - `contexts/AppProviders.tsx` — Composes all providers in a single wrapper (Socket → Auth → Player → Game → Trade → Inventory)
@@ -92,13 +92,13 @@ RoomModule ↔ CampaignModule circular dependency is resolved via `forwardRef()`
 
 | Env var | Default | Notes |
 |---------|---------|-------|
-| `AI_API_KEY` | `(empty)` | Empty → provider must handle in `validateConfig()`; OpenCode works without it |
-| `AI_MODEL` | `(empty)` | Required by OpenCode; passes through to provider |
-| `AI_BASE_URL` | `http://localhost:4096` | Required by OpenCode; base URL for the AI API |
+| `AI_API_KEY` | `(empty)` | Empty → provider must handle in `validateConfig()`; OpenCode works without it, OpenRouter requires it |
+| `AI_MODEL` | `(empty)` | Required by both providers; passes through to provider |
+| `AI_BASE_URL` | `http://localhost:4096` | Required by both providers; OpenRouter expects `https://openrouter.ai/api/v1` |
 
 Repo `.env` defaults: `AI_PROVIDER=opencode`, `AI_API_KEY=none`, `AI_BASE_URL=http://localhost:4096`. Config loaded in `ai.module.ts` via `ConfigService` factories.
 
-Opencode provider uses inline JSON prompt + regex extraction. Invalid `call_player`/`call_roll` targets get coerced to `group_action` by `GameService.validateAiResponseTarget()` (also warns on invalid `conditions[].targetPlayerId`).
+Opencode provider uses inline JSON prompt + regex extraction. OpenRouter provider uses `@openrouter/sdk` (ESM-only, dynamic import) with `buildFullPrompt()` per call (stateless). Both use shared `parseResponse()` for JSON extraction from AI text. Invalid `call_player`/`call_roll` targets get coerced to `group_action` by `GameService.validateAiResponseTarget()` (also warns on invalid `conditions[].targetPlayerId`).
 
 System prompt (`system.prompt.ts`) documents: Markdown narration, two-tier memory (history + summary), player levels, location/target rules, and out-of-game question handling.
 
@@ -106,7 +106,7 @@ System prompt (`system.prompt.ts`) documents: Markdown narration, two-tier memor
 
 - **UI is English** (`<html lang="en">`); AI narration supports `english | portuguese | spanish`; all source code is English.
 - **Always-dark design** — custom Tailwind colors (`parchment`, `dungeon`, `gold`, `blood`, `magic`), pixel/mono font utilities (`text-pixel`, `text-mono`). No `dark:` variants.
-- **Backend** uses CommonJS (`"module": "commonjs"` in tsconfig + `experimentalDecorators`). **Frontend** uses `"type": "module"`.
+- **Backend** uses CommonJS (`"module": "commonjs"` in tsconfig + `experimentalDecorators`). **Frontend** uses `"type": "module"`. **`@openrouter/sdk` and `@opencode-ai/sdk` are ESM-only** — imported via `await import()` dynamic import in provider `OnModuleInit()` methods. `@opencode-ai/sdk` has no `main` field (exports-only), so tsconfig `paths` resolves its types.
 - **Port** is configurable via `PORT` env var (default `3000`) — `main.ts` uses `ConfigService.get('PORT', 3000)`.
 - **Roll fallback** — `handleRoll()` defaults skill to `'dexterity'` and DC to 10. Roll computed and emitted as `game:player_action` *before* AI processing. Frontend `sendRoll()` reads `turnUpdate.skill`/`dc` if `turnUpdate.type === 'call_roll'`.
 - **Actions** are optimistically added for the sender (`characterName: 'You'`) and broadcast to others via `game:player_action`. **Rolls** add a placeholder `"Rolling dice..."` locally then broadcast the final result to all.
@@ -119,7 +119,7 @@ System prompt (`system.prompt.ts`) documents: Markdown narration, two-tier memor
 - **HP/XP/Leveling** — Player model includes `hp`, `maxHp`, `level` (1-20), `xp`, `maxXp`, `pendingAttributePoints`. HP = `10 + CON mod`. XP thresholds from D&D 5e SRD. ASI levels (4/8/12/16/19) grant +2 attribute points. Backend engine is complete; XP gain is not yet triggered by game actions (no server-side `game:level_up` emit).
 - **Attribute point-buy** — Character creation: 27-point pool, attributes range 8-15 (cost: 1pt for 8-12, 2pt for 13-14). Max attribute is 20.
 - **Inventory & Equipment** — Players start with a dagger, 2 healing potions, and 50 coins. Items have types, slots, and `effects: Effect[]` (unified stat modifiers + hp changes). Equipment slots: body, mainHand, offHand. `PlayerService.equipItem` auto-unequips existing slot items and recalculates AC/effects via `GameState.recomputePlayer`; `PlayerService.unequipItem` also triggers recalculation. Two-handed weapons block off-hand slot. `PlayerService.useItem` processes all effect types (immediate heal/damage via `ConditionEngine.applyHpChange`, temporary→synthetic condition via `ConditionEngine.applyConditionToPlayer`, permanent→temporary fallback). `PlayerService.useAntidote` removes a condition by name (matched via `item.antidoteFor`) via `ConditionEngine.removeConditionFromPlayer` and consumes the item. Items with `antidoteFor` in their definition (catalog or AI-generated merchant) work as condition cures. Inventory/coins/equipment are persisted in saved campaigns.
-- **AI sessions** — `AiService.onRoomReady()`/`onRoomEmpty()` delegate to `OpencodeProvider` for session lifecycle. Called by gateways via `AiService` (no direct `AI_PROVIDER` injection). Created on character creation / campaign resume; deleted on last leave / disband / delete_saved. 404/410 errors auto-recreate sessions.
+- **AI sessions** — `AiService.onRoomReady()`/`onRoomEmpty()` delegate to the configured provider for session lifecycle. Called by gateways via `AiService` (no direct `AI_PROVIDER` injection). Created on character creation / campaign resume; deleted on last leave / disband / delete_saved. OpenCode provider: 404/410 errors auto-recreate sessions via SDK.
 - **History summarization** — `maybeSummarize()` triggers every 50 history entries. Uses a temporary AI session to merge new entries into `room.summary`. Guarded by a per-room `isSummarizing` Set to prevent concurrency. Summary is persisted in saved campaigns.
 - **`isUnknownLocation()` utility** — extracted to `backend/src/utils/is-unknown-location.ts`, imported by `GameService` and `GameGateway` (was duplicated in both files before M12 fix).
 - **GameRoom layout** — Left sidebar (48px) with `MyCharacterStatus` (HP/XP bars, name, level, condition indicators) + modal navigation buttons (Sheet, Characters, Options, Leave). Main area has `CampaignStatusBar` at top, Chat in center, TypingIndicator + MessageInput + DiceRollButton at bottom. All panels (CharacterSheet with ActiveConditionsSection, CharacterList, Options, AttributeAllocation) are modals.

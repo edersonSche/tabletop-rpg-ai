@@ -10,38 +10,27 @@ import {
   parseResponse,
 } from '../shared/prompt-builder';
 
-interface MessagePart {
-  type: string;
-  text?: string;
-}
-
-interface SessionResponse {
-  id: string;
-}
-
-interface MessageResponse {
-  info: Record<string, unknown>;
-  parts: MessagePart[];
-}
-
 @Injectable()
 export class OpencodeProvider implements AIProvider, OnModuleInit {
-  private baseUrl: string;
-  private auth: string | null = null;
-  private model: string | null = null;
+  private client: any = null;
   private sessions = new Map<string, string>();
   private sessionContextSent = new Set<string>();
 
   constructor(@Inject('AI_CONFIG') private config: AIConfig) {}
 
-  onModuleInit(): void {
+  async onModuleInit(): Promise<void> {
     this.validateConfig(this.config);
-    this.baseUrl = this.config.baseUrl || 'http://localhost:4096';
-    this.model = this.config.model || null;
 
+    const { createOpencodeClient } = await import('@opencode-ai/sdk');
+    const headers: Record<string, string> = {};
     if (this.config.apiKey) {
-      this.auth = 'Basic ' + Buffer.from(`opencode:${this.config.apiKey}`).toString('base64');
+      headers['Authorization'] = 'Basic ' + Buffer.from(`opencode:${this.config.apiKey}`).toString('base64');
     }
+    this.client = createOpencodeClient({
+      baseUrl: this.config.baseUrl || 'http://localhost:4096',
+      throwOnError: true,
+      ...(Object.keys(headers).length > 0 ? { headers } : {}),
+    });
   }
 
   validateConfig(config: AIConfig): void {
@@ -60,9 +49,7 @@ export class OpencodeProvider implements AIProvider, OnModuleInit {
       }
 
       const prompt = this.buildIncrementalPrompt(context);
-
       const message = await this.sendMessage(context.roomId, prompt);
-
       const text = this.extractText(message);
 
       return parseResponse(text);
@@ -127,29 +114,15 @@ export class OpencodeProvider implements AIProvider, OnModuleInit {
     const sessionId = await this.createSession();
 
     try {
-      const body: Record<string, unknown> = {
-        parts: [{ type: 'text', text: prompt }],
-      };
-      if (this.model) body.model = this.model;
-
-      const msgRes = await fetch(`${this.baseUrl}/session/${sessionId}/message`, {
-        method: 'POST',
-        headers: this.headers(),
-        body: JSON.stringify(body),
+      const result = await this.client.session.prompt({
+        path: { id: sessionId },
+        body: { parts: [{ type: 'text', text: prompt }] },
       });
 
-      if (!msgRes.ok) {
-        throw new Error(`Summarization request failed: ${msgRes.status}`);
-      }
-
-      const msgData = (await msgRes.json()) as MessageResponse;
-      const text = this.extractText(msgData);
+      const text = this.extractText(result.data);
       return text.trim();
     } finally {
-      fetch(`${this.baseUrl}/session/${sessionId}`, {
-        method: 'DELETE',
-        headers: this.headers(),
-      }).catch(() => {});
+      this.client.session.delete({ path: { id: sessionId } }).catch(() => {});
     }
   }
 
@@ -157,10 +130,7 @@ export class OpencodeProvider implements AIProvider, OnModuleInit {
     const deletePromises: Promise<void>[] = [];
     for (const sessionId of this.sessions.values()) {
       deletePromises.push(
-        fetch(`${this.baseUrl}/session/${sessionId}`, {
-          method: 'DELETE',
-          headers: this.headers(),
-        }).then(() => {}).catch(() => {})
+        this.client.session.delete({ path: { id: sessionId } }).then(() => {}).catch(() => {})
       );
     }
     await Promise.all(deletePromises);
@@ -172,69 +142,29 @@ export class OpencodeProvider implements AIProvider, OnModuleInit {
     const sessionId = this.sessions.get(roomId);
     if (!sessionId) return;
 
-    await fetch(`${this.baseUrl}/session/${sessionId}`, {
-      method: 'DELETE',
-      headers: this.headers(),
-    }).catch(() => {});
+    await this.client.session.delete({ path: { id: sessionId } }).catch(() => {});
 
     this.sessions.delete(roomId);
     this.sessionContextSent.delete(roomId);
   }
 
-  private async sendMessage(roomId: string, content: string): Promise<MessageResponse> {
+  private async createSession(): Promise<string> {
+    const result = await this.client.session.create({ body: {} });
+    return result.data.id;
+  }
+
+  private async sendMessage(roomId: string, content: string): Promise<{ info: any; parts: any[] }> {
     const sessionId = this.sessions.get(roomId);
     if (!sessionId) {
       throw new Error(`No session for room: ${roomId}`);
     }
 
-    const body: Record<string, unknown> = {
-      parts: [{ type: 'text', text: content }],
-    };
-
-    if (this.model) {
-      body.model = this.model;
-    }
-
-    const res = await fetch(`${this.baseUrl}/session/${sessionId}/message`, {
-      method: 'POST',
-      headers: this.headers(),
-      body: JSON.stringify(body),
+    const result = await this.client.session.prompt({
+      path: { id: sessionId },
+      body: { parts: [{ type: 'text', text: content }] },
     });
 
-    if (!res.ok) {
-      const err = new Error(`Failed to send message: ${res.status} ${res.statusText}`);
-      (err as any).status = res.status;
-      throw err;
-    }
-
-    return (await res.json()) as MessageResponse;
-  }
-
-  private headers(): Record<string, string> {
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-    };
-
-    if (this.auth) {
-      headers['Authorization'] = this.auth;
-    }
-
-    return headers;
-  }
-
-  private async createSession(): Promise<string> {
-    const res = await fetch(`${this.baseUrl}/session`, {
-      method: 'POST',
-      headers: this.headers(),
-      body: JSON.stringify({}),
-    });
-
-    if (!res.ok) {
-      throw new Error(`Failed to create session: ${res.status} ${res.statusText}`);
-    }
-
-    const data = (await res.json()) as SessionResponse;
-    return data.id;
+    return result.data;
   }
 
   private buildIncrementalPrompt(context: AIContext): string {
@@ -250,11 +180,11 @@ export class OpencodeProvider implements AIProvider, OnModuleInit {
   }
 
   private isSessionError(error: any): boolean {
-    const status = error?.status;
-    return status === 404 || status === 410 || status === 400;
+    const name = error?.cause?.name;
+    return name === 'NotFoundError' || name === 'BadRequest';
   }
 
-  private extractText(message: MessageResponse): string {
+  private extractText(message: { parts: any[] }): string {
     for (const part of message.parts) {
       if (part.type === 'text' && part.text) {
         return part.text;

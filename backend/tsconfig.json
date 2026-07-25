@@ -16,6 +16,10 @@
     "noImplicitAny": true,
     "strictBindCallApply": true,
     "forceConsistentCasingInFileNames": true,
-    "noFallthroughCasesInSwitch": true
+    "noFallthroughCasesInSwitch": true,
+    "paths": {
+      "@opencode-ai/sdk": ["./node_modules/@opencode-ai/sdk/dist/index.d.ts"],
+      "@opencode-ai/sdk/*": ["./node_modules/@opencode-ai/sdk/dist/*"]
+    }
   }
 }
