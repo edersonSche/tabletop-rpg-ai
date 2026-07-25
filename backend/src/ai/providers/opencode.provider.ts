@@ -2,6 +2,13 @@ import { Injectable, Inject, OnModuleInit } from '@nestjs/common';
 import { AIProvider, AIConfig, AIContext } from '../ai.interface';
 import { AIResponse } from '../../dto/ai-response.dto';
 import { getSystemPrompt } from '../prompts/system.prompt';
+import {
+  formatHistoryEntries,
+  buildActionLines,
+  buildTradePrompt,
+  buildFullPrompt,
+  parseResponse,
+} from '../shared/prompt-builder';
 
 interface MessagePart {
   type: string;
@@ -48,7 +55,7 @@ export class OpencodeProvider implements AIProvider, OnModuleInit {
 
       const text = this.extractText(message);
 
-      return this.parseResponse(text);
+      return parseResponse(text);
     } catch (error) {
       console.error('Opencode provider error:', error.message);
 
@@ -58,9 +65,9 @@ export class OpencodeProvider implements AIProvider, OnModuleInit {
 
         try {
           await this.onRoomReady(context.roomId, context);
-          const fullPrompt = this.buildPrompt(context);
+          const fullPrompt = buildFullPrompt(context);
           const message = await this.sendMessage(context.roomId, fullPrompt);
-          return this.parseResponse(this.extractText(message));
+          return parseResponse(this.extractText(message));
         } catch (retryError) {
           console.error('Opencode provider retry failed:', retryError.message);
           return this.fallbackResponse(context);
@@ -84,7 +91,7 @@ export class OpencodeProvider implements AIProvider, OnModuleInit {
     }
 
     const historyBlock = context.history.length > 0
-      ? '\n\n## Recent Events (last 30 actions)\n' + this.formatHistoryEntries(context)
+      ? '\n\n## Recent Events (last 30 actions)\n' + formatHistoryEntries(context.history)
       : '';
 
     await this.sendMessage(roomId, systemPrompt + historyBlock);
@@ -220,117 +227,15 @@ export class OpencodeProvider implements AIProvider, OnModuleInit {
     return data.id;
   }
 
-  private formatHistoryEntries(context: AIContext): string {
-    return context.history.slice(-30).map(h =>
-      h.role === 'player' ? `[${h.playerId || 'unknown'}] ${h.content}`
-      : h.role === 'assistant' ? `GM: ${h.content}`
-      : `[system] ${h.content}`
-    ).join('\n');
-  }
-
-  private buildTradePrompt(context: AIContext, verbose: boolean): string[] {
-    const lines: string[] = [];
-    const location = context.currentLocation || 'unknown';
-    const levels = context.players.map(p => p.level).join(', ');
-    lines.push(`[Trade Request] ${context.currentAction!.characterName} is looking for merchants at ${location}.`);
-    lines.push('');
-    lines.push(`Campaign theme: ${context.campaignTheme}`);
-    lines.push(`Party levels: ${levels}`);
-    lines.push(`Current location: ${location}`);
-    lines.push('');
-    lines.push('Generate merchants that would logically be found at this location.');
-    lines.push('The number of merchants must reflect the location type:');
-    lines.push('- Cities, towns, markets: many merchants (up to 10)');
-    lines.push('- Villages, outposts: few merchants (2-5)');
-    lines.push('- Wilderness, dungeons, remote areas: 1 merchant at most (if any)');
-    lines.push(`Return between 1 and 10 merchants in ${verbose ? 'the "merchants" array.' : '"merchants" array.'}`);
-    lines.push('');
-    lines.push('For each merchant return:');
-    lines.push('- name: unique, flavorful name');
-    lines.push(`- type: specialty (e.g., "blacksmith", "alchemist", "general_goods"${verbose ? ', "apothecary", "curio_merchant", "armorer", "enchanter", etc.)' : ')'}`);
-    lines.push('- greeting: a line of dialogue in the campaign language');
-    lines.push(`- coins: how much coin they have to buy from players${verbose ? ' (reasonable amount based on location)' : ''}`);
-    lines.push('- items: 3-8 items for sale');
-    if (verbose) {
-      lines.push('');
-      lines.push('For each item:');
-      lines.push('- name, description (in the campaign language)');
-      lines.push('- type: "weapon" | "armor" | "shield" | "potion" | "scroll" | "key_item" | "misc"');
-      lines.push('- slot: "body" | "hand" | "two-handed" (only for equippable items)');
-      lines.push('- baseBuyPrice: what the merchant charges TO SELL (higher price)');
-      lines.push('- baseSellPrice: what the merchant pays TO BUY (lower, roughly 40-60% of baseBuyPrice)');
-      lines.push('- quantity: stock amount');
-      lines.push('- effects: optional array of { type, duration?, stat?, statValue?, statOperation?, dexCap?, hpFormula?, hpType? }');
-    } else {
-      lines.push('');
-      lines.push('For each item: name, description, type, slot (if equippable), baseBuyPrice, baseSellPrice, quantity, effects.');
-    }
-    lines.push('');
-    lines.push('IMPORTANT: Return ONLY the "merchants" field in your JSON. Do NOT include a "narration" or any other field.');
-    lines.push('If no merchant would be at this location, return an empty merchants array.');
-    return lines;
-  }
-
-  private buildActionLines(context: AIContext): string[] {
-    const lines: string[] = [];
-    if (context.currentAction) {
-      if (context.currentAction.characterName) {
-        lines.push(`Player acting: ${context.currentAction.characterName}`);
-      }
-      if (context.currentAction.action) {
-        lines.push(`Action: ${context.currentAction.action}`);
-      }
-      if (context.currentAction.rollResult !== undefined) {
-        const roll = `Roll: ${context.currentAction.rollResult}`;
-        const dc = context.currentAction.dc ? ` (DC ${context.currentAction.dc})` : '';
-        lines.push(`${roll}${dc}`);
-        if (context.currentAction.skill) {
-          lines.push(`Skill: ${context.currentAction.skill}`);
-        }
-      }
-      lines.push('');
-    }
-    if (context.currentAction?.rollResult !== undefined && context.currentAction?.dc !== undefined) {
-      lines.push('Note: a roll was made. If the roll meets or exceeds the DC, describe success. Otherwise describe failure.');
-    }
-    return lines;
-  }
-
   private buildIncrementalPrompt(context: AIContext): string {
     if (context.currentAction?.action === 'initiate_trade') {
-      return this.buildTradePrompt(context, true).join('\n');
+      return buildTradePrompt(context, true).join('\n');
     }
 
-    const lines = this.buildActionLines(context);
+    const lines = buildActionLines(context.currentAction);
     if (lines.length === 0) {
       lines.push('The adventure continues. What happens next?');
     }
-    return lines.join('\n');
-  }
-
-  private buildPrompt(context: AIContext): string {
-    const lines: string[] = [
-      getSystemPrompt(context),
-      '',
-    ];
-
-    if (context.summary) {
-      lines.push(`## Long-Term Memory (campaign summary)\n${context.summary}`);
-      lines.push('');
-    }
-
-    if (context.history.length > 0) {
-      lines.push('## Recent Events (last 30 actions)');
-      lines.push(this.formatHistoryEntries(context));
-      lines.push('');
-    }
-
-    if (context.currentAction?.action === 'initiate_trade') {
-      lines.push(...this.buildTradePrompt(context, false));
-      return lines.join('\n');
-    }
-
-    lines.push(...this.buildActionLines(context));
     return lines.join('\n');
   }
 
@@ -346,20 +251,6 @@ export class OpencodeProvider implements AIProvider, OnModuleInit {
       }
     }
     throw new Error('No text part found in response');
-  }
-
-  private parseResponse(text: string): AIResponse {
-    const jsonMatch = text.match(/\{[\s\S]*\}/);
-    const json = jsonMatch ? jsonMatch[0] : text;
-
-    try {
-      return JSON.parse(json) as AIResponse;
-    } catch {
-      return {
-        narration: text,
-        next: { type: 'group_action' },
-      };
-    }
   }
 
   private fallbackResponse(context: AIContext): AIResponse {

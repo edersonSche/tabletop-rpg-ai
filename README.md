@@ -24,6 +24,7 @@ AI-powered tabletop role-playing game platform with a real-time multiplayer expe
 │  SharedModule (@Global) — GameState, DiceService            │
 │  AuthModule — AuthGateway, AuthService, AuthWsGuard         │
 │  AiModule — AiService, OpencodeProvider, AI_CONFIG/AI_PROVIDER │
+│    shared/prompt-builder.ts — pure prompt/response utilities  │
 │  GameModule — GameGateway, GameService, PlayerService,      │
 │    MerchantService, TradeService, ConditionEngine,          │
 │    LevelingService, TurnManager                             │
@@ -263,6 +264,8 @@ backend/src/
 │   ├── ai.service.ts        # Provider dispatcher + onRoomReady/onRoomEmpty lifecycle + summarizeHistory()
 │   ├── prompts/
 │   │   └── system.prompt.ts # Multilingual system prompt builder (memory, markdown, levels, conditions, merchants with effects)
+│   ├── shared/
+│   │   └── prompt-builder.ts # Pure functions: formatHistoryEntries, buildActionLines, buildTradePrompt, buildFullPrompt, parseResponse
 │   └── providers/
 │       └── opencode.provider.ts  # @Injectable provider — per-room sessions, summarization, error recovery (DI-configured via OnModuleInit)
 ├── game/
