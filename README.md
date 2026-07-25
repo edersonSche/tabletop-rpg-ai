@@ -161,7 +161,7 @@ Template files (`.env.example`) are committed for both packages — copy to `.en
 
 The backend uses a **provider pattern** with two available providers:
 
-- **`AiModule`** configures `AI_CONFIG` via a factory and `AI_PROVIDER` as a DI alias (`useExisting: OpencodeProvider`), exporting `AiService`, `AI_PROVIDER`, and `AI_CONFIG`. Provider selection is currently manual (swap `useExisting` in `ai.module.ts`); dynamic selection based on `AI_PROVIDER` env var is planned (Task 5).
+- **`AiModule`** configures `AI_CONFIG` via a factory and selects the active provider dynamically based on the `AI_PROVIDER` env var (`"opencode"` or `"openrouter"`). Invalid values cause a startup error. Exports `AiService`, `AI_PROVIDER`, and `AI_CONFIG`.
 - **`AiService`** dispatches to the configured provider. Also exposes `onRoomReady()` and `onRoomEmpty()` lifecycle methods for session management. Does not inject `AI_CONFIG` — auth/config validation is each provider's responsibility.
 - **`OpencodeProvider`** — `@Injectable()` class configured via `OnModuleInit()` with dynamic ESM import (`await import('@opencode-ai/sdk')`). Stateful: tracks sessions per room via `createOpencodeClient()`, incremental prompts, auto-recovers from 404/410 session errors. Uses `@opencode-ai/sdk` (ESM-only) with `baseUrl` and optional auth headers. Implements `validateConfig()` which requires `AI_MODEL` and `AI_BASE_URL` (does not require `AI_API_KEY`).
 - **`OpenRouterProvider`** — `@Injectable()` class configured via `OnModuleInit()` with dynamic ESM import (`await import('@openrouter/sdk')`). Stateless: no sessions, full prompt sent per call via `buildFullPrompt()`. Uses `@openrouter/sdk` (ESM-only) with `serverURL` constructor option. Implements `validateConfig()` which requires `AI_API_KEY`, `AI_MODEL`, and `AI_BASE_URL`. Also implements `summarize()` for history summarization.
@@ -175,7 +175,7 @@ Invalid AI targets (`call_player`/`call_roll` pointing to missing players) are c
 
 When a player initiates trade via `game:initiate_trade`, the AI generates merchant data in the `merchants` field of the response. Each merchant includes an inventory of 3-8 items with prices and effects (stat modifiers and/or hp formulas). Location must be known — `"unknown location"` disables trading.
 
-The provider manages **per-room sessions**: created when a character is made or campaign is resumed (`onRoomReady()`), and deleted when the last player leaves or the campaign is deleted (`onRoomEmpty()`). 404/410 errors auto-recreate sessions.
+The **OpenCode provider** manages **per-room sessions**: created when a character is made or campaign is resumed (`onRoomReady()`), and deleted when the last player leaves or the campaign is deleted (`onRoomEmpty()`). 404/410 errors auto-recreate sessions. The OpenRouter provider is stateless and skips these lifecycle hooks.
 
 ## Character Creation
 
@@ -261,7 +261,7 @@ backend/src/
 │   ├── auth.service.ts      # userId/socketId + playerId/socketId mapping
 │   └── auth.guard.ts        # AuthWsGuard
 ├── ai/
-│   ├── ai.module.ts         # AiModule (providers: AiService, OpencodeProvider, AI_CONFIG factory, AI_PROVIDER alias via useExisting)
+│   ├── ai.module.ts         # AiModule (providers: AiService, OpencodeProvider, OpenRouterProvider, AI_CONFIG factory, AI_PROVIDER dynamic selection via useFactory)
 │   ├── ai.interface.ts      # AIConfig / AIProvider interface (validateConfig required, summarize optional)
 │   ├── ai.service.ts        # Provider dispatcher + onRoomReady/onRoomEmpty lifecycle + summarizeHistory() (no AI_CONFIG injection)
 │   ├── prompts/

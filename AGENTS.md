@@ -46,7 +46,7 @@ Actions: `LOGGED_IN`, `LOGGED_OUT`, `CREATED_ROOM`, `JOIN_NEEDS_CHARACTER`, `CHA
 AppModule
 ├── SharedModule (@Global)    — GameState, DiceService (available to all modules without import)
 ├── AuthModule                — AuthGateway, AuthService, AuthWsGuard
-├── AiModule                  — AiService, OpencodeProvider, OpenRouterProvider (@Injectable), AI_CONFIG factory, AI_PROVIDER alias via useExisting (exports all three)
+├── AiModule                  — AiService, OpencodeProvider, OpenRouterProvider (@Injectable), AI_CONFIG factory, AI_PROVIDER dynamic selection via useFactory (exports all three)
 ├── GameModule                — imports AuthModule, AiModule
 │   exports: GameGateway, GameService, PlayerService, MerchantService,
 │            TradeService, ConditionEngine, LevelingService, TurnManager
@@ -96,7 +96,7 @@ RoomModule ↔ CampaignModule circular dependency is resolved via `forwardRef()`
 | `AI_MODEL` | `(empty)` | Required by both providers; passes through to provider |
 | `AI_BASE_URL` | `http://localhost:4096` | Required by both providers; OpenRouter expects `https://openrouter.ai/api/v1` |
 
-Repo `.env` defaults: `AI_PROVIDER=opencode`, `AI_API_KEY=none`, `AI_BASE_URL=http://localhost:4096`. Config loaded in `ai.module.ts` via `ConfigService` factories.
+Repo `.env` defaults: `AI_PROVIDER=opencode`, `AI_API_KEY=none`, `AI_BASE_URL=http://localhost:4096`. Config loaded in `ai.module.ts` via `ConfigService` factories. Provider is selected dynamically via a `useFactory` that switches on `AI_CONFIG.provider` — invalid values throw at startup.
 
 Opencode provider uses inline JSON prompt + regex extraction. OpenRouter provider uses `@openrouter/sdk` (ESM-only, dynamic import) with `buildFullPrompt()` per call (stateless). Both use shared `parseResponse()` for JSON extraction from AI text. Invalid `call_player`/`call_roll` targets get coerced to `group_action` by `GameService.validateAiResponseTarget()` (also warns on invalid `conditions[].targetPlayerId`).
 
