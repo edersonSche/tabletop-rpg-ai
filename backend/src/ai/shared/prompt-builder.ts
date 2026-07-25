@@ -113,15 +113,36 @@ export function buildFullPrompt(context: AIContext): string {
 }
 
 export function parseResponse(text: string): AIResponse {
-  const jsonMatch = text.match(/\{[\s\S]*\}/);
-  const json = jsonMatch ? jsonMatch[0] : text;
+  // Strip markdown code fences that LLMs sometimes wrap responses in
+  const cleaned = text
+    .replace(/```(?:json)?\s*\n?/g, '')
+    .replace(/```\s*$/g, '')
+    .trim();
 
-  try {
-    return JSON.parse(json) as AIResponse;
-  } catch {
-    return {
-      narration: text,
-      next: { type: 'group_action' },
-    };
+  // Strategy 1: greedy regex to find largest JSON object
+  const greedyMatch = cleaned.match(/\{[\s\S]*\}/);
+  if (greedyMatch) {
+    try {
+      return JSON.parse(greedyMatch[0]) as AIResponse;
+    } catch {}
   }
+
+  // Strategy 2: try parsing the full cleaned text as JSON
+  try {
+    return JSON.parse(cleaned) as AIResponse;
+  } catch {}
+
+  // Strategy 3: non-greedy regex (handles braces in narrative prose)
+  const fallbackMatch = cleaned.match(/\{[\s\S]*?\}/);
+  if (fallbackMatch) {
+    try {
+      return JSON.parse(fallbackMatch[0]) as AIResponse;
+    } catch {}
+  }
+
+  console.warn('[parseResponse] Failed to parse AI response as JSON:', cleaned.slice(0, 200));
+  return {
+    narration: cleaned,
+    next: { type: 'group_action' },
+  };
 }
