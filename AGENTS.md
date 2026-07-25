@@ -90,17 +90,37 @@ RoomModule ↔ CampaignModule circular dependency is resolved via `forwardRef()`
 
 ## AI integration
 
-| Env var | Default | Notes |
-|---------|---------|-------|
-| `AI_API_KEY` | `(empty)` | Empty → provider must handle in `validateConfig()`; OpenCode works without it, OpenRouter requires it |
-| `AI_MODEL` | `(empty)` | Required by both providers; passes through to provider |
-| `AI_BASE_URL` | `http://localhost:4096` | Required by both providers; OpenRouter expects `https://openrouter.ai/api/v1` |
+| Env var | Default | Required | Notes |
+|---------|---------|----------|-------|
+| `AI_PROVIDER` | `opencode` | Yes | `opencode` or `openrouter`. Invalid value → backend fails to start |
+| `AI_API_KEY` | `(empty)` | OpenRouter only | Empty → fallback narration for OpenRouter. OpenCode works without it |
+| `AI_MODEL` | `(empty)` | Yes | Model identifier. OpenRouter: "provider/model" format (e.g., "openai/gpt-4o") |
+| `AI_BASE_URL` | `http://localhost:4096` | Yes | OpenCode: local server URL. OpenRouter: `https://openrouter.ai/api/v1` |
 
-Repo `.env` defaults: `AI_PROVIDER=opencode`, `AI_API_KEY=none`, `AI_BASE_URL=http://localhost:4096`. Config loaded in `ai.module.ts` via `ConfigService` factories. Provider is selected dynamically via a `useFactory` that switches on `AI_CONFIG.provider` — invalid values throw at startup.
+Repo `.env` defaults: `AI_PROVIDER=opencode`, `AI_API_KEY=` (empty), `AI_BASE_URL=http://localhost:4096`. Config loaded in `ai.module.ts` via `ConfigService` factories. Provider is selected dynamically via a `useFactory` that switches on `AI_CONFIG.provider` — invalid values throw at startup.
 
 Opencode provider uses inline JSON prompt + regex extraction. OpenRouter provider uses `@openrouter/sdk` (ESM-only, dynamic import) with `buildFullPrompt()` per call (stateless). Both use shared `parseResponse()` for JSON extraction from AI text. Invalid `call_player`/`call_roll` targets get coerced to `group_action` by `GameService.validateAiResponseTarget()` (also warns on invalid `conditions[].targetPlayerId`).
 
 System prompt (`system.prompt.ts`) documents: Markdown narration, two-tier memory (history + summary), player levels, location/target rules, and out-of-game question handling.
+
+### Provider: OpenCode (default)
+- Session-based communication with local OpenCode server
+- Two-phase prompt: session init (full context) + incremental (action only)
+- Works without API key (HTTP Basic Auth optional)
+- Requires running OpenCode server at AI_BASE_URL
+
+### Provider: OpenRouter
+- Stateless communication via @openrouter/sdk
+- Full context sent on every call (system prompt + summary + history + action)
+- Requires AI_API_KEY (OpenRouter API key)
+- Access to 400+ models across providers
+- Default base URL: https://openrouter.ai/api/v1
+
+### AI Provider Architecture
+- `ai/shared/prompt-builder.ts` — Shared utilities (prompt building, response parsing)
+- `ai/providers/opencode.provider.ts` — OpenCode provider (sessions, incremental prompts)
+- `ai/providers/openrouter.provider.ts` — OpenRouter provider (stateless, full context)
+- `ai/ai.module.ts` — Dynamic provider selection based on AI_PROVIDER env var
 
 ## Key gotchas
 
