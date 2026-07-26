@@ -1,4 +1,4 @@
-import { Module, forwardRef } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { GameModule } from '../game/game.module';
 import { RoomModule } from '../room/room.module';
 import { CampaignStore } from './campaign.store';
@@ -6,7 +6,7 @@ import { CampaignStore } from './campaign.store';
 @Module({
   imports: [
     GameModule,
-    forwardRef(() => RoomModule),
+    RoomModule,
   ],
   providers: [CampaignStore],
   exports: [CampaignStore],

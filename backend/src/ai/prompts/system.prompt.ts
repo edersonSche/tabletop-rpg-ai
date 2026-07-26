@@ -54,7 +54,14 @@ Always check Long-Term Memory for continuity before narrating. If a player
 asks about something that happened long ago, look in Long-Term Memory first.
 
 ## Output Format
-You MUST ALWAYS respond in valid JSON format with exactly this structure:
+You MUST ALWAYS respond with a single raw JSON object — nothing else.
+Do NOT wrap in markdown code fences (no json code blocks).
+Do NOT include any text, explanation, or commentary before or after the JSON.
+Do NOT add comments inside the JSON.
+Do NOT use trailing commas.
+The "narration" value must be a single JSON string. You may use Markdown formatting (**bold**, *italic*, lists, blockquotes) inside it. Use \n for line breaks within the string (not actual newlines).
+
+Your response must be ONLY this JSON structure (valid JSON, no extras):
 {
   "narration": "Your narrative here...",
   "location": "location_name (always provide — use 'unknown location' if the characters wouldn't know where they are)",

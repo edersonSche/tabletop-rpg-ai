@@ -23,7 +23,9 @@ AI-powered tabletop role-playing game platform with a real-time multiplayer expe
 │                    Backend (NestJS 11)                      │
 │  SharedModule (@Global) — GameState, DiceService            │
 │  AuthModule — AuthGateway, AuthService, AuthWsGuard         │
-│  AiModule — AiService, OpencodeProvider, AI_CONFIG/AI_PROVIDER │
+│  AiModule — AiService, OpencodeProvider, OpenRouterProvider, │
+│    AI_CONFIG/AI_PROVIDER                                      │
+│    shared/prompt-builder.ts — pure prompt/response utilities  │
 │  GameModule — GameGateway, GameService, PlayerService,      │
 │    MerchantService, TradeService, ConditionEngine,          │
 │    LevelingService, TurnManager                             │
@@ -38,7 +40,7 @@ Two-package monorepo with no root `package.json` — each package is independent
 
 | Layer | Technology |
 |-------|-----------|
-| **Backend** | NestJS 11, Socket.IO 4.8, Zod, TypeScript 5.7 |
+| **Backend** | NestJS 11, Socket.IO 4.8, Zod, @opencode-ai/sdk 1.18, @openrouter/sdk 1.1, TypeScript 5.7 |
 | **Frontend** | React 19, Vite 6, Tailwind CSS 3.4, Socket.IO Client, pixelarticons, react-markdown 9, remark-gfm 4, TypeScript 5.7 |
 | **Fonts** | Press Start 2P (UI), VT323 + Space Mono (narrative) |
 
@@ -86,7 +88,7 @@ Template files (`.env.example`) are committed for both packages — copy to `.en
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `AI_PROVIDER` | `opencode` | AI provider identifier |
-| `AI_API_KEY` | `(empty)` | API key; empty → fallback narration (no LLM call) |
+| `AI_API_KEY` | `(empty)` | API key; empty → fallback narration (provider must handle auth in `validateConfig()`) |
 | `AI_MODEL` | `(empty)` | Model identifier for the provider |
 | `AI_BASE_URL` | `http://localhost:4096` | Base URL for the AI API |
 | `CORS_ORIGIN` | `http://localhost:5173` | Allowed CORS origin(s); comma-separated for multiple |
@@ -157,12 +159,13 @@ Template files (`.env.example`) are committed for both packages — copy to `.en
 
 ## AI Integration
 
-The backend uses a **provider pattern**:
+The backend uses a **provider pattern** with two available providers:
 
-- **`AiModule`** configures `AI_CONFIG` via a factory and `AI_PROVIDER` as a DI alias (`useExisting: OpencodeProvider`), exporting `AiService`, `AI_PROVIDER`, and `AI_CONFIG`.
-- **`AiService`** dispatches to `OpencodeProvider`. Also exposes `onRoomReady()` and `onRoomEmpty()` lifecycle methods for session management.
-- **`OpencodeProvider`** — `@Injectable()` class configured via `OnModuleInit()` (NestJS DI), raw HTTP fetch to a local Opencode session; manages sessions per room.
-- **Fallback** — if `AI_API_KEY` is empty, `AiService.generate()` returns a static narration without calling any provider.
+- **`AiModule`** configures `AI_CONFIG` via a factory and selects the active provider dynamically based on the `AI_PROVIDER` env var (`"opencode"` or `"openrouter"`). Invalid values cause a startup error. Exports `AiService`, `AI_PROVIDER`, and `AI_CONFIG`.
+- **`AiService`** dispatches to the configured provider. Also exposes `onRoomReady()` and `onRoomEmpty()` lifecycle methods for session management. Does not inject `AI_CONFIG` — auth/config validation is each provider's responsibility.
+- **`OpencodeProvider`** — `@Injectable()` class configured via `OnModuleInit()` with dynamic ESM import (`await import('@opencode-ai/sdk')`). Stateful: tracks sessions per room via `createOpencodeClient()`, incremental prompts, auto-recovers from 404/410 session errors. Uses `@opencode-ai/sdk` (ESM-only) with `baseUrl` and optional auth headers. Implements `validateConfig()` which requires `AI_MODEL` and `AI_BASE_URL` (does not require `AI_API_KEY`).
+- **`OpenRouterProvider`** — `@Injectable()` class configured via `OnModuleInit()` with dynamic ESM import (`await import('@openrouter/sdk')`). Stateless: no sessions, full prompt sent per call via `buildFullPrompt()`. Uses `@openrouter/sdk` (ESM-only) with `serverURL` constructor option. Implements `validateConfig()` which requires `AI_API_KEY`, `AI_MODEL`, and `AI_BASE_URL`. Also implements `summarize()` for history summarization.
+- **Fallback** — if a provider's `generate()` throws, `AiService` catches the error and returns a static fallback narration.
 
 The system prompt supports **English**, **Portuguese (Brazil)**, and **Spanish** narration. The AI responds in strict JSON with `narration`, mandatory `location`, optional `conditions` (narrative conditions with effects on players), optional `merchants` (array of merchants with items/prices using unified `statValue`/`statOperation`), and `next` (with `type`, `target`, `skill`, `dc`). Narration supports **Markdown** formatting rendered via `react-markdown`.
 
@@ -172,7 +175,7 @@ Invalid AI targets (`call_player`/`call_roll` pointing to missing players) are c
 
 When a player initiates trade via `game:initiate_trade`, the AI generates merchant data in the `merchants` field of the response. Each merchant includes an inventory of 3-8 items with prices and effects (stat modifiers and/or hp formulas). Location must be known — `"unknown location"` disables trading.
 
-The provider manages **per-room sessions**: created when a character is made or campaign is resumed (`onRoomReady()`), and deleted when the last player leaves or the campaign is deleted (`onRoomEmpty()`). 404/410 errors auto-recreate sessions.
+The **OpenCode provider** manages **per-room sessions**: created when a character is made or campaign is resumed (`onRoomReady()`), and deleted when the last player leaves or the campaign is deleted (`onRoomEmpty()`). 404/410 errors auto-recreate sessions. The OpenRouter provider is stateless and skips these lifecycle hooks.
 
 ## Character Creation
 
@@ -258,13 +261,16 @@ backend/src/
 │   ├── auth.service.ts      # userId/socketId + playerId/socketId mapping
 │   └── auth.guard.ts        # AuthWsGuard
 ├── ai/
-│   ├── ai.module.ts         # AiModule (providers: AiService, OpencodeProvider, AI_CONFIG factory, AI_PROVIDER alias via useExisting)
-│   ├── ai.interface.ts      # AIConfig / AIProvider interface (includes summarize)
-│   ├── ai.service.ts        # Provider dispatcher + onRoomReady/onRoomEmpty lifecycle + summarizeHistory()
+│   ├── ai.module.ts         # AiModule (providers: AiService, OpencodeProvider, OpenRouterProvider, AI_CONFIG factory, AI_PROVIDER dynamic selection via useFactory)
+│   ├── ai.interface.ts      # AIConfig / AIProvider interface (validateConfig required, summarize optional)
+│   ├── ai.service.ts        # Provider dispatcher + onRoomReady/onRoomEmpty lifecycle + summarizeHistory() (no AI_CONFIG injection)
 │   ├── prompts/
 │   │   └── system.prompt.ts # Multilingual system prompt builder (memory, markdown, levels, conditions, merchants with effects)
+│   ├── shared/
+│   │   └── prompt-builder.ts # Pure functions: formatHistoryEntries, buildActionLines, buildTradePrompt, buildFullPrompt, parseResponse
 │   └── providers/
-│       └── opencode.provider.ts  # @Injectable provider — per-room sessions, summarization, error recovery (DI-configured via OnModuleInit)
+│       ├── opencode.provider.ts  # @Injectable provider — @opencode-ai/sdk (ESM dynamic import), per-room sessions, incremental prompts, error recovery
+│       └── openrouter.provider.ts # @Injectable provider — stateless, @openrouter/sdk (ESM dynamic import), full prompt per call, validateConfig (apiKey+model+baseUrl required)
 ├── game/
 │   ├── game.module.ts       # GameModule (imports AuthModule, AiModule — exports all game services)
 │   ├── game.gateway.ts      # Game WebSocket handlers (thin delegation layer, no GameState injection)

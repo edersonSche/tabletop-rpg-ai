@@ -9,7 +9,7 @@ import { CampaignModule } from './campaign/campaign.module';
 
 @Module({
   imports: [
-    ConfigModule.forRoot(),
+    ConfigModule.forRoot({ isGlobal: true }),
     SharedModule,
     AuthModule,
     AiModule,

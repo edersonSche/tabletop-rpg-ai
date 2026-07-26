@@ -33,6 +33,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const playerRef = useRef(player);
   playerRef.current = player;
   const lastHistoryLengthRef = useRef(0);
+  const prevRoomIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     const handleConnect = () => {
@@ -246,12 +247,16 @@ export function GameProvider({ children }: { children: ReactNode }) {
   }, [on, off, emit, dispatch]);
 
   useEffect(() => {
-    setGameState(null);
-    setTurnUpdate(null);
-    setMessages([]);
-    setTypingPlayers(new Map());
-    setIsAiProcessing(false);
-    lastHistoryLengthRef.current = 0;
+    const prev = prevRoomIdRef.current;
+    prevRoomIdRef.current = player.roomId;
+    if (prev && prev !== player.roomId) {
+      setGameState(null);
+      setTurnUpdate(null);
+      setMessages([]);
+      setTypingPlayers(new Map());
+      setIsAiProcessing(false);
+      lastHistoryLengthRef.current = 0;
+    }
   }, [player.roomId]);
 
   const sendAction = useCallback((message: string) => {

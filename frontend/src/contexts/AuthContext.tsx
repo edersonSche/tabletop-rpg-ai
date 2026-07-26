@@ -28,7 +28,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = useCallback((uid: string): Promise<boolean> => {
     return new Promise((resolve) => {
+      if (!connected) {
+        setError('Not connected to server');
+        resolve(false);
+        return;
+      }
+
+      const timeout = setTimeout(() => {
+        setError('Connection timed out');
+        resolve(false);
+      }, 10000);
+
       emit('auth:login', { userId: uid }, (response: LoginResponse) => {
+        clearTimeout(timeout);
         if (response.success) {
           setUserId(uid);
           dispatch({ type: 'LOGGED_IN' });
@@ -39,7 +51,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       });
     });
-  }, [emit]);
+  }, [emit, connected]);
 
   const logout = useCallback(() => {
     setUserId(null);

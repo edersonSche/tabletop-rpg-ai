@@ -2,12 +2,14 @@ import { Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { AiService } from './ai.service';
 import { OpencodeProvider } from './providers/opencode.provider';
-import { AIConfig } from './ai.interface';
+import { OpenRouterProvider } from './providers/openrouter.provider';
+import { AIConfig, AIProvider } from './ai.interface';
 
 @Module({
   providers: [
     AiService,
     OpencodeProvider,
+    OpenRouterProvider,
     {
       provide: 'AI_CONFIG',
       useFactory: (configService: ConfigService): AIConfig => ({
@@ -20,7 +22,23 @@ import { AIConfig } from './ai.interface';
     },
     {
       provide: 'AI_PROVIDER',
-      useExisting: OpencodeProvider,
+      useFactory: (
+        config: AIConfig,
+        opencodeProvider: OpencodeProvider,
+        openrouterProvider: OpenRouterProvider,
+      ): AIProvider => {
+        switch (config.provider) {
+          case 'opencode':
+            return opencodeProvider;
+          case 'openrouter':
+            return openrouterProvider;
+          default:
+            throw new Error(
+              `Invalid AI_PROVIDER: "${config.provider}". Valid values: "opencode", "openrouter"`,
+            );
+        }
+      },
+      inject: ['AI_CONFIG', OpencodeProvider, OpenRouterProvider],
     },
   ],
   exports: [AiService, 'AI_PROVIDER', 'AI_CONFIG'],
