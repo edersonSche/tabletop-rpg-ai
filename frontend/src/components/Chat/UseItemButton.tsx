@@ -31,21 +31,21 @@ export function UseItemButton({ items, onUseItem }: UseItemButtonProps) {
     <div ref={ref} className="relative">
       <button
         onClick={() => { setOpen(!open); setConfirmItem(null); }}
-        className="w-11 h-11 flex items-center justify-center bg-navy-700 text-gold-400 pixel-border hover:bg-navy-600 hover:shadow-glow-gold transition-all shrink-0"
+        className="w-11 h-11 flex items-center justify-center bg-panel-800 text-gold-400 pixel-border hover:bg-panel-700 hover:shadow-glow-gold transition-all shrink-0"
       >
         <Potion width={18} height={18} />
       </button>
 
       {open && (
-        <div className="absolute bottom-full right-0 mb-2 w-48 bg-navy-800 pixel-border z-50">
-          <div className="font-pixel text-[6px] text-stone-500 px-3 py-2 border-b border-stone-700/20 tracking-widest">
+        <div className="absolute bottom-full right-0 mb-2 w-48 bg-panel-900 pixel-border-ornate z-50">
+          <div className="font-pixel text-[6px] text-stone-500 px-3 py-2 border-b border-zinc-800 tracking-widest">
             CONSUMABLES
           </div>
           {usableItems.map(item => (
             <button
               key={item.id}
               onClick={() => { setOpen(false); setConfirmItem(item); }}
-              className="w-full text-left px-3 py-2 font-pixel text-[8px] text-stone-300 hover:bg-navy-700 transition-all flex items-center justify-between"
+              className="w-full text-left px-3 py-2 font-pixel text-[8px] text-stone-300 hover:bg-panel-800 transition-all flex items-center justify-between"
             >
               <span>{item.name}</span>
               <span className="text-stone-600">x{item.quantity}</span>

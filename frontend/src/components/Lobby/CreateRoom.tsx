@@ -29,10 +29,10 @@ export function CreateRoom({ onCreate }: CreateRoomProps) {
 
   return (
     <div className="card-stone p-5">
-      <h2 className="font-pixel text-[10px] text-gold-400 mb-4 text-center text-shadow-glow-gold">NEW CAMPAIGN</h2>
+      <h2 className="font-pixel text-[12px] text-gold-400 mb-4 text-center text-shadow-glow-gold">NEW CAMPAIGN</h2>
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label className="font-pixel text-[7px] text-stone-400 block mb-2 tracking-wider">CAMPAIGN NAME</label>
+          <label className="font-pixel text-[9px] text-stone-400 block mb-2 tracking-wider">CAMPAIGN NAME</label>
           <input
             type="text"
             value={roomName}
@@ -42,7 +42,7 @@ export function CreateRoom({ onCreate }: CreateRoomProps) {
           />
         </div>
         <div>
-          <label className="font-pixel text-[7px] text-stone-400 block mb-2 tracking-wider">NARRATION LANGUAGE</label>
+          <label className="font-pixel text-[9px] text-stone-400 block mb-2 tracking-wider">NARRATION LANGUAGE</label>
           <select
             value={language}
             onChange={e => setLanguage(e.target.value as NarrativeLanguage)}
@@ -53,7 +53,7 @@ export function CreateRoom({ onCreate }: CreateRoomProps) {
             ))}
           </select>
         </div>
-        <button type="submit" disabled={!roomName.trim() || creating} className="btn-gold w-full">
+        <button type="submit" disabled={!roomName.trim() || creating} className="btn-rpg w-full">
           {creating ? 'CONJURING...' : 'CREATE CAMPAIGN'}
         </button>
       </form>

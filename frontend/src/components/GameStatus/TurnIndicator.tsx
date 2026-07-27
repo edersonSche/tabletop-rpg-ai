@@ -35,7 +35,7 @@ export const TurnIndicator = memo(function TurnIndicator({ currentTurn, type, ta
   return (
     <div className={`flex items-center gap-2 px-3 py-1.5 ${info.accent ? 'bg-cyan-400/10 pixel-border-cyan' : ''}`}>
       {info.icon}
-      <span className={`font-pixel text-[8px] tracking-wider ${info.accent ? 'text-cyan-400 text-shadow-glow-cyan' : 'text-stone-300'}`}>
+      <span className={`font-pixel text-[10px] tracking-wider ${info.accent ? 'text-cyan-400 text-shadow-glow-cyan' : 'text-stone-300'}`}>
         {info.text}
       </span>
     </div>

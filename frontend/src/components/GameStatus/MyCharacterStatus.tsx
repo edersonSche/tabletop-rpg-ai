@@ -16,16 +16,16 @@ function ConditionIndicators({ conditions }: { conditions: ActiveCondition[] }) 
       {active.map(ac => (
         <div
           key={ac.id}
-          className="group relative w-5 h-5 bg-navy-900 pixel-border flex items-center justify-center cursor-help"
+          className="group relative w-5 h-5 bg-zinc-900 border border-zinc-800 flex items-center justify-center cursor-help"
           title={`${ac.condition.name} - ${ac.condition.description}`}
         >
           <ConditionIcon condition={ac.condition.name} />
           <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 hidden group-hover:block z-50">
-            <div className="bg-navy-800 pixel-border-gold p-2 whitespace-nowrap">
-              <div className="font-pixel text-[7px] text-blood-500">{ac.condition.name}</div>
-              <div className="font-pixel text-[6px] text-stone-400 mt-0.5">{ac.condition.description}</div>
+            <div className="bg-panel-900 pixel-border-ornate p-2 whitespace-nowrap">
+              <div className="font-pixel text-[9px] text-blood-500">{ac.condition.name}</div>
+              <div className="font-pixel text-[8px] text-stone-400 mt-0.5">{ac.condition.description}</div>
               {ac.remainingDurations.some(d => d > 0) && (
-                <div className="font-pixel text-[6px] text-stone-600 mt-1">
+                <div className="font-pixel text-[8px] text-stone-600 mt-1">
                   {Math.min(...ac.remainingDurations.filter(d => d > 0))} turns left
                 </div>
               )}
@@ -46,23 +46,23 @@ export function MyCharacterStatus({ player }: MyCharacterStatusProps) {
   const xpPct = player.maxXp > 0 ? Math.round((player.xp / player.maxXp) * 100) : 0;
 
   return (
-    <div className="p-3 pixel-border bg-navy-700/50">
+    <div className="p-3 pixel-border-ornate bg-panel-900">
       <div className="mb-2.5">
-        <h3 className="font-pixel text-[9px] text-cyan-400 text-shadow-glow-cyan truncate">{player.name}</h3>
+        <h3 className="font-pixel text-[11px] text-cyan-400 text-shadow-glow-cyan truncate">{player.name}</h3>
         <div className="flex items-center justify-between mt-1">
-          <p className="font-pixel text-[6px] text-stone-500">LVL {player.level}</p>
-          <span className="font-pixel text-[6px] text-gold-500">{player.coins}g</span>
+          <p className="font-pixel text-[8px] text-stone-500">LVL {player.level}</p>
+          <span className="font-pixel text-[8px] text-gold-500">{player.coins}g</span>
         </div>
       </div>
 
       <div className="mb-2">
         <div className="flex items-center justify-between mb-0.5">
-          <span className="font-pixel text-[6px] text-stone-500">HP</span>
-          <span className="font-pixel text-[6px] text-stone-400">{player.hp}/{player.maxHp}</span>
+          <span className="font-pixel text-[8px] text-stone-500">HP</span>
+          <span className="font-pixel text-[8px] text-stone-400">{player.hp}/{player.maxHp}</span>
         </div>
-        <div className="h-2 bg-navy-900 pixel-border-light overflow-hidden">
+        <div className="h-2 bg-zinc-900 pixel-border-light overflow-hidden">
           <div
-            className="h-full bg-gradient-to-r from-blood-700 to-blood-500 transition-all"
+            className="h-full bg-gradient-to-r from-blood-700 to-blood-500 bar-segmented transition-all"
             style={{ width: `${hpPct}%` }}
           />
         </div>
@@ -70,12 +70,12 @@ export function MyCharacterStatus({ player }: MyCharacterStatusProps) {
 
       <div className="mb-2">
         <div className="flex items-center justify-between mb-0.5">
-          <span className="font-pixel text-[6px] text-stone-500">XP</span>
-          <span className="font-pixel text-[6px] text-stone-400">{player.xp}/{player.maxXp}</span>
+          <span className="font-pixel text-[8px] text-stone-500">XP</span>
+          <span className="font-pixel text-[8px] text-stone-400">{player.xp}/{player.maxXp}</span>
         </div>
-        <div className="h-2 bg-navy-900 pixel-border-light overflow-hidden">
+        <div className="h-2 bg-zinc-900 pixel-border-light overflow-hidden">
           <div
-            className="h-full bg-gradient-to-r from-gold-700 to-gold-400 transition-all"
+            className="h-full bg-gradient-to-r from-gold-700 to-gold-400 bar-segmented transition-all"
             style={{ width: `${xpPct}%` }}
           />
         </div>

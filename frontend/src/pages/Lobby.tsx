@@ -10,10 +10,7 @@ export function Lobby() {
   const { createRoom, joinRoom, resumeCampaign } = usePlayer();
   const [mode, setMode] = useState<"create" | "join" | "resume">("join");
 
-  const handleCreate = async (
-    name: string,
-    language: NarrativeLanguage,
-  ) => {
+  const handleCreate = async (name: string, language: NarrativeLanguage) => {
     await createRoom(name, language);
   };
 
@@ -26,22 +23,26 @@ export function Lobby() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 relative bg-starfield">
-      <div className="absolute inset-0 bg-gradient-navy pointer-events-none" />
-
+    <div className="min-h-screen flex items-center justify-center p-4 relative bg-panel-950">
       <div className="w-full max-w-2xl space-y-6 relative z-10">
         <div className="flex flex-col items-center">
           <img className="max-w-[300px]" src={logo} alt="Tabletop RPG AI" />
         </div>
 
         <div className="flex gap-2 justify-center">
-          <TabButton active={mode === "create"} onClick={() => setMode("create")}>
+          <TabButton
+            active={mode === "create"}
+            onClick={() => setMode("create")}
+          >
             CREATE
           </TabButton>
           <TabButton active={mode === "join"} onClick={() => setMode("join")}>
             JOIN
           </TabButton>
-          <TabButton active={mode === "resume"} onClick={() => setMode("resume")}>
+          <TabButton
+            active={mode === "resume"}
+            onClick={() => setMode("resume")}
+          >
             RESUME
           </TabButton>
         </div>
@@ -70,10 +71,10 @@ function TabButton({
   return (
     <button
       onClick={onClick}
-      className={`font-pixel text-[9px] px-5 py-2.5 tracking-wider transition-all ${
+      className={`font-pixel text-[11px] px-5 py-2.5 tracking-wider transition-all ${
         active
-          ? 'bg-gold-500 text-navy-900 shadow-glow-gold'
-          : 'bg-navy-700 text-stone-500 pixel-border hover:text-gold-400 hover:bg-navy-600'
+          ? "bg-bronze-500 text-stone-200 shadow-glow-gold"
+          : "bg-panel-800 text-stone-500 pixel-border hover:text-gold-400 hover:bg-panel-700"
       }`}
     >
       [{children}]
