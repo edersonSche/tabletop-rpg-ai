@@ -42,7 +42,7 @@ Two-package monorepo with no root `package.json` — each package is independent
 |-------|-----------|
 | **Backend** | NestJS 11, Socket.IO 4.8, Zod, @opencode-ai/sdk 1.18, @openrouter/sdk 1.1, TypeScript 5.7 |
 | **Frontend** | React 19, Vite 6, Tailwind CSS 3.4, Socket.IO Client, pixelarticons, react-markdown 9, remark-gfm 4, TypeScript 5.7 |
-| **Fonts** | Press Start 2P (UI), VT323 + Space Mono (narrative) |
+| **Fonts** | Geist Pixel (self-hosted woff2) |
 
 ## Getting Started
 
@@ -380,6 +380,15 @@ Two-layer error boundary system prevents white-screen crashes:
 - **Array props** — `CampaignStatusBar`, `TurnIndicator`, `PlayerCircles`, `PlayerList` (stable references via `gameState?.players ?? []` — the array reference only changes when `gameState` actually updates, not on unrelated context changes like `messages`/`typingPlayers`/`isAiProcessing`)
 
 No custom comparators needed — default shallow comparison is sufficient. New pure leaf components should follow this pattern.
+
+### Design System
+
+The UI uses a dark panel-based design with pixel-art font styling:
+
+- **Fonts** — `Geist Pixel` (self-hosted woff2 in `src/fonts/`) is the sole pixel font used across all UI text. The older Google Fonts (`Press Start 2P`, `VT323`, `Space Mono`) have been removed.
+- **Color palettes** — `panel` (dark neutral grays for backgrounds), `bronze` (warm browns for accent buttons), plus existing `navy`, `gold`, `blood`, `magic`, `forest`, `stone`, `wood`.
+- **Component classes** — `btn-rpg` (bronze-themed primary button), `pixel-border-ornate` (prominent ornamental border), `panel-header` (decorative gold gradient dividers), `bar-segmented` (segmented HP/XP bar effect).
+- **Background** — All full-screen pages use flat `bg-panel-950`. The `bg-starfield` class and `bg-gradient-navy` overlays have been removed.
 
 ## Limitations
 

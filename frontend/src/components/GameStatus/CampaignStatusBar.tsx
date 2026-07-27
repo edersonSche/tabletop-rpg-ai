@@ -13,10 +13,10 @@ interface CampaignStatusBarProps {
 
 export const CampaignStatusBar = memo(function CampaignStatusBar({ location, currentTurn, turnType, turnTarget, players, playerId }: CampaignStatusBarProps) {
   return (
-    <div className="flex items-center gap-3 px-4 py-2.5 bg-navy-800/80 border-b border-stone-700/15">
+    <div className="flex items-center gap-3 px-4 py-2.5 bg-panel-950/90 border-b border-zinc-800">
       <LocationBadge location={location} />
       {location && (currentTurn || turnType) && (
-        <div className="w-px h-4 bg-stone-700/20" />
+        <div className="w-px h-4 bg-zinc-800" />
       )}
       <TurnIndicator
         currentTurn={currentTurn}

@@ -9,9 +9,9 @@ export const LocationBadge = memo(function LocationBadge({ location }: LocationB
   if (!location) return null;
 
   return (
-    <div className="flex items-center gap-2 px-3 py-1.5 bg-navy-700/50 pixel-border-light">
+    <div className="flex items-center gap-2 px-3 py-1.5 bg-zinc-900/80 pixel-border">
       <MapPin width={12} height={12} className="text-gold-400 shrink-0" />
-      <span className="font-pixel text-[8px] text-stone-300 tracking-wider">{location}</span>
+      <span className="font-pixel text-[10px] text-stone-300 tracking-wider">{location}</span>
     </div>
   );
 });

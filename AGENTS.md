@@ -1,6 +1,6 @@
 # AGENTS.md
 
-Two-package monorepo: `backend/` (NestJS 11, Socket.IO 4.8), `frontend/` (React 19, Vite 6, Tailwind 3.4, react-markdown 9, remark-gfm 4). No root `package.json` — each package is independent. **No tests, no lint, no formatter, no CI.**  
+Two-package monorepo: `backend/` (NestJS 11, Socket.IO 4.8), `frontend/` (React 19, Vite 6, Tailwind 3.4, react-markdown 9, remark-gfm 4). No root `package.json` — each package is independent. **No tests, no lint, no formatter, no CI.**
 
 **Game state is in-memory** — restarting wipes active rooms (but not saved campaigns). **Campaign persistence** writes per-campaign files to `data/campaigns/{id}.json` (schema v2 with flattened `SavedEffect` format, atomic temp+rename writes) on every action/roll/start/disconnect/create_character/leave — `saveFromMemory()` skips if `!gameStarted`, so pre-start creates/leaves do not persist. Old v1 saves (with nested `modifiers`/`effects`) are auto-migrated to v2 on restore via `migrateV1ToV2()`. Saved campaigns survive restarts and can be resumed via `lobby:resume`.
 
@@ -29,9 +29,11 @@ Frontend connects to `window.location.origin` via Socket.IO (`transports: ['webs
 ## Page state machine
 
 `App.tsx` → `AppProviders` composes all context providers. `AuthContext` owns `useReducer` (`routing/pageRouter.ts`) over 5 pages:
+
 ```
 login → lobby → character_creation → waiting_room → game_room
 ```
+
 Actions: `LOGGED_IN`, `LOGGED_OUT`, `CREATED_ROOM`, `JOIN_NEEDS_CHARACTER`, `CHARACTER_CREATED`, `CHARACTER_CREATED_AND_STARTED`, `JOINED_ROOM`, `CAMPAIGN_STARTED`, `RESUMED_CAMPAIGN`, `LEFT_ROOM`, `DISBANDED`.
 
 **Creator** = first player to create a character in the room. Only the creator's `room:leave` disbands the room.
@@ -57,6 +59,7 @@ AppModule
 ```
 
 RoomModule ↔ CampaignModule circular dependency is resolved via `forwardRef()` on both sides. `AiService` encapsulates AI provider lifecycle (`onRoomReady`/`onRoomEmpty`) — gateways no longer inject `AI_PROVIDER` directly.
+
 - `auth/` — `AuthGateway` (auth:login, disconnect), `AuthService` (userId↔socketId + playerId↔socketId), `AuthWsGuard`
 - `game/` — `GameState` (`game.state.ts`) — Data layer: in-memory `rooms` Map, `playerByUserId` Map, `createRoom`/`getRoom`/`removeRoom`/`restoreCampaign`, `addHistory`/`setTurn`, shared `recomputePlayer()` for AC recalculation, all type definitions (`Player`, `Effect`, `Condition`, `ActiveCondition`, `InventoryItem`, `Merchant`, `MerchantItem`, `GameStateData`, `TickResult`, etc.)
   - `GameGateway` (`game.gateway.ts`) — Thin delegation layer: validates input, delegates to services, emits results. Four emission helpers (`emitGameState`, `emitNarration`, `emitNarrationText`, `emitTradeStateToAll`, `emitTradeUnlock`) eliminate duplicated broadcast patterns across 16 handlers. All `game:state` emissions flow through `GameService.getState()` as the single source of truth. **Does not inject `GameState`** — all room data access goes through `GameService` methods (`getRoomContext`, `findPlayer`, `findPlayerWithItem`, `getTurnContext`, `getTradeEmitData`, `getRoomAiContext`, `hasMerchantsAtLocation`, `hasMerchants`, `isTradeLocked`)
@@ -75,6 +78,7 @@ RoomModule ↔ CampaignModule circular dependency is resolved via `forwardRef()`
 - `ai/` — Provider pattern: `AiService` → `OpencodeProvider` / `OpenRouterProvider` (`@Injectable()` with `OnModuleInit`, DI-configured). `AIProvider` interface requires `validateConfig(config: AIConfig): void` — each provider validates its own config at startup (e.g., OpenCode requires `AI_MODEL` + `AI_BASE_URL`, no `AI_API_KEY`; OpenRouter requires all three). `AiService` implements `OnModuleDestroy` — calls `provider.destroy()` to clean up all active AI sessions on shutdown. `AiService` does not inject `AI_CONFIG` — auth/config validation is each provider's responsibility. `summarizeHistory()` for long-term memory. `onRoomReady()`/`onRoomEmpty()` lifecycle for session create/delete (stateless providers like OpenRouter skip these). `OpencodeProvider` has private helpers: `createSession()` (shared session creation), `extractText()` (response text extraction), `isSessionError()` (404/410/400 detection), `fallbackResponse()` (error fallback). `buildIncrementalPrompt()` uses shared `buildTradePrompt()` and `buildActionLines()` from `shared/prompt-builder.ts`. `OpenRouterProvider` uses `buildFullPrompt()` (full context per call, stateless) and `@openrouter/sdk` (ESM-only, dynamic `await import()` in `OnModuleInit`). Both providers use ESM-only SDKs imported via dynamic `await import()` in `OnModuleInit` — `@opencode-ai/sdk` types resolved via `paths` in tsconfig (no `main` field, `exports`-only package).
 
 **Frontend** — under `frontend/src/`:
+
 - `contexts/AppProviders.tsx` — Composes all providers in a single wrapper (Socket → Auth → Player → Game → Trade → Inventory)
 - `contexts/SocketContext.tsx` — Socket.IO connection + event routing via `on`/`off`/`emit` (internal, not consumed by components)
 - `contexts/AuthContext.tsx` — `userId`, `page` (useReducer), `connected`, `error`, `login`, `logout`. Listens: `connect` (re-auth), `disconnect` (10s timer), `game:error` (auth required)
@@ -86,16 +90,16 @@ RoomModule ↔ CampaignModule circular dependency is resolved via `forwardRef()`
 - `hooks/useGameTurn.ts` — derives `isMyTurn`, `isRollRequest`, `canAct`, etc. from `gameState` + `turnUpdate` (pure, no context dependency)
 - `types/game.types.ts` — TS interfaces mirroring backend DTOs (includes `Message` with 4 types: system/action/narration/roll). Also includes typed response interfaces (`LoginResponse`, `CreateRoomResponse`, etc.) for all socket emit callbacks — no `any` typed responses remain. `Room` type was removed as unused (room listing not exposed in UI).
 - `pages/` — `Login`, `Lobby`, `CharacterCreation`, `WaitingRoom`, `GameRoom`
-- `components/` — `Chat/` (MessageList, MessageInput, DiceRollButton, UseItemButton uses shared ConfirmUseModal), `GameStatus/` (CharacterSheet with active conditions + EffectRow + shared HoverPopup/ConfirmUseModal, MyCharacterStatus with condition indicators + shared CONDITION_ICONS, AttributeAllocationModal uses shared ATTRIBUTE_ICONS/ATTRIB_KEYS, and more), `Trade/` (TradeModal uses shared HoverPopup + ITEM_TYPE_ICONS), `Layout/` (Header, Toast, ErrorBoundary), `Lobby/` (CreateRoom, RoomList, SavedCampaigns), `shared/` (constants.ts with 4 icon maps, HoverPopup.tsx generic render-prop popup, ConfirmUseModal.tsx unified item confirmation)
+- `components/` — `Chat/` (MessageList, MessageInput, DiceRollButton, UseItemButton uses shared ConfirmUseModal), `GameStatus/` (CharacterSheet with active conditions + EffectRow + shared HoverPopup/ConfirmUseModal, MyCharacterStatus with condition indicators + `pixel-border-ornate` + `bar-segmented` HP/XP bars + shared CONDITION_ICONS, AttributeAllocationModal uses shared ATTRIBUTE_ICONS/ATTRIB_KEYS, and more), `Trade/` (TradeModal uses shared HoverPopup + ITEM_TYPE_ICONS + `panel-header`), `Layout/` (Header with `bg-panel-900`, Toast, ErrorBoundary), `Lobby/` (CreateRoom, RoomList, SavedCampaigns), `shared/` (constants.ts with 4 icon maps, HoverPopup.tsx generic render-prop popup, ConfirmUseModal.tsx unified item confirmation)
 
 ## AI integration
 
-| Env var | Default | Required | Notes |
-|---------|---------|----------|-------|
-| `AI_PROVIDER` | `opencode` | Yes | `opencode` or `openrouter`. Invalid value → backend fails to start |
-| `AI_API_KEY` | `(empty)` | OpenRouter only | Empty → fallback narration for OpenRouter. OpenCode works without it |
-| `AI_MODEL` | `(empty)` | Yes | Model identifier. OpenRouter: "provider/model" format (e.g., "openai/gpt-4o") |
-| `AI_BASE_URL` | `http://localhost:4096` | Yes | OpenCode: local server URL. OpenRouter: `https://openrouter.ai/api/v1` |
+| Env var       | Default                 | Required        | Notes                                                                         |
+| ------------- | ----------------------- | --------------- | ----------------------------------------------------------------------------- |
+| `AI_PROVIDER` | `opencode`              | Yes             | `opencode` or `openrouter`. Invalid value → backend fails to start            |
+| `AI_API_KEY`  | `(empty)`               | OpenRouter only | Empty → fallback narration for OpenRouter. OpenCode works without it          |
+| `AI_MODEL`    | `(empty)`               | Yes             | Model identifier. OpenRouter: "provider/model" format (e.g., "openai/gpt-4o") |
+| `AI_BASE_URL` | `http://localhost:4096` | Yes             | OpenCode: local server URL. OpenRouter: `https://openrouter.ai/api/v1`        |
 
 Repo `.env` defaults: `AI_PROVIDER=opencode`, `AI_API_KEY=` (empty), `AI_BASE_URL=http://localhost:4096`. Config loaded in `ai.module.ts` via `ConfigService` factories. Provider is selected dynamically via a `useFactory` that switches on `AI_CONFIG.provider` — invalid values throw at startup.
 
@@ -104,12 +108,14 @@ Opencode provider uses inline JSON prompt + regex extraction. OpenRouter provide
 System prompt (`system.prompt.ts`) documents: Markdown narration, two-tier memory (history + summary), player levels, location/target rules, and out-of-game question handling.
 
 ### Provider: OpenCode (default)
+
 - Session-based communication with local OpenCode server
 - Two-phase prompt: session init (full context) + incremental (action only)
 - Works without API key (HTTP Basic Auth optional)
 - Requires running OpenCode server at AI_BASE_URL
 
 ### Provider: OpenRouter
+
 - Stateless communication via @openrouter/sdk
 - Full context sent on every call (system prompt + summary + history + action)
 - Requires AI_API_KEY (OpenRouter API key)
@@ -117,6 +123,7 @@ System prompt (`system.prompt.ts`) documents: Markdown narration, two-tier memor
 - Default base URL: https://openrouter.ai/api/v1
 
 ### AI Provider Architecture
+
 - `ai/shared/prompt-builder.ts` — Shared utilities (prompt building, response parsing)
 - `ai/providers/opencode.provider.ts` — OpenCode provider (sessions, incremental prompts)
 - `ai/providers/openrouter.provider.ts` — OpenRouter provider (stateless, full context)
@@ -125,10 +132,10 @@ System prompt (`system.prompt.ts`) documents: Markdown narration, two-tier memor
 ## Key gotchas
 
 - **UI is English** (`<html lang="en">`); AI narration supports `english | portuguese | spanish`; all source code is English.
-- **Always-dark design** — custom Tailwind colors (`parchment`, `dungeon`, `gold`, `blood`, `magic`), pixel/mono font utilities (`text-pixel`, `text-mono`). No `dark:` variants.
+- **Always-dark design** — custom Tailwind colors (`panel`, `bronze`, `navy`, `gold`, `blood`, `magic`), pixel font utility (`text-pixel` using Geist Pixel). No `dark:` variants.
 - **Backend** uses CommonJS (`"module": "commonjs"` in tsconfig + `experimentalDecorators`). **Frontend** uses `"type": "module"`. **`@openrouter/sdk` and `@opencode-ai/sdk` are ESM-only** — imported via `await import()` dynamic import in provider `OnModuleInit()` methods. `@opencode-ai/sdk` has no `main` field (exports-only), so tsconfig `paths` resolves its types.
 - **Port** is configurable via `PORT` env var (default `3000`) — `main.ts` uses `ConfigService.get('PORT', 3000)`.
-- **Roll fallback** — `handleRoll()` defaults skill to `'dexterity'` and DC to 10. Roll computed and emitted as `game:player_action` *before* AI processing. Frontend `sendRoll()` reads `turnUpdate.skill`/`dc` if `turnUpdate.type === 'call_roll'`.
+- **Roll fallback** — `handleRoll()` defaults skill to `'dexterity'` and DC to 10. Roll computed and emitted as `game:player_action` _before_ AI processing. Frontend `sendRoll()` reads `turnUpdate.skill`/`dc` if `turnUpdate.type === 'call_roll'`.
 - **Actions** are optimistically added for the sender (`characterName: 'You'`) and broadcast to others via `game:player_action`. **Rolls** add a placeholder `"Rolling dice..."` locally then broadcast the final result to all.
 - **Campaign theme** — `campaignTheme` (free-form setting description) is a per-room param set at creation, persisted in saved campaigns, and injected into the system prompt.
 - **Player model**: `id`, `userId`, `name`, `active` bool, 6 attributes, HP/XP/level, `activeConditions`, inventory (items with `effects: Effect[]`), coins, and equipment (body/mainHand/offHand slots).
@@ -142,7 +149,7 @@ System prompt (`system.prompt.ts`) documents: Markdown narration, two-tier memor
 - **AI sessions** — `AiService.onRoomReady()`/`onRoomEmpty()` delegate to the configured provider for session lifecycle. Called by gateways via `AiService` (no direct `AI_PROVIDER` injection). Created on character creation / campaign resume; deleted on last leave / disband / delete_saved. OpenCode provider: 404/410 errors auto-recreate sessions via SDK.
 - **History summarization** — `maybeSummarize()` triggers every 50 history entries. Uses a temporary AI session to merge new entries into `room.summary`. Guarded by a per-room `isSummarizing` Set to prevent concurrency. Summary is persisted in saved campaigns.
 - **`isUnknownLocation()` utility** — extracted to `backend/src/utils/is-unknown-location.ts`, imported by `GameService` and `GameGateway` (was duplicated in both files before M12 fix).
-- **GameRoom layout** — Left sidebar (48px) with `MyCharacterStatus` (HP/XP bars, name, level, condition indicators) + modal navigation buttons (Sheet, Characters, Options, Leave). Main area has `CampaignStatusBar` at top, Chat in center, TypingIndicator + MessageInput + DiceRollButton at bottom. All panels (CharacterSheet with ActiveConditionsSection, CharacterList, Options, AttributeAllocation) are modals.
+- **GameRoom layout** — Left sidebar (`bg-panel-900`, 48px) with `MyCharacterStatus` (HP/XP `bar-segmented` bars, name, level, condition indicators) + modal navigation buttons (Sheet, Characters, Options, Leave). Main area has `CampaignStatusBar` at top, Chat in center, TypingIndicator + MessageInput + DiceRollButton at bottom. All panels (CharacterSheet with ActiveConditionsSection, CharacterList, Options, AttributeAllocation) are modals.
 - **GameRoom loading overlay** — When `gameState` is `null` (initial fetch, reconnection, `refetchGameState` in flight), `GameRoom.tsx:63-85` renders a full-screen overlay (`bg-navy-950`) with the `animate-crystal-pulse` animation and "SUMMONING THE REALM..." text, identical to the `WaitingRoom` AI processing pattern. The `ErrorBoundary` wraps this too, so retry/lobby recovery remain accessible. Loading state is derived as `!gameState && !!player.roomId` — once `game:state` fires, the overlay disappears and the chat layout renders.
 - **Campaign themes** — 18 preset themes (Medieval Fantasy, Lovecraftian Horror, Cyberpunk, Dark Souls, Pirate, Steampunk, Sci-Fi, Weird West, Post-Apocalyptic, Norse, Arabian Nights, Wuxia, Superhero, Arthurian, Zombie, Japanese Folklore, Space Horror, Post-Magic Apocalypse) + Custom free-form text. Set at room creation via `lobby:create { campaignTheme }`.
 - **Markdown narration** — AI narration rendered with `react-markdown` + `remark-gfm`. Bold, blockquotes, code, lists, tables, horizontal rules supported.

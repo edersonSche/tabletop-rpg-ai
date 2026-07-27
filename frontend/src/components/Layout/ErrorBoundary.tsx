@@ -1,4 +1,4 @@
-import { Component, ReactNode, ErrorInfo } from 'react';
+import { Component, ReactNode, ErrorInfo } from "react";
 
 interface Props {
   children: ReactNode;
@@ -19,7 +19,7 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.error('[ErrorBoundary]', error, errorInfo);
+    console.error("[ErrorBoundary]", error, errorInfo);
   }
 
   private handleRetry = () => {
@@ -36,17 +36,17 @@ export class ErrorBoundary extends Component<Props, State> {
           <div className="w-12 h-12 mx-auto mb-6 rounded-full border-2 border-blood-600 flex items-center justify-center">
             <span className="text-blood-600 font-pixel text-[20px]">!</span>
           </div>
-          <h1 className="text-gold-500 font-pixel text-[16px] tracking-wider mb-2">
+          <h1 className="text-gold-500 font-pixel text-[18px] tracking-wider mb-2">
             SOMETHING WENT WRONG
           </h1>
-          <p className="text-stone-500 font-mono text-[10px] mb-8 leading-relaxed">
-            {this.state.error?.message || 'An unexpected error occurred'}
+          <p className="text-stone-500 font-pixel text-[12px] mb-8 leading-relaxed">
+            {this.state.error?.message || "An unexpected error occurred"}
           </p>
           <div className="flex gap-3 justify-center">
             {this.props.onRetry && (
               <button
                 onClick={this.handleRetry}
-                className="btn-gold !py-2 !px-5 !text-[10px]"
+                className="btn-rpg !py-2 !px-5 !text-[12px]"
               >
                 RETRY
               </button>
@@ -54,7 +54,7 @@ export class ErrorBoundary extends Component<Props, State> {
             {this.props.onGoToLobby && (
               <button
                 onClick={this.props.onGoToLobby}
-                className="btn-secondary !py-2 !px-5 !text-[10px]"
+                className="btn-secondary !py-2 !px-5 !text-[12px]"
               >
                 GO TO LOBBY
               </button>

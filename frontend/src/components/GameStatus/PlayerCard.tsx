@@ -11,15 +11,15 @@ interface PlayerCardProps {
 export const PlayerCard = memo(function PlayerCard({ name, level, isActive, isMe }: PlayerCardProps) {
   return (
     <div className={`p-2 pixel-border transition-all ${
-      isActive ? 'bg-navy-700 pixel-border-gold' : 'bg-navy-800'
+      isActive ? 'bg-panel-800 pixel-border-gold' : 'bg-zinc-900'
     }`}>
       <div className="flex items-center gap-2">
         <span className={isActive ? 'text-cyan-400' : 'text-stone-600'}>
           {isActive ? <Play width={10} height={10} /> : <Circle width={10} height={10} />}
         </span>
-        <span className="font-pixel text-[8px] text-stone-300 flex-1">{name}</span>
-        <span className="font-pixel text-[7px] text-stone-500">Lv{level}</span>
-        {isMe && <span className="font-pixel text-[6px] text-cyan-400">(YOU)</span>}
+        <span className="font-pixel text-[10px] text-stone-300 flex-1">{name}</span>
+        <span className="font-pixel text-[9px] text-stone-500">Lv{level}</span>
+        {isMe && <span className="font-pixel text-[8px] text-cyan-400">(YOU)</span>}
       </div>
     </div>
   );

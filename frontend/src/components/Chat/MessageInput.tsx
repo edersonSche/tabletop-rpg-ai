@@ -69,7 +69,7 @@ export function MessageInput({ onSend, onTyping, onTypingStop, disabled, disable
         <button
           type="submit"
           disabled={disabled || !text.trim()}
-          className="w-11 h-11 flex items-center justify-center bg-gold-500 text-navy-900 pixel-border hover:bg-gold-400 hover:shadow-glow-gold transition-all disabled:opacity-30 disabled:cursor-not-allowed shrink-0"
+          className="w-11 h-11 flex items-center justify-center bg-bronze-500 text-stone-200 pixel-border hover:bg-bronze-400 hover:shadow-glow-gold transition-all disabled:opacity-30 disabled:cursor-not-allowed shrink-0"
         >
           <Send width={18} height={18} />
         </button>

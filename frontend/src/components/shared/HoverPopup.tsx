@@ -48,7 +48,7 @@ export function HoverPopup({ content, children }: HoverPopupProps) {
       {children}
       {isOpen && createPortal(
         <div ref={popupRef} className="fixed z-[60]" style={{ top: pos.top, left: pos.left, width: '256px' }}>
-          <div className="pixel-border bg-navy-800 shadow-lg border border-stone-700/20">
+          <div className="pixel-border-ornate bg-panel-900 shadow-lg">
             {content(() => setIsOpen(false))}
           </div>
         </div>,
