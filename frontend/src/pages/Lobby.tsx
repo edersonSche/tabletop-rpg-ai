@@ -71,13 +71,13 @@ function TabButton({
   return (
     <button
       onClick={onClick}
-      className={`font-pixel text-[11px] px-5 py-2.5 tracking-wider transition-all ${
+      className={`font-pixel text-[12px] px-5 py-2.5 tracking-wider transition-all ${
         active
-          ? "bg-bronze-500 text-stone-200 shadow-glow-gold"
+          ? "bg-bronze-500 text-stone-200 shadow-glow-gold font-bold underline"
           : "bg-panel-800 text-stone-500 pixel-border hover:text-gold-400 hover:bg-panel-700"
       }`}
     >
-      [{children}]
+      {children}
     </button>
   );
 }
