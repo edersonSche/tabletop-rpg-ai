@@ -1,4 +1,11 @@
-import { File, Users, AiSettings2, Logout, Wallet } from "pixelarticons/react";
+import {
+  File,
+  Users,
+  AiSettings2,
+  Logout,
+  Wallet,
+  User,
+} from "pixelarticons/react";
 import { useState } from "react";
 import { usePlayer } from "../hooks/usePlayer";
 import { useGame } from "../hooks/useGame";
@@ -137,8 +144,8 @@ export function GameRoom() {
 
                   <div className="flex flex-col gap-1.5">
                     <NavButton
-                      icon={<File width={14} height={14} />}
-                      label="Sheet"
+                      icon={<User width={14} height={14} />}
+                      label="Character"
                       onClick={() => setShowSheet(true)}
                     />
                     <NavButton
@@ -273,5 +280,3 @@ export function GameRoom() {
     </ErrorBoundary>
   );
 }
-
-
