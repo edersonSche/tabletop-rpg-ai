@@ -325,6 +325,19 @@ frontend/src/
 │   ├── WaitingRoom.tsx      # Pre-game lobby
 │   └── GameRoom.tsx         # Main game interface
 ├── components/
+│   ├── ui/              # Design system: 22 reusable primitives
+│   │   ├── Button.tsx   # 5 variants, 4 sizes
+│   │   ├── Modal.tsx    # 4 maxWidths + ModalTitle
+│   │   ├── Card.tsx     # 3 padding sizes
+│   │   ├── Badge.tsx    # 5 variants
+│   │   ├── IconButton.tsx, TextButton.tsx, NavButton.tsx
+│   │   ├── ProgressBar.tsx, TextField.tsx
+│   │   ├── PanelTitle.tsx, SectionTitle.tsx
+│   │   ├── ItemRow.tsx, PlayerRow.tsx, StatRow.tsx
+│   │   ├── EmptyState.tsx, LoadingOverlay.tsx, ThinkingDots.tsx
+│   │   ├── Divider.tsx, EquipmentSlot.tsx
+│   │   ├── ErrorText.tsx, StatusDot.tsx, PageShell.tsx
+│   │   └── index.ts     # Barrel export
 │   ├── Chat/
 │   │   ├── MessageList.tsx
 │   │   ├── MessageInput.tsx
@@ -371,9 +384,49 @@ Two-layer error boundary system prevents white-screen crashes:
 - **Error reporting** — all caught errors are logged to console via `componentDidCatch`.
 - The `ErrorBoundary` class component is in `components/Layout/ErrorBoundary.tsx`. Props: `onRetry?` (reset + retry), `onGoToLobby?` (navigate to lobby).
 
+### UI Component Library
+
+`src/components/ui/` contains 22 reusable design-system primitives extracted from repeated UI patterns. All components:
+
+- Are wrapped with `React.memo` for render performance
+- Accept a `className` prop appended to the root element for customization
+- Use explicit prop interfaces (not `React.PropsWithChildren`)
+- Are exported via a barrel `index.ts` as `from "../ui"`
+- Follow consistent patterns: `variant` for style (Button, IconButton, Badge, Divider), `size` for sizing (Button, ProgressBar, PanelTitle)
+
+**Catalog:**
+
+| Component | Props | Description |
+|-----------|-------|-------------|
+| `Button` | `variant` (primary/secondary/danger/gold/cyan), `size` (xs/sm/md/lg) | Styled action button |
+| `Modal` | `maxWidth` (xs/sm/xl/3xl), `maxHeight`, `onClose` | Overlay modal with backdrop click |
+| `ModalTitle` | — | Gold-accented modal header |
+| `Card` | `padding` (sm/md/lg), `center` | Stone-themed container panel |
+| `PanelTitle` | `size` (sm/md/lg) | Section header with gold underline |
+| `SectionTitle` | — | Bronze subsection header |
+| `ProgressBar` | `color` (green/gold/red), `size` (sm/md) | Pixel-segmented progress bar |
+| `TextField` | `label`, `error`, full HTMLInputElement | Labeled text input |
+| `IconButton` | `variant` (close/gold/bronze/ghost) | Icon-only button |
+| `TextButton` | `color` (gold/red/muted) | Text-only clickable action |
+| `Badge` | `variant` (condition/magic/damage/gold/neutral) | Inline status badge |
+| `ItemRow` | — | Inventory item line with icon/name/quantity/actions |
+| `PlayerRow` | — | Player info row with status dot |
+| `EmptyState` | — | Centered "nothing here" message |
+| `LoadingOverlay` | — | Full-screen loading spinner |
+| `ThinkingDots` | — | Animated "thinking..." indicator |
+| `StatRow` | — | Attribute row (label + value + mod) |
+| `Divider` | `variant` (gold/stone/subtle) | Horizontal divider line |
+| `NavButton` | — | Sidebar navigation tab button |
+| `EquipmentSlot` | — | Equipment slot with label + item |
+| `ErrorText` | — | Red error message text |
+| `StatusDot` | — | Colored online/offline indicator |
+| `PageShell` | — | Full-page layout wrapper |
+
+**Convention:** Create new UI primitives in `ui/` with `React.memo`, add to `index.ts`, and import via `from "../ui"`.
+
 ### Frontend Performance
 
-9 leaf components are wrapped with `React.memo` to prevent unnecessary re-renders from Socket-driven context updates:
+All 22 `ui/` components plus 9 leaf components are wrapped with `React.memo` to prevent unnecessary re-renders from Socket-driven context updates:
 
 - **Context consumers** — `Header`, `Toast` (decoupled from parent page re-renders)
 - **Pure props** — `LocationBadge`, `PlayerCard`, `TypingIndicator` (primitive or stable reference props)
@@ -387,7 +440,7 @@ The UI uses a dark panel-based design with pixel-art font styling:
 
 - **Fonts** — `Geist Pixel` (self-hosted woff2 in `src/fonts/`) is the sole pixel font used across all UI text. The older Google Fonts (`Press Start 2P`, `VT323`, `Space Mono`) have been removed.
 - **Color palettes** — `panel` (dark neutral grays for backgrounds), `bronze` (warm browns for accent buttons), plus existing `navy`, `gold`, `blood`, `magic`, `forest`, `stone`, `wood`.
-- **Component classes** — `btn-rpg` (bronze-themed primary button), `pixel-border-ornate` (prominent ornamental border), `panel-header` (decorative gold gradient dividers), `bar-segmented` (segmented HP/XP bar effect).
+- **Component classes** — `pixel-border-ornate` (prominent ornamental border), `panel-header` (decorative gold gradient dividers), `bar-segmented` (segmented HP/XP bar effect). Buttons use the `Button` component instead of raw `btn-rpg`/`btn-secondary`/`btn-danger` CSS classes.
 - **Background** — All full-screen pages use flat `bg-panel-950`. The `bg-starfield` class and `bg-gradient-navy` overlays have been removed.
 
 ## Limitations

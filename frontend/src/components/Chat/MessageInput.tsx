@@ -1,5 +1,12 @@
-import { useState, useCallback, useRef, useEffect, type FormEvent } from 'react';
-import { Send } from 'pixelarticons/react';
+import {
+  useState,
+  useCallback,
+  useRef,
+  useEffect,
+  type FormEvent,
+} from "react";
+import { Send } from "pixelarticons/react";
+import { TextField } from "../ui";
 
 interface MessageInputProps {
   onSend: (message: string) => void;
@@ -11,23 +18,34 @@ interface MessageInputProps {
   turnType: string | null;
 }
 
-export function MessageInput({ onSend, onTyping, onTypingStop, disabled, disabledReason, characterName, turnType }: MessageInputProps) {
-  const [text, setText] = useState('');
+export function MessageInput({
+  onSend,
+  onTyping,
+  onTypingStop,
+  disabled,
+  disabledReason,
+  characterName,
+  turnType,
+}: MessageInputProps) {
+  const [text, setText] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
   const typingRef = useRef(false);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const handleTyping = useCallback((value: string) => {
-    if (!typingRef.current && value.length > 0) {
-      typingRef.current = true;
-      onTyping(characterName);
-    }
-    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
-    typingTimeoutRef.current = setTimeout(() => {
-      typingRef.current = false;
-      onTypingStop();
-    }, 2500);
-  }, [onTyping, onTypingStop, characterName]);
+  const handleTyping = useCallback(
+    (value: string) => {
+      if (!typingRef.current && value.length > 0) {
+        typingRef.current = true;
+        onTyping(characterName);
+      }
+      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+      typingTimeoutRef.current = setTimeout(() => {
+        typingRef.current = false;
+        onTypingStop();
+      }, 2500);
+    },
+    [onTyping, onTypingStop, characterName],
+  );
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
@@ -35,7 +53,7 @@ export function MessageInput({ onSend, onTyping, onTypingStop, disabled, disable
     typingRef.current = false;
     onTypingStop();
     onSend(text.trim());
-    setText('');
+    setText("");
     inputRef.current?.focus();
   };
 
@@ -45,27 +63,30 @@ export function MessageInput({ onSend, onTyping, onTypingStop, disabled, disable
     };
   }, []);
 
-  const placeholder = turnType === 'call_roll'
-    ? 'Cast the dice...'
-    : disabled
-      ? disabledReason || 'Awaiting your turn...'
-      : 'Speak your action...';
+  const placeholder =
+    turnType === "call_roll"
+      ? "Cast the dice..."
+      : disabled
+        ? disabledReason || "Awaiting your turn..."
+        : "Speak your action...";
 
   return (
-    <form onSubmit={handleSubmit} className="pt-2">
+    <form onSubmit={handleSubmit}>
       <div className="flex gap-2">
-        <input
-          ref={inputRef}
-          type="text"
-          value={text}
-          onChange={e => {
-            setText(e.target.value);
-            handleTyping(e.target.value);
-          }}
-          disabled={disabled}
-          placeholder={placeholder}
-          className="flex-1 input-field disabled:opacity-40"
-        />
+        <div className="flex-1">
+          <input
+            ref={inputRef}
+            type="text"
+            value={text}
+            onChange={(e) => {
+              setText(e.target.value);
+              handleTyping(e.target.value);
+            }}
+            disabled={disabled}
+            placeholder={placeholder}
+            className="input-field disabled:opacity-40"
+          />
+        </div>
         <button
           type="submit"
           disabled={disabled || !text.trim()}
@@ -75,7 +96,9 @@ export function MessageInput({ onSend, onTyping, onTypingStop, disabled, disable
         </button>
       </div>
       {disabled && disabledReason && (
-        <p className="font-pixel text-[7px] text-gold-500/60 mt-1.5 ml-1">{disabledReason}</p>
+        <p className="font-pixel text-[10px] text-gold-500/60 mt-1.5 ml-1">
+          {disabledReason}
+        </p>
       )}
     </form>
   );

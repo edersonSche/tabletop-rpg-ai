@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Card, PanelTitle, Button, TextField } from '../../components/ui';
 
 interface RoomListProps {
   onJoin: (roomId: string) => Promise<void>;
@@ -20,25 +21,22 @@ export function RoomList({ onJoin }: RoomListProps) {
   };
 
   return (
-    <div className="card-stone p-5">
-      <h2 className="font-pixel text-[12px] text-gold-400 mb-4 text-shadow-glow-gold">JOIN CAMPAIGN</h2>
+    <Card padding="md">
+      <PanelTitle size="sm" className="mb-4">JOIN CAMPAIGN</PanelTitle>
 
       <form onSubmit={handleJoin} className="space-y-4">
-        <div>
-          <label className="font-pixel text-[9px] text-stone-400 block mb-2 tracking-wider">CAMPAIGN CODE</label>
-          <input
-            type="text"
-            value={roomCode}
-            onChange={e => setRoomCode(e.target.value)}
-            className="input-field uppercase"
-            placeholder="Enter the code..."
-          />
-        </div>
+        <TextField
+          label="CAMPAIGN CODE"
+          value={roomCode}
+          onChange={e => setRoomCode(e.target.value)}
+          placeholder="Enter the code..."
+          inputClassName="uppercase"
+        />
 
-        <button type="submit" disabled={!roomCode.trim() || joining} className="btn-rpg w-full">
+        <Button type="submit" fullWidth disabled={!roomCode.trim() || joining}>
           {joining ? 'ENTERING...' : 'JOIN QUEST'}
-        </button>
+        </Button>
       </form>
-    </div>
+    </Card>
   );
 }

@@ -1,4 +1,5 @@
 import { Component, ReactNode, ErrorInfo } from "react";
+import { Button } from "../ui";
 
 interface Props {
   children: ReactNode;
@@ -44,20 +45,21 @@ export class ErrorBoundary extends Component<Props, State> {
           </p>
           <div className="flex gap-3 justify-center">
             {this.props.onRetry && (
-              <button
+              <Button
                 onClick={this.handleRetry}
-                className="btn-rpg !py-2 !px-5 !text-[12px]"
+                size="lg"
               >
                 RETRY
-              </button>
+              </Button>
             )}
             {this.props.onGoToLobby && (
-              <button
+              <Button
                 onClick={this.props.onGoToLobby}
-                className="btn-secondary !py-2 !px-5 !text-[12px]"
+                variant="secondary"
+                size="lg"
               >
                 GO TO LOBBY
-              </button>
+              </Button>
             )}
           </div>
         </div>

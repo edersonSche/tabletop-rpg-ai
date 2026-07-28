@@ -1,6 +1,5 @@
 import { useState } from "react";
 import {
-  Close,
   Sword,
   Shield,
   Wallet,
@@ -8,7 +7,6 @@ import {
   Circle,
   Box,
   Heart,
-  Sparkle,
   Sparkles,
 } from "pixelarticons/react";
 import {
@@ -26,6 +24,7 @@ import {
 } from "../shared/constants";
 import { HoverPopup } from "../shared/HoverPopup";
 import { ConfirmUseModal } from "../shared/ConfirmUseModal";
+import { Modal, ModalTitle, SectionTitle, StatRow, Button, EmptyState, EquipmentSlot } from "../ui";
 
 interface CharacterSheetProps {
   player: Player | undefined;
@@ -322,68 +321,74 @@ function ItemPopupContent({
 
         <div className="space-y-1">
           {item.effects && item.effects.some((e) => e.type === "immediate") && (
-            <button
+            <Button
+              size="xs"
+              fullWidth
               onClick={() => setConfirmUse(true)}
-              className="w-full btn-rpg !py-1.5 !px-3 !text-[7px]"
             >
               USE
-            </button>
+            </Button>
           )}
 
           {isEquipped ? (
-            <button
+            <Button
+              size="xs"
+              fullWidth
               onClick={() => {
                 onUnequip(equippedSlot!);
                 onClose();
               }}
-              className="w-full btn-rpg !py-1.5 !px-3 !text-[7px]"
             >
               UNEQUIP ({SLOT_LABELS[equippedSlot!]})
-            </button>
+            </Button>
           ) : (
             <>
               {item.slot === "body" && (
-                <button
+                <Button
+                  size="xs"
+                  fullWidth
                   onClick={() => {
                     onEquip(item.id, "body");
                     onClose();
                   }}
-                  className="w-full btn-rpg !py-1.5 !px-3 !text-[7px]"
                 >
                   EQUIP (BODY)
-                </button>
+                </Button>
               )}
               {item.slot === "two-handed" && (
-                <button
+                <Button
+                  size="xs"
+                  fullWidth
                   onClick={() => {
                     onEquip(item.id, "mainHand");
                     onClose();
                   }}
-                  className="w-full btn-rpg !py-1.5 !px-3 !text-[7px]"
                 >
                   EQUIP (2-HANDED)
-                </button>
+                </Button>
               )}
               {item.slot === "hand" && (
                 <>
-                  <button
+                  <Button
+                    size="xs"
+                    fullWidth
                     onClick={() => {
                       onEquip(item.id, "mainHand");
                       onClose();
                     }}
-                    className="w-full btn-rpg !py-1.5 !px-3 !text-[7px]"
                   >
                     EQUIP (MAIN HAND)
-                  </button>
-                  <button
+                  </Button>
+                  <Button
+                    size="xs"
+                    fullWidth
                     onClick={() => {
                       onEquip(item.id, "offHand");
                       onClose();
                     }}
-                    className="w-full btn-rpg !py-1.5 !px-3 !text-[7px]"
                   >
                     EQUIP (OFF HAND)
-                  </button>
+                  </Button>
                 </>
               )}
             </>
@@ -401,49 +406,6 @@ function ItemPopupContent({
         />
       )}
     </>
-  );
-}
-
-function StatRow({
-  icon: Icon,
-  iconColor,
-  label,
-  value,
-  barColor,
-  max,
-}: {
-  icon: React.ComponentType<{
-    width?: number;
-    height?: number;
-    className?: string;
-  }>;
-  iconColor: string;
-  label: string;
-  value: number;
-  barColor?: string;
-  max?: number;
-}) {
-  const pct = barColor && max ? Math.round((value / max) * 100) : 0;
-  return (
-    <div className="bg-zinc-900 border border-zinc-800 px-2 py-1.5">
-      <div className="flex items-center gap-2">
-        <Icon width={12} height={12} className={iconColor} />
-        <span className="font-pixel text-[9px] text-stone-500 flex-1">
-          {label}
-        </span>
-        <span className="font-pixel text-[11px] text-stone-300 font-bold">
-          {value}
-        </span>
-      </div>
-      {barColor && max !== undefined && (
-        <div className="h-1.5 bg-zinc-800 mt-1.5 overflow-hidden">
-          <div
-            className={`h-full ${barColor} bar-segmented transition-all`}
-            style={{ width: `${pct}%` }}
-          />
-        </div>
-      )}
-    </div>
   );
 }
 
@@ -478,214 +440,182 @@ export function CharacterSheet({
     Object.values(player.equipment).filter(Boolean) as string[],
   );
 
-  const hpPct =
-    player.maxHp > 0 ? Math.round((player.hp / player.maxHp) * 100) : 0;
-  const xpPct =
-    player.maxXp > 0 ? Math.round((player.xp / player.maxXp) * 100) : 0;
-
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/85"
-      onClick={onClose}
-    >
-      <div
-        className="pixel-border-ornate bg-panel-950 w-full max-w-xl mx-4 relative max-h-[85vh] flex flex-col"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Header */}
-        <div className="px-4 pt-4 pb-3 flex-shrink-0 border-b border-zinc-800">
-          <button
-            onClick={onClose}
-            className="absolute top-3 right-3 text-stone-600 hover:text-stone-300 transition-colors"
-          >
-            <Close width={16} height={16} />
-          </button>
+    <Modal isOpen={isOpen} onClose={onClose} maxWidth="xl" maxHeight>
+      {/* Header */}
+      <div className="px-4 pt-4 pb-3 flex-shrink-0 border-b border-zinc-800">
+        <ModalTitle className="mb-3">CHARACTER SHEET</ModalTitle>
 
-          <div className="panel-header mb-3">
-            <h2 className="font-pixel text-[13px] text-gold-400 tracking-wider text-shadow-glow-gold">
-              CHARACTER SHEET
-            </h2>
-          </div>
-
-          <div className="flex gap-3 items-end">
-            <div className="flex-1 font-pixel flex flex-col bg-zinc-900 border border-zinc-800 px-1 py-1 text-[11px]">
-              <div className="flex gap-1.5">
-                <span className="font-semibold text-stone-500">Name:</span>
-                <span>{player.name}</span>
-              </div>
-              <div className="flex gap-1.5">
-                <span className="font-semibold text-stone-500">Level:</span>
-                <span>{player.level}</span>
-              </div>
+        <div className="flex gap-3 items-end">
+          <div className="flex-1 font-pixel flex flex-col bg-zinc-900 border border-zinc-800 px-1 py-1 text-[11px]">
+            <div className="flex gap-1.5">
+              <span className="font-semibold text-stone-500">Name:</span>
+              <span>{player.name}</span>
             </div>
-
-            <div className="min-w-28">
-              <StatRow
-                icon={Heart}
-                iconColor="text-blood-500"
-                label="HP"
-                value={player.hp}
-                barColor="bg-gradient-to-r from-blood-800 to-blood-500"
-                max={player.maxHp}
-              />
-            </div>
-
-            <div className="min-w-28">
-              <StatRow
-                icon={Sparkles}
-                iconColor="text-emerald-500"
-                label="XP"
-                value={player.xp}
-                barColor="bg-gradient-to-r from-emerald-800 to-emerald-400"
-                max={player.maxXp}
-              />
+            <div className="flex gap-1.5">
+              <span className="font-semibold text-stone-500">Level:</span>
+              <span>{player.level}</span>
             </div>
           </div>
-        </div>
 
-        {/* Body: 3 columns */}
-        <div className="flex- overflow-y-auto scrollbar-quest p-4">
-          <div className="flex flex-col md:flex-row gap-4 min-h-0">
-            {/* Left Column: AC + Attributes + Conditions */}
-            <div className="min-w-28 space-y-1">
-              <div className="font-pixel text-[9px] text-stone-500 mb-2 tracking-wider">
-                ATTRIBUTES
-              </div>
-              <StatRow
-                icon={Shield}
-                iconColor="text-cyan-400"
-                label="AC"
-                value={player.ac}
-                barColor="bg-gradient-to-r from-cyan-700 to-cyan-400"
-                max={30}
-              />
-              {ATTRIB_KEYS.map((key) => {
-                const { label, icon: Icon } = ATTRIBUTE_ICONS[key];
-                return (
-                  <StatRow
-                    key={key}
-                    icon={Icon}
-                    iconColor="text-gold-400"
-                    label={label}
-                    value={player.attributes[key]}
-                  />
-                );
-              })}
+          <div className="min-w-28">
+            <StatRow
+              icon={Heart}
+              iconColor="text-blood-500"
+              label="HP"
+              value={player.hp}
+              barColor="bg-gradient-to-r from-blood-800 to-blood-500"
+              max={player.maxHp}
+            />
+          </div>
 
-              <ActiveConditionsSection
-                player={player}
-                onUseAntidote={handleUseAntidote}
-              />
-            </div>
-
-            {/* Center Column: Equipment */}
-            <div className="min-w-40 flex-shrink-0">
-              <div className="font-pixel text-[9px] text-stone-500 mb-2 tracking-wider">
-                EQUIPMENT
-              </div>
-              <div className="space-y-1.5">
-                {!bodyItem ? (
-                  <EquipmentCard slot="body" item={bodyItem} />
-                ) : (
-                  <HoverPopup
-                    content={(close) => (
-                      <ItemPopupContent
-                        item={bodyItem}
-                        player={player}
-                        onEquip={handleEquip}
-                        onUnequip={handleUnequip}
-                        onUseItem={handleUseItem}
-                        onClose={close}
-                      />
-                    )}
-                  >
-                    <EquipmentCard slot="body" item={bodyItem} />
-                  </HoverPopup>
-                )}
-                {!mainHandItem ? (
-                  <EquipmentCard slot="mainHand" item={mainHandItem} />
-                ) : (
-                  <HoverPopup
-                    content={(close) => (
-                      <ItemPopupContent
-                        item={mainHandItem}
-                        player={player}
-                        onEquip={handleEquip}
-                        onUnequip={handleUnequip}
-                        onUseItem={handleUseItem}
-                        onClose={close}
-                      />
-                    )}
-                  >
-                    <EquipmentCard slot="mainHand" item={mainHandItem} />
-                  </HoverPopup>
-                )}
-                {!offHandItem ? (
-                  <EquipmentCard slot="offHand" item={offHandItem} />
-                ) : (
-                  <HoverPopup
-                    content={(close) => (
-                      <ItemPopupContent
-                        item={offHandItem}
-                        player={player}
-                        onEquip={handleEquip}
-                        onUnequip={handleUnequip}
-                        onUseItem={handleUseItem}
-                        onClose={close}
-                      />
-                    )}
-                  >
-                    <EquipmentCard slot="offHand" item={offHandItem} />
-                  </HoverPopup>
-                )}
-              </div>
-            </div>
-
-            {/* Right Column: Inventory */}
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center justify-between mb-2">
-                <span className="font-pixel text-[9px] text-stone-500 tracking-wider">
-                  INVENTORY
-                </span>
-                <div className="flex items-center gap-1.5">
-                  <Wallet width={12} height={12} className="text-gold-400" />
-                  <span className="font-pixel text-[10px] text-gold-400">
-                    {player.coins}g
-                  </span>
-                </div>
-              </div>
-              {player.inventory.length === 0 ? (
-                <p className="font-pixel text-[9px] text-stone-600 text-center py-4">
-                  YOUR POUCH IS EMPTY
-                </p>
-              ) : (
-                <div className="space-y-1 max-h-80 overflow-y-auto pr-1 scrollbar-quest">
-                  {player.inventory.map((item) => (
-                    <HoverPopup
-                      key={item.id}
-                      content={(close) => (
-                        <ItemPopupContent
-                          item={item}
-                          player={player}
-                          onEquip={handleEquip}
-                          onUnequip={handleUnequip}
-                          onUseItem={handleUseItem}
-                          onClose={close}
-                        />
-                      )}
-                    >
-                      <ItemCell
-                        item={item}
-                        isEquipped={equippedIds.has(item.id)}
-                      />
-                    </HoverPopup>
-                  ))}
-                </div>
-              )}
-            </div>
+          <div className="min-w-28">
+            <StatRow
+              icon={Sparkles}
+              iconColor="text-emerald-500"
+              label="XP"
+              value={player.xp}
+              barColor="bg-gradient-to-r from-emerald-800 to-emerald-400"
+              max={player.maxXp}
+            />
           </div>
         </div>
       </div>
-    </div>
+
+      {/* Body: 3 columns */}
+      <div className="flex-1 overflow-y-auto scrollbar-quest p-4">
+        <div className="flex flex-col md:flex-row gap-4 min-h-0">
+          {/* Left Column: AC + Attributes + Conditions */}
+          <div className="min-w-28 space-y-1">
+            <SectionTitle>ATTRIBUTES</SectionTitle>
+            <StatRow
+              icon={Shield}
+              iconColor="text-cyan-400"
+              label="AC"
+              value={player.ac}
+              barColor="bg-gradient-to-r from-cyan-700 to-cyan-400"
+              max={30}
+            />
+            {ATTRIB_KEYS.map((key) => {
+              const { label, icon: Icon } = ATTRIBUTE_ICONS[key];
+              return (
+                <StatRow
+                  key={key}
+                  icon={Icon}
+                  iconColor="text-gold-400"
+                  label={label}
+                  value={player.attributes[key]}
+                />
+              );
+            })}
+
+            <ActiveConditionsSection
+              player={player}
+              onUseAntidote={handleUseAntidote}
+            />
+          </div>
+
+          {/* Center Column: Equipment */}
+          <div className="min-w-40 flex-shrink-0">
+            <SectionTitle>EQUIPMENT</SectionTitle>
+            <div className="space-y-1.5">
+              {!bodyItem ? (
+                <EquipmentSlot slot="body" item={bodyItem} />
+              ) : (
+                <HoverPopup
+                  content={(close) => (
+                    <ItemPopupContent
+                      item={bodyItem}
+                      player={player}
+                      onEquip={handleEquip}
+                      onUnequip={handleUnequip}
+                      onUseItem={handleUseItem}
+                      onClose={close}
+                    />
+                  )}
+                >
+                  <EquipmentSlot slot="body" item={bodyItem} />
+                </HoverPopup>
+              )}
+              {!mainHandItem ? (
+                <EquipmentSlot slot="mainHand" item={mainHandItem} />
+              ) : (
+                <HoverPopup
+                  content={(close) => (
+                    <ItemPopupContent
+                      item={mainHandItem}
+                      player={player}
+                      onEquip={handleEquip}
+                      onUnequip={handleUnequip}
+                      onUseItem={handleUseItem}
+                      onClose={close}
+                    />
+                  )}
+                >
+                  <EquipmentSlot slot="mainHand" item={mainHandItem} />
+                </HoverPopup>
+              )}
+              {!offHandItem ? (
+                <EquipmentSlot slot="offHand" item={offHandItem} />
+              ) : (
+                <HoverPopup
+                  content={(close) => (
+                    <ItemPopupContent
+                      item={offHandItem}
+                      player={player}
+                      onEquip={handleEquip}
+                      onUnequip={handleUnequip}
+                      onUseItem={handleUseItem}
+                      onClose={close}
+                    />
+                  )}
+                >
+                  <EquipmentSlot slot="offHand" item={offHandItem} />
+                </HoverPopup>
+              )}
+            </div>
+          </div>
+
+          {/* Right Column: Inventory */}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center justify-between mb-2">
+              <SectionTitle className="mb-0">INVENTORY</SectionTitle>
+              <div className="flex items-center gap-1.5">
+                <Wallet width={12} height={12} className="text-gold-400" />
+                <span className="font-pixel text-[10px] text-gold-400">
+                  {player.coins}g
+                </span>
+              </div>
+            </div>
+            {player.inventory.length === 0 ? (
+              <EmptyState message="YOUR POUCH IS EMPTY" />
+            ) : (
+              <div className="space-y-1 max-h-80 overflow-y-auto pr-1 scrollbar-quest">
+                {player.inventory.map((item) => (
+                  <HoverPopup
+                    key={item.id}
+                    content={(close) => (
+                      <ItemPopupContent
+                        item={item}
+                        player={player}
+                        onEquip={handleEquip}
+                        onUnequip={handleUnequip}
+                        onUseItem={handleUseItem}
+                        onClose={close}
+                      />
+                    )}
+                  >
+                    <ItemCell
+                      item={item}
+                      isEquipped={equippedIds.has(item.id)}
+                    />
+                  </HoverPopup>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </Modal>
   );
 }

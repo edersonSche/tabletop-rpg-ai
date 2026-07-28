@@ -2,6 +2,7 @@ import { memo } from 'react';
 import { useAuth } from "../../hooks/useAuth";
 import { usePlayer } from "../../hooks/usePlayer";
 import { useGame } from "../../hooks/useGame";
+import { StatusDot } from "../ui";
 import logo from "../../assets/logo.png";
 
 export const Header = memo(function Header() {
@@ -39,7 +40,7 @@ export const Header = memo(function Header() {
           )}
 
           <div className="flex items-center gap-2">
-            <div className={`w-2 h-2 ${connected ? 'bg-cyan-400 animate-crystal-pulse' : 'bg-blood-600'}`} />
+            <StatusDot status={connected ? 'online' : 'offline'} />
             <span
               className={`font-pixel text-[9px] ${connected ? 'text-cyan-400' : 'text-blood-600'}`}
             >

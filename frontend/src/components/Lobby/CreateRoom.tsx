@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { NarrativeLanguage } from '../../types/game.types';
+import { Card, PanelTitle, Button, TextField } from '../../components/ui';
 
 const LANGUAGES: { value: NarrativeLanguage; label: string }[] = [
   { value: 'english', label: 'English' },
@@ -28,19 +29,15 @@ export function CreateRoom({ onCreate }: CreateRoomProps) {
   };
 
   return (
-    <div className="card-stone p-5">
-      <h2 className="font-pixel text-[12px] text-gold-400 mb-4 text-center text-shadow-glow-gold">NEW CAMPAIGN</h2>
+    <Card padding="md">
+      <PanelTitle size="sm" center className="mb-4">NEW CAMPAIGN</PanelTitle>
       <form onSubmit={handleSubmit} className="space-y-4">
-        <div>
-          <label className="font-pixel text-[9px] text-stone-400 block mb-2 tracking-wider">CAMPAIGN NAME</label>
-          <input
-            type="text"
-            value={roomName}
-            onChange={e => setRoomName(e.target.value)}
-            className="input-field"
-            placeholder="Name your quest..."
-          />
-        </div>
+        <TextField
+          label="CAMPAIGN NAME"
+          value={roomName}
+          onChange={e => setRoomName(e.target.value)}
+          placeholder="Name your quest..."
+        />
         <div>
           <label className="font-pixel text-[9px] text-stone-400 block mb-2 tracking-wider">NARRATION LANGUAGE</label>
           <select
@@ -53,10 +50,10 @@ export function CreateRoom({ onCreate }: CreateRoomProps) {
             ))}
           </select>
         </div>
-        <button type="submit" disabled={!roomName.trim() || creating} className="btn-rpg w-full">
+        <Button type="submit" fullWidth disabled={!roomName.trim() || creating}>
           {creating ? 'CONJURING...' : 'CREATE CAMPAIGN'}
-        </button>
+        </Button>
       </form>
-    </div>
+    </Card>
   );
 }

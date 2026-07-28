@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useAuth } from "../hooks/useAuth";
+import { Card, PanelTitle, Button, ErrorText, TextField } from "../components/ui";
 import logo from "../assets/logo.png";
 
 export function Login() {
@@ -26,51 +27,42 @@ export function Login() {
           </p>
         </div>
 
-        <div className="card-stone p-6">
-          <h2 className="font-pixel text-[13px] text-gold-400 mb-5 text-center text-shadow-glow-gold">
+        <Card padding="lg">
+          <PanelTitle size="md" center className="mb-5">
             IDENTIFY YOURSELF
-          </h2>
+          </PanelTitle>
 
           {!connected && (
-            <p className="font-pixel text-[10px] text-blood-500 text-center mb-4">
-              DISCONNECTED FROM SERVER...
-            </p>
+            <ErrorText>DISCONNECTED FROM SERVER...</ErrorText>
           )}
 
           {error && (
-            <p className="font-pixel text-[10px] text-blood-500 text-center mb-4">
-              {error}
-            </p>
+            <ErrorText>{error}</ErrorText>
           )}
 
           <form onSubmit={handleLogin} className="space-y-4">
-            <div>
-              <label className="font-pixel text-[10px] text-stone-400 block mb-2 tracking-wider">
-                ADVENTURER NAME
-              </label>
-              <input
-                type="text"
-                value={userId}
-                onChange={(e) => setUserId(e.target.value)}
-                className="input-field"
-                placeholder="Enter your name..."
-                autoFocus
-              />
-            </div>
+            <TextField
+              label="ADVENTURER NAME"
+              type="text"
+              value={userId}
+              onChange={(e) => setUserId(e.target.value)}
+              placeholder="Enter your name..."
+              autoFocus
+            />
 
-            <button
+            <Button
               type="submit"
+              fullWidth
               disabled={!userId.trim() || loading || !connected}
-              className="btn-rpg w-full"
             >
               {!connected
                 ? "DISCONNECTED"
                 : loading
                   ? "CONNECTING..."
                   : "BEGIN ADVENTURE"}
-            </button>
+            </Button>
           </form>
-        </div>
+        </Card>
 
         <p className="font-pixel text-[8px] text-stone-700 text-center tracking-wider">
           TABLETOP RPG AI - WHERE AI MEETS ADVENTURE
