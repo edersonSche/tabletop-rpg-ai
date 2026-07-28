@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { Close, Wallet, Box } from 'pixelarticons/react';
+import { Wallet, Box } from 'pixelarticons/react';
 import { Merchant, MerchantItem, InventoryItem } from '../../types/game.types';
 import { EffectRow } from '../GameStatus/CharacterSheet';
 import { ITEM_TYPE_ICONS } from '../shared/constants';
 import { HoverPopup } from '../shared/HoverPopup';
+import { Modal, ModalTitle, SectionTitle, Button, ItemRow, EmptyState } from '../ui';
 
 interface TradeModalProps {
   merchants: Merchant[];
@@ -122,155 +123,142 @@ export function TradeModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85">
-      <div className="pixel-border-ornate bg-panel-950 w-full max-w-3xl mx-4 max-h-[85vh] flex flex-col relative" onClick={e => e.stopPropagation()}>
-        {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-zinc-800">
-          <div className="panel-header flex-1 mb-0">
-            <h2 className="font-pixel text-[13px] text-gold-400 tracking-wider text-shadow-glow-gold">THE MARKETPLACE</h2>
-          </div>
-          <div className="flex items-center gap-3 ml-4">
-            <span className="font-pixel text-[9px] text-stone-500">
-              {allDoneCount}/{totalCount} done
-            </span>
-            <span className="flex items-center gap-1 font-pixel text-[10px] text-gold-400">
-              <Wallet width={12} height={12} />{playerCoins}g
-            </span>
-          </div>
+    <Modal isOpen={true} onClose={() => {}} maxWidth="3xl" maxHeight={true} showCloseButton={false}>
+      {/* Header */}
+      <div className="flex items-center justify-between p-4 border-b border-zinc-800">
+        <ModalTitle className="mb-0 flex-1">THE MARKETPLACE</ModalTitle>
+        <div className="flex items-center gap-3 ml-4">
+          <span className="font-pixel text-[9px] text-stone-500">
+            {allDoneCount}/{totalCount} done
+          </span>
+          <span className="flex items-center gap-1 font-pixel text-[10px] text-gold-400">
+            <Wallet width={12} height={12} />{playerCoins}g
+          </span>
         </div>
+      </div>
 
-        {/* Merchant Tabs */}
-        <div className="p-1 flex border-b border-zinc-800 overflow-x-auto">
-          {merchants.map((m, i) => (
-            <button
-              key={m.id}
-              onClick={() => { setActiveMerchant(i); setConfirmBuy(null); setConfirmSell(null); }}
-              className={`px-4 py-2 font-pixel text-[10px] whitespace-nowrap transition-all border-r border-zinc-800 last:border-r-0 ${
-                i === activeMerchant ? 'bg-panel-800 text-gold-400' : 'bg-panel-950 text-stone-500 hover:bg-panel-800 hover:text-stone-300'
-              }`}
-            >
-              {m.name}
-            </button>
-          ))}
-        </div>
+      {/* Merchant Tabs */}
+      <div className="p-1 flex border-b border-zinc-800 overflow-x-auto">
+        {merchants.map((m, i) => (
+          <button
+            key={m.id}
+            onClick={() => { setActiveMerchant(i); setConfirmBuy(null); setConfirmSell(null); }}
+            className={`px-4 py-2 font-pixel text-[10px] whitespace-nowrap transition-all border-r border-zinc-800 last:border-r-0 ${
+              i === activeMerchant ? 'bg-panel-800 text-gold-400' : 'bg-panel-950 text-stone-500 hover:bg-panel-800 hover:text-stone-300'
+            }`}
+          >
+            {m.name}
+          </button>
+        ))}
+      </div>
 
-        {merchant && (
-          <div className="flex flex-col">
-            <p className="px-4 pt-3 font-pixel text-[9px] text-stone-500 italic">&ldquo;{merchant.greeting}&rdquo;</p>
+      {merchant && (
+        <div className="flex flex-col">
+          <p className="px-4 pt-3 font-pixel text-[9px] text-stone-500 italic">&ldquo;{merchant.greeting}&rdquo;</p>
 
-            <div className="flex-1 overflow-hidden flex gap-4 p-4">
-              {/* Left: Merchant Items */}
-              <div className="flex-1 flex flex-col min-w-0">
-                <div className="flex items-center justify-between mb-2 flex-shrink-0">
-                  <div className="font-pixel text-[9px] text-stone-500 tracking-wider">WARES</div>
-                  <span className="font-pixel text-[8px] text-stone-600">{merchant.coins}g</span>
-                </div>
-                <div className="flex-1 overflow-y-auto space-y-1 pr-1 scrollbar-quest">
-                  {merchant.inventory.length === 0 ? (
-                    <p className="font-pixel text-[9px] text-stone-500">Nothing available.</p>
-                  ) : (
-                    merchant.inventory.map(item => {
-                      const Icon = ITEM_TYPE_ICONS[item.type] || Box;
-                      const canAfford = playerCoins >= item.buyPrice;
-                      const row = (
-                        <div key={item.id} className="bg-zinc-900 border border-zinc-800 px-2 py-1.5 flex items-center gap-2 hover:bg-panel-800 transition-all">
-                          <div className="flex-shrink-0 w-5 flex items-center justify-center">
-                            <Icon width={12} height={12} className="text-stone-500" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="font-pixel text-[9px] text-stone-300 truncate">{item.name}</div>
-                            <div className="font-pixel text-[8px] text-stone-600">{item.buyPrice}g &middot; {item.quantity}</div>
-                          </div>
-                          <button
+          <div className="flex-1 overflow-hidden flex gap-4 p-4">
+            {/* Left: Merchant Items */}
+            <div className="flex-1 flex flex-col min-w-0">
+              <div className="flex items-center justify-between mb-2 flex-shrink-0">
+                <SectionTitle className="mb-0">WARES</SectionTitle>
+                <span className="font-pixel text-[8px] text-stone-600">{merchant.coins}g</span>
+              </div>
+              <div className="flex-1 overflow-y-auto space-y-1 pr-1 scrollbar-quest">
+                {merchant.inventory.length === 0 ? (
+                  <EmptyState message="Nothing available." />
+                ) : (
+                  merchant.inventory.map(item => {
+                    const Icon = ITEM_TYPE_ICONS[item.type] || Box;
+                    const canAfford = playerCoins >= item.buyPrice;
+                    const row = (
+                      <ItemRow
+                        key={item.id}
+                        iconType={item.type}
+                        name={item.name}
+                        detail={`${item.buyPrice}g · ${item.quantity}`}
+                        action={
+                          <Button
                             onClick={() => handleBuy(item.id)}
                             disabled={!canAfford || item.quantity < 1}
-                            className={`flex-shrink-0 px-2 py-1 btn-rpg !text-[8px] !py-1 !px-2 disabled:opacity-30 ${
-                              confirmBuy === item.id
-                                ? '!bg-blood-700 !text-stone-300'
-                                : ''
-                            }`}
+                            size="xs"
+                            className={`${confirmBuy === item.id ? '!bg-blood-700 !text-stone-300' : ''}`}
                           >
                             {item.quantity < 1 ? 'EMPTY' : !canAfford ? 'PRICEY' : confirmBuy === item.id ? 'BUY?' : 'BUY'}
-                          </button>
-                        </div>
-                      );
-                      return (
-                        <HoverPopup key={item.id} content={(close) => <MerchantItemDetail item={item} playerCoins={playerCoins} />}>
-                          {row}
-                        </HoverPopup>
-                      );
-                    })
-                  )}
-                </div>
+                          </Button>
+                        }
+                      />
+                    );
+                    return (
+                      <HoverPopup key={item.id} content={(close) => <MerchantItemDetail item={item} playerCoins={playerCoins} />}>
+                        {row}
+                      </HoverPopup>
+                    );
+                  })
+                )}
               </div>
+            </div>
 
-              {/* Right: Player Items */}
-              <div className="flex-1 flex flex-col min-w-0">
-                <div className="font-pixel text-[9px] text-stone-500 mb-2 tracking-wider flex-shrink-0">YOUR WARES</div>
-                <div className="flex-1 overflow-y-auto space-y-1 pr-1 scrollbar-quest">
-                  {playerInventory.length === 0 ? (
-                    <p className="font-pixel text-[9px] text-stone-500">Nothing to sell.</p>
-                  ) : (
-                    playerInventory.map(item => {
-                      const Icon = ITEM_TYPE_ICONS[item.type] || Box;
-                      const sellPrice = sellPriceFor(item);
-                      const merchantCanAfford = merchant.coins >= sellPrice;
-                      const row = (
-                        <div key={item.id} className="bg-zinc-900 border border-zinc-800 px-2 py-1.5 flex items-center gap-2 hover:bg-panel-800 transition-all">
-                          <div className="flex-shrink-0 w-5 flex items-center justify-center">
-                            <Icon width={12} height={12} className="text-stone-500" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="font-pixel text-[9px] text-stone-300 truncate">{item.name}</div>
-                            <div className="font-pixel text-[8px] text-stone-600">{sellPrice}g{item.quantity > 1 ? ` &middot; x${item.quantity}` : ''}</div>
-                          </div>
-                          <button
+            {/* Right: Player Items */}
+            <div className="flex-1 flex flex-col min-w-0">
+              <SectionTitle className="flex-shrink-0">YOUR WARES</SectionTitle>
+              <div className="flex-1 overflow-y-auto space-y-1 pr-1 scrollbar-quest">
+                {playerInventory.length === 0 ? (
+                  <EmptyState message="Nothing to sell." />
+                ) : (
+                  playerInventory.map(item => {
+                    const sellPrice = sellPriceFor(item);
+                    const merchantCanAfford = merchant.coins >= sellPrice;
+                    const row = (
+                      <ItemRow
+                        key={item.id}
+                        iconType={item.type}
+                        name={item.name}
+                        detail={`${sellPrice}g${item.quantity > 1 ? ` · x${item.quantity}` : ''}`}
+                        action={
+                          <Button
                             onClick={() => handleSell(item)}
                             disabled={!merchantCanAfford || item.quantity < 1}
-                            className={`flex-shrink-0 px-2 py-1 btn-rpg !text-[8px] !py-1 !px-2 disabled:opacity-30 ${
-                              confirmSell === item.id
-                                ? '!bg-blood-700 !text-stone-300'
-                                : ''
-                            }`}
+                            size="xs"
+                            className={`${confirmSell === item.id ? '!bg-blood-700 !text-stone-300' : ''}`}
                           >
                             {item.quantity < 1 ? 'EMPTY' : !merchantCanAfford ? 'NO GOLD' : confirmSell === item.id ? 'SELL?' : 'SELL'}
-                          </button>
-                        </div>
-                      );
-                      return (
-                        <HoverPopup key={item.id} content={(close) => <PlayerItemDetail item={item} sellPrice={sellPrice} merchantCoins={merchant.coins} />}>
-                          {row}
-                        </HoverPopup>
-                      );
-                    })
-                  )}
-                </div>
+                          </Button>
+                        }
+                      />
+                    );
+                    return (
+                      <HoverPopup key={item.id} content={(close) => <PlayerItemDetail item={item} sellPrice={sellPrice} merchantCoins={merchant.coins} />}>
+                        {row}
+                      </HoverPopup>
+                    );
+                  })
+                )}
               </div>
             </div>
           </div>
-        )}
+        </div>
+      )}
 
-        {/* Footer */}
-        <div className="flex items-center justify-between p-4 border-t border-zinc-800">
-          <div className="font-pixel text-[9px] text-stone-600">
-            {iAmDone ? 'Awaiting others...' : `Done: ${allDoneCount}/${totalCount}`}
-          </div>
-          <div className="flex gap-2">
-            {isCreator && onForceEnd && (
-              <button onClick={onForceEnd} className="btn-danger !py-1.5 !px-3 !text-[9px]">
-                FORCE END
-              </button>
-            )}
-            <button
-              onClick={onEndTrade}
-              disabled={iAmDone}
-              className="btn-rpg !py-1.5 !px-3 !text-[9px]"
-            >
-              {iAmDone ? 'WAITING...' : 'DONE TRADING'}
-            </button>
-          </div>
+      {/* Footer */}
+      <div className="flex items-center justify-between p-4 border-t border-zinc-800">
+        <div className="font-pixel text-[9px] text-stone-600">
+          {iAmDone ? 'Awaiting others...' : `Done: ${allDoneCount}/${totalCount}`}
+        </div>
+        <div className="flex gap-2">
+          {isCreator && onForceEnd && (
+            <Button onClick={onForceEnd} variant="danger" size="sm">
+              FORCE END
+            </Button>
+          )}
+          <Button
+            onClick={onEndTrade}
+            disabled={iAmDone}
+            size="sm"
+          >
+            {iAmDone ? 'WAITING...' : 'DONE TRADING'}
+          </Button>
         </div>
       </div>
-    </div>
+    </Modal>
   );
 }

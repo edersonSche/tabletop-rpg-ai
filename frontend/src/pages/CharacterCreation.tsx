@@ -3,6 +3,7 @@ import { Logout } from "pixelarticons/react";
 import { usePlayer } from "../hooks/usePlayer";
 import { useGame } from "../hooks/useGame";
 import type { CharacterKit } from "../types/game.types";
+import { Card, PanelTitle, Button, TextButton, ThinkingDots, Badge, EmptyState, IconButton, TextField } from "../components/ui";
 import logo from "../assets/logo.png";
 
 type StatKey =
@@ -161,25 +162,20 @@ export function CharacterCreation() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Left column: Name + Attributes */}
-          <div className="card-stone p-5">
-            <h2 className="font-pixel text-[12px] text-gold-400 mb-4 text-center text-shadow-glow-gold">
+          <Card padding="md">
+            <PanelTitle size="sm" center className="mb-4">
               NEW CHARACTER
-            </h2>
+            </PanelTitle>
 
             <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label className="font-pixel text-[9px] text-stone-400 block mb-2 tracking-wider">
-                  HERO NAME
-                </label>
-                <input
-                  type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="input-field"
-                  placeholder="Name your hero..."
-                  autoFocus
-                />
-              </div>
+              <TextField
+                label="HERO NAME"
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Name your hero..."
+                autoFocus
+              />
 
               <div className="divider-gold pt-4">
                 <p className="font-pixel text-[10px] text-stone-400 mb-3 text-center">
@@ -197,77 +193,64 @@ export function CharacterCreation() {
                         {label}
                       </span>
                       <div className="flex items-center gap-3">
-                        <button
-                          type="button"
+                        <IconButton
+                          icon={<span className="font-pixel text-[12px]">-</span>}
                           onClick={() => adjust(key, -1)}
                           disabled={attributes[key] <= MIN}
-                          className="w-7 h-7 bg-panel-800 text-stone-400 pixel-border hover:bg-panel-700 hover:text-blood-500 transition-all disabled:opacity-20 disabled:cursor-not-allowed flex items-center justify-center font-pixel text-[12px]"
-                        >
-                          -
-                        </button>
+                          variant="panel"
+                        />
                         <span className="font-pixel text-[13px] text-gold-400 w-6 text-center font-bold">
                           {attributes[key]}
                         </span>
-                        <button
-                          type="button"
+                        <IconButton
+                          icon={<span className="font-pixel text-[12px]">+</span>}
                           onClick={() => adjust(key, 1)}
                           disabled={
                             attributes[key] >= MAX ||
                             remaining < (COST[attributes[key]] ?? 0)
                           }
-                          className="w-7 h-7 bg-panel-800 text-stone-400 pixel-border hover:bg-panel-700 hover:text-cyan-400 transition-all disabled:opacity-20 disabled:cursor-not-allowed flex items-center justify-center font-pixel text-[12px]"
-                        >
-                          +
-                        </button>
+                          variant="panel"
+                        />
                       </div>
                     </div>
                   ))}
                 </div>
               </div>
 
-              <button
+              <Button
                 type="submit"
+                fullWidth
                 disabled={!canSubmit}
-                className="btn-rpg w-full"
               >
                 {loading ? "FORGING..." : "CREATE HERO"}
-              </button>
+              </Button>
             </form>
 
             <div className="flex justify-center mt-4">
-              <button
+              <TextButton
                 onClick={backToLobby}
-                className="font-pixel text-[9px] text-blood-600 hover:text-blood-500 transition-colors flex items-center gap-1"
+                icon={<Logout width={12} height={12} />}
+                color="blood"
+                className="text-[9px]"
               >
-                <Logout width={12} height={12} />
                 ABANDON
-              </button>
+              </TextButton>
             </div>
-          </div>
+          </Card>
 
           {/* Right column: Kit Selection */}
-          <div className="card-stone p-5">
-            <h2 className="font-pixel text-[12px] text-gold-400 mb-3 text-center text-shadow-glow-gold">
+          <Card padding="md">
+            <PanelTitle size="sm" center className="mb-3">
               STARTING KIT
-            </h2>
+            </PanelTitle>
             <p className="font-pixel text-[9px] text-stone-500 mb-4 text-center">
               CHOOSE YOUR GEAR
             </p>
 
             {kitsLoading ? (
-              <div className="flex items-center justify-center py-8">
-                <span className="font-pixel text-[10px] text-stone-500">
-                  <span className="thinking-dot inline-block">.</span>
-                  <span className="thinking-dot inline-block">.</span>
-                  <span className="thinking-dot inline-block">.</span>
-                </span>
-              </div>
+              <EmptyState message="" icon={<ThinkingDots />} />
             ) : kits.length === 0 ? (
-              <div className="flex items-center justify-center py-8">
-                <span className="font-pixel text-[10px] text-stone-500">
-                  NO KITS AVAILABLE
-                </span>
-              </div>
+              <EmptyState message="NO KITS AVAILABLE" />
             ) : (
               <div className="space-y-2">
                 {kits.map((kit) => {
@@ -295,21 +278,16 @@ export function CharacterCreation() {
                           </div>
                           <div className="flex flex-wrap gap-1 mt-2">
                             {kit.items.map((item, idx) => (
-                              <span
-                                key={idx}
-                                className="font-pixel text-[8px] bg-zinc-900 text-stone-400 px-1.5 py-0.5 pixel-border-light"
-                              >
+                              <Badge key={idx}>
                                 {item.name}
                                 {item.quantity > 1 ? ` x${item.quantity}` : ""}
-                              </span>
+                              </Badge>
                             ))}
                           </div>
                         </div>
                         <div className="flex flex-col items-end gap-1 shrink-0">
                           {isRecommended && (
-                            <span className="font-pixel text-[8px] text-gold-400 bg-gold-500/10 px-2 py-0.5 border border-gold-500/20">
-                              SUGGESTED
-                            </span>
+                            <Badge variant="suggested">SUGGESTED</Badge>
                           )}
                           <div
                             className={`w-4 h-4 border-2 flex items-center justify-center ${
@@ -329,7 +307,7 @@ export function CharacterCreation() {
                 })}
               </div>
             )}
-          </div>
+          </Card>
         </div>
       </div>
     </div>

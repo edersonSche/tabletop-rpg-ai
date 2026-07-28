@@ -48,7 +48,7 @@ export function UseItemButton({ items, onUseItem }: UseItemButtonProps) {
               className="w-full text-left px-3 py-2 font-pixel text-[8px] text-stone-300 hover:bg-panel-800 transition-all flex items-center justify-between"
             >
               <span>{item.name}</span>
-              <span className="text-stone-600">x{item.quantity}</span>
+              <span className="font-pixel text-[8px] text-stone-600">x{item.quantity}</span>
             </button>
           ))}
         </div>

@@ -1,6 +1,7 @@
 import { Circle } from 'pixelarticons/react';
 import { Player, ActiveCondition } from '../../types/game.types';
 import { CONDITION_ICONS } from '../shared/constants';
+import { ProgressBar } from '../ui';
 
 function ConditionIcon({ condition }: { condition: string }) {
   const Icon = CONDITION_ICONS[condition] || Circle;
@@ -60,12 +61,7 @@ export function MyCharacterStatus({ player }: MyCharacterStatusProps) {
           <span className="font-pixel text-[8px] text-stone-500">HP</span>
           <span className="font-pixel text-[8px] text-stone-400">{player.hp}/{player.maxHp}</span>
         </div>
-        <div className="h-2 bg-zinc-900 pixel-border-light overflow-hidden">
-          <div
-            className="h-full bg-gradient-to-r from-blood-700 to-blood-500 bar-segmented transition-all"
-            style={{ width: `${hpPct}%` }}
-          />
-        </div>
+        <ProgressBar value={player.hp} max={player.maxHp} color="hp" size="md" />
       </div>
 
       <div className="mb-2">
@@ -73,12 +69,7 @@ export function MyCharacterStatus({ player }: MyCharacterStatusProps) {
           <span className="font-pixel text-[8px] text-stone-500">XP</span>
           <span className="font-pixel text-[8px] text-stone-400">{player.xp}/{player.maxXp}</span>
         </div>
-        <div className="h-2 bg-zinc-900 pixel-border-light overflow-hidden">
-          <div
-            className="h-full bg-gradient-to-r from-gold-700 to-gold-400 bar-segmented transition-all"
-            style={{ width: `${xpPct}%` }}
-          />
-        </div>
+        <ProgressBar value={player.xp} max={player.maxXp} color="xp" size="md" />
       </div>
 
       <ConditionIndicators conditions={player.activeConditions || []} />

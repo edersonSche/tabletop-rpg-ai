@@ -20,6 +20,7 @@ import { AttributeAllocationModal } from "../components/GameStatus/AttributeAllo
 import { MyCharacterStatus } from "../components/GameStatus/MyCharacterStatus";
 import { CampaignStatusBar } from "../components/GameStatus/CampaignStatusBar";
 import { TradeModal } from "../components/Trade/TradeModal";
+import { Button, NavButton, Divider, LoadingOverlay } from "../components/ui";
 
 export function GameRoom() {
   const [showSheet, setShowSheet] = useState(false);
@@ -97,15 +98,10 @@ export function GameRoom() {
         <div className="h-screen bg-navy-950 flex flex-col items-center justify-center">
           <Header />
           <div className="flex-1 flex flex-col items-center justify-center">
-            <div className="animate-crystal-pulse mb-4">
-              <div className="w-12 h-12 border-2 border-cyan-400/50 rotate-45" />
-            </div>
-            <p className="font-pixel text-[13px] text-gold-400 text-shadow-glow-gold mb-2">
-              SUMMONING THE REALM...
-            </p>
-            <p className="font-pixel text-[9px] text-stone-600">
-              The ancient forces are gathering
-            </p>
+            <LoadingOverlay
+              title="SUMMONING THE REALM..."
+              subtitle="The ancient forces are gathering"
+            />
           </div>
         </div>
       </ErrorBoundary>
@@ -128,33 +124,34 @@ export function GameRoom() {
                 <div className="p-3 flex flex-col gap-3 flex-1">
                   {me && <MyCharacterStatus player={me} />}
                   {me && me.pendingAttributePoints > 0 && (
-                    <button
+                    <Button
                       onClick={() => setShowAttributeAllocation(true)}
-                      className="w-full btn-rpg !py-2 !px-3 !text-[10px]"
+                      size="sm"
+                      fullWidth
                     >
                       ATTRIBUTE PTS ({me.pendingAttributePoints})
-                    </button>
+                    </Button>
                   )}
 
                   <div className="flex-1" />
 
                   <div className="flex flex-col gap-1.5">
-                    <SidebarButton
+                    <NavButton
                       icon={<File width={14} height={14} />}
                       label="Sheet"
                       onClick={() => setShowSheet(true)}
                     />
-                    <SidebarButton
+                    <NavButton
                       icon={<Users width={14} height={14} />}
                       label={`Party (${gameState.players.length})`}
                       onClick={() => setShowCharacterList(true)}
                     />
-                    <SidebarButton
+                    <NavButton
                       icon={<AiSettings2 width={14} height={14} />}
                       label="Options"
                       onClick={() => setShowOptions(true)}
                     />
-                    <SidebarButton
+                    <NavButton
                       icon={<Wallet width={14} height={14} />}
                       label="Trade"
                       onClick={initiateTrade}
@@ -165,8 +162,8 @@ export function GameRoom() {
                       }
                       accent="gold"
                     />
-                    <div className="divider-gold my-1" />
-                    <SidebarButton
+                    <Divider variant="gold" className="my-1" />
+                    <NavButton
                       icon={<Logout width={14} height={14} />}
                       label={
                         leaving ? "LEAVING..." : isCreator ? "Close" : "Leave"
@@ -277,34 +274,4 @@ export function GameRoom() {
   );
 }
 
-function SidebarButton({
-  icon,
-  label,
-  onClick,
-  disabled,
-  accent,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  onClick: () => void;
-  disabled?: boolean;
-  accent?: "gold" | "danger";
-}) {
-  const colorClass =
-    accent === "danger"
-      ? "text-blood-600 hover:text-blood-500 hover:bg-blood-700/20"
-      : accent === "gold"
-        ? "text-gold-500 hover:text-gold-400 hover:bg-bronze-500/10"
-        : "text-stone-400 hover:text-gold-400 hover:bg-panel-800";
 
-  return (
-    <button
-      onClick={onClick}
-      disabled={disabled}
-      className={`w-full flex items-center gap-2 px-3 py-2 font-pixel text-[10px] tracking-wider transition-all ${colorClass} disabled:opacity-30 disabled:cursor-not-allowed`}
-    >
-      {icon}
-      {label}
-    </button>
-  );
-}

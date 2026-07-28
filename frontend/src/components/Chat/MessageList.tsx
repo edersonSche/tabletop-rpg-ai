@@ -3,6 +3,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Sword, Star, Crown, AvatarCircle } from "pixelarticons/react";
 import { Message } from "../../types/game.types";
+import { ThinkingDots } from "../ui";
 
 interface MessageListProps {
   messages: Message[];
@@ -192,10 +193,7 @@ export function MessageList({ messages, isProcessing }: MessageListProps) {
             <Star width={12} height={12} />
           </span>
           <span className="font-pixel text-[8px] text-cyan-400/70 text-shadow-glow-cyan">
-            The Arcane Master is consulting the ancient scrolls
-            <span className="thinking-dot inline-block ml-0.5">.</span>
-            <span className="thinking-dot inline-block">.</span>
-            <span className="thinking-dot inline-block">.</span>
+            The Arcane Master is consulting the ancient scrolls<ThinkingDots />
           </span>
         </div>
       )}

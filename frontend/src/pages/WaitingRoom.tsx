@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Play, Logout } from "pixelarticons/react";
 import { usePlayer } from "../hooks/usePlayer";
 import { useGame } from "../hooks/useGame";
+import { Card, Button, PlayerRow, TextButton, LoadingOverlay, SectionTitle } from "../components/ui";
 import logo from "../assets/logo.png";
 
 export function WaitingRoom() {
@@ -35,7 +36,7 @@ export function WaitingRoom() {
         </div>
 
         {/* Room Code Card */}
-        <div className="card-stone p-4 text-center">
+        <Card padding="sm" center>
           <p className="font-pixel text-[11px] text-stone-400 mb-1">
             {gameState?.campaignName || "Campaign"}
           </p>
@@ -47,76 +48,55 @@ export function WaitingRoom() {
               {player.roomId}
             </p>
           </div>
-        </div>
+        </Card>
 
         {/* Connected Players */}
-        <div className="card-stone p-5">
-          <h3 className="font-pixel text-[11px] text-gold-500 mb-4 text-center tracking-wider">
+        <Card padding="md">
+          <SectionTitle className="text-center mb-4 text-gold-500 text-[11px]">
             GATHERED HEROES ({gameState?.players.length || 0})
-          </h3>
+          </SectionTitle>
 
           <div className="space-y-2">
             {gameState?.players.map((p) => (
-              <div
+              <PlayerRow
                 key={p.id}
-                className="flex items-center gap-3 bg-zinc-900 border border-zinc-800 p-3"
-              >
-                <div className="w-8 h-8 bg-bronze-500 text-panel-950 flex items-center justify-center font-pixel text-[12px] shrink-0">
-                  {p.name[0]}
-                </div>
-                <span className="font-pixel text-[11px] text-stone-300 flex-1">
-                  {p.name}
-                </span>
-                {p.id === player.playerId && (
-                  <span className="font-pixel text-[9px] text-cyan-400">
-                    (YOU)
-                  </span>
-                )}
-                {p.id === gameState?.creatorId && (
-                  <span className="font-pixel text-[8px] text-gold-500 bg-gold-500/10 px-2 py-0.5">
-                    HOST
-                  </span>
-                )}
-              </div>
+                name={p.name}
+                isYou={p.id === player.playerId}
+                isHost={p.id === gameState?.creatorId}
+              />
             ))}
           </div>
-        </div>
+        </Card>
 
         {isCreator && (
-          <button
+          <Button
             onClick={handleStart}
             disabled={starting || isAiProcessing}
-            className="btn-rpg w-full flex items-center justify-center gap-2"
+            fullWidth
+            className="flex items-center justify-center gap-2"
           >
             <Play width={14} height={14} />
             {starting ? "SUMMONING..." : "BEGIN CAMPAIGN"}
-          </button>
+          </Button>
         )}
 
         <div className="flex justify-center">
-          <button
+          <TextButton
             onClick={handleLeave}
             disabled={leaving || isAiProcessing}
-            className="font-pixel text-[10px] text-blood-600 hover:text-blood-500 transition-colors flex items-center gap-1 disabled:opacity-40"
+            icon={<Logout width={12} height={12} />}
+            color="blood"
           >
-            <Logout width={12} height={12} />
             {leaving ? "LEAVING..." : isCreator ? "DISBAND" : "DEPART"}
-          </button>
+          </TextButton>
         </div>
       </div>
 
       {isAiProcessing && (
-        <div className="fixed inset-0 bg-navy-950/95 flex flex-col items-center justify-center z-50">
-          <div className="animate-crystal-pulse mb-4">
-            <div className="w-12 h-12 border-2 border-cyan-400/50 rotate-45" />
-          </div>
-          <p className="font-pixel text-[13px] text-gold-400 text-shadow-glow-gold mb-2">
-            SUMMONING THE CAMPAIGN...
-          </p>
-          <p className="font-pixel text-[9px] text-stone-600">
-            The ancient forces are gathering
-          </p>
-        </div>
+        <LoadingOverlay
+          title="SUMMONING THE CAMPAIGN..."
+          subtitle="The ancient forces are gathering"
+        />
       )}
     </div>
   );

@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Play, Check, Close, Reload, Trash } from 'pixelarticons/react';
 import { SavedCampaignInfo } from '../../types/game.types';
 import { usePlayer } from '../../hooks/usePlayer';
+import { Card, PanelTitle, IconButton, ThinkingDots } from '../../components/ui';
 
 interface SavedCampaignsProps {
   onResume: (campaignId: string) => Promise<void>;
@@ -60,30 +61,27 @@ export function SavedCampaigns({ onResume }: SavedCampaignsProps) {
 
   if (loading) {
     return (
-      <div className="card-stone p-5">
-        <h2 className="font-pixel text-[12px] text-gold-400 mb-4 text-shadow-glow-gold">RESUME CAMPAIGN</h2>
+      <Card padding="md">
+        <PanelTitle size="sm" className="mb-4">RESUME CAMPAIGN</PanelTitle>
         <p className="font-pixel text-[10px] text-stone-500 text-center py-8">
-          Consulting the archives
-          <span className="thinking-dot inline-block ml-0.5">.</span>
-          <span className="thinking-dot inline-block">.</span>
-          <span className="thinking-dot inline-block">.</span>
+          Consulting the archives<ThinkingDots />
         </p>
-      </div>
+      </Card>
     );
   }
 
   if (campaigns.length === 0) {
     return (
-      <div className="card-stone p-5">
-        <h2 className="font-pixel text-[12px] text-gold-400 mb-4 text-shadow-glow-gold">RESUME CAMPAIGN</h2>
+      <Card padding="md">
+        <PanelTitle size="sm" className="mb-4">RESUME CAMPAIGN</PanelTitle>
         <p className="font-pixel text-[10px] text-stone-500 text-center py-8">NO SAVED QUESTS FOUND</p>
-      </div>
+      </Card>
     );
   }
 
   return (
-    <div className="card-stone p-5">
-      <h2 className="font-pixel text-[12px] text-gold-400 mb-4 text-shadow-glow-gold">RESUME CAMPAIGN</h2>
+    <Card padding="md">
+      <PanelTitle size="sm" className="mb-4">RESUME CAMPAIGN</PanelTitle>
 
       <div className="space-y-2">
         {campaigns.map(c => (
@@ -97,42 +95,38 @@ export function SavedCampaigns({ onResume }: SavedCampaignsProps) {
               </div>
               {c.isCreator ? (
                 <div className="flex items-center gap-1.5 shrink-0">
-                  <button
+                  <IconButton
+                    icon={resumingId === c.campaignId ? <Reload width={12} height={12} className="animate-spin" /> : <Play width={12} height={12} />}
                     onClick={() => handleResume(c.campaignId)}
                     disabled={resumingId === c.campaignId || deletingId === c.campaignId}
-                    className="w-7 h-7 bg-bronze-500 text-panel-950 flex items-center justify-center pixel-border hover:bg-bronze-400 transition-all disabled:opacity-40"
                     title="Resume"
-                  >
-                    {resumingId === c.campaignId ? <Reload width={12} height={12} className="animate-spin" /> : <Play width={12} height={12} />}
-                  </button>
+                    variant="bronze"
+                  />
                   {confirmingDelete === c.campaignId ? (
                     <>
-                      <button
+                      <IconButton
+                        icon={deletingId === c.campaignId ? <Reload width={12} height={12} className="animate-spin" /> : <Check width={12} height={12} />}
                         onClick={() => handleDelete(c.campaignId)}
                         disabled={deletingId === c.campaignId}
-                        className="w-7 h-7 bg-blood-700 text-stone-300 flex items-center justify-center pixel-border hover:bg-blood-600 transition-all disabled:opacity-40"
                         title="Confirm delete"
-                      >
-                        {deletingId === c.campaignId ? <Reload width={12} height={12} className="animate-spin" /> : <Check width={12} height={12} />}
-                      </button>
-                      <button
+                        variant="blood"
+                      />
+                      <IconButton
+                        icon={<Close width={12} height={12} />}
                         onClick={() => setConfirmingDelete(null)}
                         disabled={deletingId === c.campaignId}
-                        className="w-7 h-7 bg-panel-800 text-stone-500 flex items-center justify-center pixel-border hover:text-stone-300 transition-all disabled:opacity-40"
                         title="Cancel"
-                      >
-                        <Close width={12} height={12} />
-                      </button>
+                        variant="panel"
+                      />
                     </>
                   ) : (
-                    <button
+                    <IconButton
+                      icon={<Trash width={12} height={12} />}
                       onClick={() => setConfirmingDelete(c.campaignId)}
                       disabled={resumingId === c.campaignId || deletingId === c.campaignId}
-                      className="w-7 h-7 bg-panel-800 text-stone-500 flex items-center justify-center pixel-border hover:text-blood-500 transition-all disabled:opacity-40"
                       title="Delete"
-                    >
-                      <Trash width={12} height={12} />
-                    </button>
+                      variant="danger"
+                    />
                   )}
                 </div>
               ) : (
@@ -146,6 +140,6 @@ export function SavedCampaigns({ onResume }: SavedCampaignsProps) {
           </div>
         ))}
       </div>
-    </div>
+    </Card>
   );
 }

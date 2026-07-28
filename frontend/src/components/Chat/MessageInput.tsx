@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef, useEffect, type FormEvent } from 'react';
 import { Send } from 'pixelarticons/react';
+import { TextField } from '../ui';
 
 interface MessageInputProps {
   onSend: (message: string) => void;
@@ -54,18 +55,20 @@ export function MessageInput({ onSend, onTyping, onTypingStop, disabled, disable
   return (
     <form onSubmit={handleSubmit} className="pt-2">
       <div className="flex gap-2">
-        <input
-          ref={inputRef}
-          type="text"
-          value={text}
-          onChange={e => {
-            setText(e.target.value);
-            handleTyping(e.target.value);
-          }}
-          disabled={disabled}
-          placeholder={placeholder}
-          className="flex-1 input-field disabled:opacity-40"
-        />
+        <div className="flex-1">
+          <input
+            ref={inputRef}
+            type="text"
+            value={text}
+            onChange={e => {
+              setText(e.target.value);
+              handleTyping(e.target.value);
+            }}
+            disabled={disabled}
+            placeholder={placeholder}
+            className="input-field disabled:opacity-40"
+          />
+        </div>
         <button
           type="submit"
           disabled={disabled || !text.trim()}
