@@ -14,7 +14,7 @@ export function useGameTurn({ gameState, turnUpdate, playerId, isAiProcessing, i
     if (!gameState) return null;
     const targetId = turnUpdate?.target || gameState.currentTurn;
     if (!targetId) return null;
-    if (turnUpdate?.type === 'group_action' || turnUpdate?.type === 'narration_only') return null;
+    if (turnUpdate?.type === 'group_action') return null;
     return gameState.players.find(p => p.id === targetId) || null;
   }, [gameState, turnUpdate]);
 

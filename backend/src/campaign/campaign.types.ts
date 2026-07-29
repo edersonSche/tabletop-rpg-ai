@@ -70,7 +70,7 @@ export interface SavedHistoryEntry {
   content: string;
 }
 
-export type SavedTurnType = 'group_action' | 'call_player' | 'call_roll' | 'narration_only' | null;
+export type SavedTurnType = 'group_action' | 'call_player' | 'call_roll' | null;
 
 export interface SavedMerchantItem {
   id: string;
@@ -109,7 +109,6 @@ export interface SavedCampaign {
   turnSkill?: string;
   turnDc?: number;
   currentLocation: string | null;
-  scene: string;
   gameStarted: boolean;
   merchants?: SavedMerchant[];
   merchantsLocation?: string;
@@ -118,7 +117,6 @@ export interface SavedCampaign {
   tradeDone?: string[];
   history: SavedHistoryEntry[];
   summary?: string;
-  lastSummarizedAt?: number;
   savedAt: string;
   status: 'active' | 'inactive';
 }

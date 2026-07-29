@@ -1,10 +1,10 @@
-import { memo } from 'react';
-import { Close } from 'pixelarticons/react';
+import { memo } from "react";
+import { Close } from "pixelarticons/react";
 
 export interface ModalProps {
   isOpen: boolean;
   onClose: () => void;
-  maxWidth?: 'xs' | 'sm' | 'xl' | '3xl';
+  maxWidth?: "xs" | "sm" | "xl" | "2xl" | "3xl";
   children: React.ReactNode;
   className?: string;
   showCloseButton?: boolean;
@@ -12,18 +12,19 @@ export interface ModalProps {
 }
 
 const maxWidthClasses: Record<string, string> = {
-  xs: 'max-w-xs',
-  sm: 'max-w-sm',
-  xl: 'max-w-xl',
-  '3xl': 'max-w-3xl',
+  xs: "max-w-xs",
+  sm: "max-w-sm",
+  xl: "max-w-xl",
+  "2xl": "max-w-2xl",
+  "3xl": "max-w-3xl",
 };
 
 export const Modal = memo(function Modal({
   isOpen,
   onClose,
-  maxWidth = 'sm',
+  maxWidth = "sm",
   children,
-  className = '',
+  className = "",
   showCloseButton = true,
   maxHeight = false,
 }: ModalProps) {
@@ -35,7 +36,7 @@ export const Modal = memo(function Modal({
       onClick={onClose}
     >
       <div
-        className={`pixel-border-ornate bg-panel-950 w-full ${maxWidthClasses[maxWidth]} mx-4 relative ${maxHeight ? 'max-h-[85vh] flex flex-col' : ''} ${className}`}
+        className={`pixel-border-ornate bg-panel-950 w-full ${maxWidthClasses[maxWidth]} mx-4 relative ${maxHeight ? "max-h-[85vh] flex flex-col" : ""} ${className}`}
         onClick={(e) => e.stopPropagation()}
       >
         {showCloseButton && (

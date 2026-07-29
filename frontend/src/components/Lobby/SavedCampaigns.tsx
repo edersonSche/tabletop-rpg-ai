@@ -63,7 +63,7 @@ export function SavedCampaigns({ onResume }: SavedCampaignsProps) {
     return (
       <Card padding="md">
         <PanelTitle size="sm" className="mb-4">RESUME CAMPAIGN</PanelTitle>
-        <p className="font-pixel text-[10px] text-stone-500 text-center py-8">
+        <p className="font-pixel text-xs text-stone-500 text-center py-8">
           Consulting the archives<ThinkingDots />
         </p>
       </Card>
@@ -74,7 +74,7 @@ export function SavedCampaigns({ onResume }: SavedCampaignsProps) {
     return (
       <Card padding="md">
         <PanelTitle size="sm" className="mb-4">RESUME CAMPAIGN</PanelTitle>
-        <p className="font-pixel text-[10px] text-stone-500 text-center py-8">NO SAVED QUESTS FOUND</p>
+        <p className="font-pixel text-xs text-stone-500 text-center py-8">NO SAVED QUESTS FOUND</p>
       </Card>
     );
   }
@@ -88,8 +88,8 @@ export function SavedCampaigns({ onResume }: SavedCampaignsProps) {
           <div key={c.campaignId} className="bg-zinc-900 border border-zinc-800 p-3">
             <div className="flex items-center gap-2">
               <div className="flex-1 min-w-0">
-                <h3 className="font-pixel text-[11px] text-stone-300 truncate">{c.campaignName}</h3>
-                <p className="font-pixel text-[8px] text-stone-600 mt-0.5">
+                <h3 className="font-pixel text-xs text-stone-300 truncate">{c.campaignName}</h3>
+                <p className="font-pixel text-xs text-stone-600 mt-0.5">
                   {c.playersCount} hero{c.playersCount !== 1 ? 'es' : ''} &middot; {timeAgo(c.lastSavedAt)}
                 </p>
               </div>
@@ -131,7 +131,7 @@ export function SavedCampaigns({ onResume }: SavedCampaignsProps) {
                 </div>
               ) : (
                 <div className="flex items-center gap-1.5 shrink-0">
-                  <span className="font-pixel text-[9px] text-stone-600">
+                  <span className="font-pixel text-xs text-stone-600">
                     <span className="text-gold-500 select-all">{c.campaignId}</span>
                   </span>
                 </div>

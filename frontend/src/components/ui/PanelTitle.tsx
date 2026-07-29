@@ -8,8 +8,8 @@ interface PanelTitleProps {
 }
 
 const sizeClasses: Record<string, string> = {
-  sm: 'text-[12px]',
-  md: 'text-[13px]',
+  sm: 'text-xs',
+  md: 'text-sm',
 };
 
 export const PanelTitle = memo(function PanelTitle({

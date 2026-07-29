@@ -138,7 +138,6 @@ export class CampaignStore implements OnModuleInit, OnModuleDestroy {
       turnSkill: state.turnSkill,
       turnDc: state.turnDc,
       currentLocation: state.currentLocation,
-      scene: state.scene,
       gameStarted: state.gameStarted,
       history: state.history.map(h => ({ ...h })),
       merchants: state.merchants ? state.merchants.map(m => ({
@@ -165,7 +164,6 @@ export class CampaignStore implements OnModuleInit, OnModuleDestroy {
       tradeParticipants: state.tradeParticipants,
       tradeDone: state.tradeDone,
       summary: state.summary || undefined,
-      lastSummarizedAt: state.lastSummarizedAt || undefined,
       savedAt: new Date().toISOString(),
       status: 'inactive',
     };
@@ -247,7 +245,7 @@ export class CampaignStore implements OnModuleInit, OnModuleDestroy {
         playersCount: campaign.players.length,
         players: campaign.players.map(p => ({ id: p.id, name: p.name })),
         lastSavedAt: campaign.savedAt,
-        hasStarted: !!campaign.scene && campaign.history.length > 0,
+        hasStarted: campaign.history.length > 0,
         isCreator,
       });
     }
@@ -333,7 +331,6 @@ export class CampaignStore implements OnModuleInit, OnModuleDestroy {
       turnSkill: saved.turnSkill,
       turnDc: saved.turnDc,
       currentLocation: saved.currentLocation,
-      scene: saved.scene,
       gameStarted: saved.gameStarted ?? false,
       merchants: saved.merchants ? saved.merchants.map(m => ({
         id: m.id,
@@ -360,7 +357,6 @@ export class CampaignStore implements OnModuleInit, OnModuleDestroy {
       tradeDone: saved.tradeDone,
       history: [...saved.history],
       summary: saved.summary,
-      lastSummarizedAt: saved.lastSummarizedAt,
     });
 
     return true;

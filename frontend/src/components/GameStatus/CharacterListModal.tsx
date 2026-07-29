@@ -26,8 +26,8 @@ export function CharacterListModal({ players, currentTurn, playerId, isOpen, onC
             <span className={p.id === currentTurn ? 'text-cyan-400' : 'text-stone-600'}>
               {p.id === currentTurn ? <Play width={12} height={12} /> : <Circle width={12} height={12} />}
             </span>
-            <span className="font-pixel text-[10px] text-stone-300 flex-1">{p.name}</span>
-            <span className="font-pixel text-[9px] text-stone-500 mr-1">Lv{p.level}</span>
+            <span className="font-pixel text-xs text-stone-300 flex-1">{p.name}</span>
+            <span className="font-pixel text-xs text-stone-500 mr-1">Lv{p.level}</span>
             {p.id === playerId && (
               <Badge variant="you">(YOU)</Badge>
             )}

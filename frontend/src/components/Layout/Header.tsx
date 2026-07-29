@@ -22,10 +22,10 @@ export const Header = memo(function Header() {
           <img className="max-h-[32px]" src={logo} alt="Tabletop RPG AI" />
           {gameState?.campaignName && (
             <div className="hidden sm:flex flex-col border-l border-zinc-800 pl-3 ml-1">
-              <span className="font-pixel text-[9px] text-gold-500/70 tracking-widest uppercase">
+              <span className="font-pixel text-xs text-gold-500/70 tracking-widest uppercase">
                 Campaign
               </span>
-              <span className="font-pixel text-[11px] text-gold-300 leading-tight mt-0.5">
+              <span className="font-pixel text-xs text-gold-300 leading-tight mt-0.5">
                 {gameState.campaignName}
               </span>
             </div>
@@ -34,7 +34,7 @@ export const Header = memo(function Header() {
 
         <div className="flex items-center gap-4">
           {gameState?.gameStarted && (
-            <span className="font-pixel text-[9px] text-stone-600 hidden sm:inline">
+            <span className="font-pixel text-xs text-stone-600 hidden sm:inline">
               Room: <span className="text-gold-500 select-all">{player.roomId}</span>
             </span>
           )}
@@ -42,7 +42,7 @@ export const Header = memo(function Header() {
           <div className="flex items-center gap-2">
             <StatusDot status={connected ? 'online' : 'offline'} />
             <span
-              className={`font-pixel text-[9px] ${connected ? 'text-cyan-400' : 'text-blood-600'}`}
+              className={`font-pixel text-xs ${connected ? 'text-cyan-400' : 'text-blood-600'}`}
             >
               {connected ? 'ONLINE' : 'OFFLINE'}
             </span>

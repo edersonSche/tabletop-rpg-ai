@@ -11,7 +11,7 @@ export const ModalTitle = memo(function ModalTitle({
 }: ModalTitleProps) {
   return (
     <div className={`panel-header ${className}`}>
-      <h2 className="font-pixel text-[13px] text-gold-400 tracking-wider text-shadow-glow-gold">
+      <h2 className="font-pixel text-sm text-gold-400 tracking-wider text-shadow-glow-gold">
         {children}
       </h2>
     </div>

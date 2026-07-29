@@ -45,27 +45,27 @@ function MerchantItemDetail({
           <Icon width={18} height={18} className="text-gold-400" />
         </div>
         <div className="min-w-0">
-          <div className="font-pixel text-[10px] text-gold-400 truncate">
+          <div className="font-pixel text-xs text-gold-400 truncate">
             {item.name}
           </div>
-          <div className="font-pixel text-[8px] text-stone-600">
+          <div className="font-pixel text-xs text-stone-600">
             {item.buyPrice}g &middot; Stock: {item.quantity}
           </div>
         </div>
       </div>
-      <div className="font-pixel text-[9px] text-stone-400 mb-3">
+      <div className="font-pixel text-xs text-stone-400 mb-3">
         {item.description}
       </div>
       {item.antidoteFor && (
         <div className="mb-2 p-1 bg-forest-800/30 border border-forest-600/30 pixel-border">
-          <span className="font-pixel text-[8px] text-forest-600">
+          <span className="font-pixel text-xs text-forest-600">
             Antidote: {item.antidoteFor}
           </span>
         </div>
       )}
       {item.effects && item.effects.length > 0 && (
         <div className="mb-2">
-          <div className="font-pixel text-[8px] text-stone-500 mb-1 tracking-wider">
+          <div className="font-pixel text-xs text-stone-500 mb-1 tracking-wider">
             EFFECTS
           </div>
           {item.effects.map((ef, i) => (
@@ -74,7 +74,7 @@ function MerchantItemDetail({
         </div>
       )}
       <div
-        className={`font-pixel text-[9px] text-right ${canAfford ? "text-gold-500" : "text-blood-600"}`}
+        className={`font-pixel text-xs text-right ${canAfford ? "text-gold-500" : "text-blood-600"}`}
       >
         {canAfford
           ? `You have ${playerCoins}g`
@@ -103,22 +103,22 @@ function PlayerItemDetail({
           <Icon width={18} height={18} className="text-gold-400" />
         </div>
         <div className="min-w-0">
-          <div className="font-pixel text-[10px] text-gold-400 truncate">
+          <div className="font-pixel text-xs text-gold-400 truncate">
             {item.name}
           </div>
           {item.quantity > 1 && (
-            <div className="font-pixel text-[8px] text-stone-600">
+            <div className="font-pixel text-xs text-stone-600">
               x{item.quantity}
             </div>
           )}
         </div>
       </div>
-      <div className="font-pixel text-[9px] text-stone-400 mb-3">
+      <div className="font-pixel text-xs text-stone-400 mb-3">
         {item.description}
       </div>
       {item.effects && item.effects.length > 0 && (
         <div className="mb-2">
-          <div className="font-pixel text-[8px] text-stone-500 mb-1 tracking-wider">
+          <div className="font-pixel text-xs text-stone-500 mb-1 tracking-wider">
             EFFECTS
           </div>
           {item.effects.map((ef, i) => (
@@ -127,7 +127,7 @@ function PlayerItemDetail({
         </div>
       )}
       <div
-        className={`font-pixel text-[9px] text-right ${merchantCanAfford ? "text-gold-500" : "text-blood-600"}`}
+        className={`font-pixel text-xs text-right ${merchantCanAfford ? "text-gold-500" : "text-blood-600"}`}
       >
         Sell for {sellPrice}g &middot; Merchant has {merchantCoins}g
       </div>
@@ -209,7 +209,7 @@ export function TradeModal({
                 setConfirmBuy(null);
                 setConfirmSell(null);
               }}
-              className={`px-4 py-2 mx-1 font-pixel text-[10px] whitespace-nowrap transition-all ${
+              className={`px-4 py-2 mx-1 font-pixel text-xs whitespace-nowrap transition-all ${
                 i === activeMerchant
                   ? "bg-panel-800 text-gold-400"
                   : "bg-panel-950 text-stone-500 hover:bg-panel-800 hover:text-stone-300"
@@ -224,7 +224,7 @@ export function TradeModal({
 
       {merchant && (
         <div className="flex flex-col">
-          <p className="px-4 pt-3 font-pixel text-[11px] text-stone-500 italic">
+          <p className="px-4 pt-3 font-pixel text-xs text-stone-500 italic">
             &ldquo;{merchant.greeting}&rdquo;
           </p>
 
@@ -234,7 +234,7 @@ export function TradeModal({
               <div className="flex justify-between flex-shrink-0">
                 <SectionTitle> MERCHANT WARES</SectionTitle>
 
-                <span className="font-pixel text-[10px] text-gold-500">
+                <span className="font-pixel text-xs text-gold-500">
                   {merchant.coins}g
                 </span>
               </div>
@@ -293,7 +293,7 @@ export function TradeModal({
               <div className="flex justify-between flex-shrink-0">
                 <SectionTitle>YOUR WARES</SectionTitle>
 
-                <span className="font-pixel text-[10px] text-gold-500">
+                <span className="font-pixel text-xs text-gold-500">
                   {playerCoins}g
                 </span>
               </div>
@@ -353,7 +353,7 @@ export function TradeModal({
 
       {/* Footer */}
       <div className="flex items-center justify-between p-4 border-t border-zinc-800">
-        <div className="font-pixel text-[9px] text-stone-600">
+        <div className="font-pixel text-xs text-stone-600">
           {iAmDone
             ? "Awaiting others..."
             : `Done: ${allDoneCount}/${totalCount}`}

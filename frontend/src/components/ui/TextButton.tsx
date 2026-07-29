@@ -27,7 +27,7 @@ export const TextButton = memo(function TextButton({
     <button
       onClick={onClick}
       disabled={disabled}
-      className={`font-pixel text-[10px] transition-colors flex items-center gap-1 disabled:opacity-40 ${colorClasses[color]} ${className}`}
+      className={`font-pixel text-xs transition-colors flex items-center gap-1 disabled:opacity-40 ${colorClasses[color]} ${className}`}
     >
       {icon}
       {children}

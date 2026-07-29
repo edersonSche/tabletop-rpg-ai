@@ -107,7 +107,7 @@ export interface Message {
   timestamp: number;
 }
 
-export type TurnType = 'group_action' | 'call_player' | 'call_roll' | 'narration_only';
+export type TurnType = 'group_action' | 'call_player' | 'call_roll';
 
 export interface AIResponse {
   narration: string;
@@ -144,7 +144,6 @@ export interface GameState {
   turnType: TurnType | null;
   turnTarget: string | null;
   currentLocation: string | null;
-  scene: string;
   gameStarted: boolean;
   history: Array<{
     role: 'player' | 'assistant' | 'system';
@@ -245,7 +244,7 @@ export interface CharacterKit {
   name: string;
   description: string;
   recommendedStats: string[];
-  items: Array<{ name: string; quantity: number }>;
+  items: Array<{ name: string; quantity: number; type: string }>;
 }
 
 export interface LoginResponse { success: boolean; error?: string }

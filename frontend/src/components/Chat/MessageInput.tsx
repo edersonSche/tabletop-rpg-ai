@@ -96,7 +96,7 @@ export function MessageInput({
         </button>
       </div>
       {disabled && disabledReason && (
-        <p className="font-pixel text-[10px] text-gold-500/60 mt-1.5 ml-1">
+        <p className="font-pixel text-xs text-gold-500/60 mt-1.5 ml-1">
           {disabledReason}
         </p>
       )}

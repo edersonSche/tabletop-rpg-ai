@@ -12,12 +12,16 @@ import { AIConfig, AIProvider } from './ai.interface';
     OpenRouterProvider,
     {
       provide: 'AI_CONFIG',
-      useFactory: (configService: ConfigService): AIConfig => ({
-        provider: configService.get('AI_PROVIDER', 'opencode'),
-        apiKey: configService.get('AI_API_KEY', ''),
-        model: configService.get('AI_MODEL', ''),
-        baseUrl: configService.get('AI_BASE_URL', 'http://localhost:4096'),
-      }),
+      useFactory: (configService: ConfigService): AIConfig => {
+        const tradeModel = configService.get<string>('AI_TRADE_MODEL', '');
+        return {
+          provider: configService.get('AI_PROVIDER', 'opencode'),
+          apiKey: configService.get('AI_API_KEY', ''),
+          model: configService.get('AI_MODEL', ''),
+          baseUrl: configService.get('AI_BASE_URL', 'http://localhost:4096'),
+          ...(tradeModel ? { tradeModel } : {}),
+        };
+      },
       inject: [ConfigService],
     },
     {

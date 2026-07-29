@@ -22,10 +22,10 @@ export function MessageList({ messages, isProcessing }: MessageListProps) {
       {messages.length === 0 && (
         <div className="flex flex-col items-center justify-center h-full text-stone-600">
           <Sword width={36} height={36} className="mb-4 text-gold-500/30" />
-          <p className="font-pixel text-[9px] text-stone-500 mb-1">
+          <p className="font-pixel text-xs text-stone-500 mb-1">
             THE SCROLL AWAITS
           </p>
-          <p className="font-pixel text-[7px] text-stone-700">
+          <p className="font-pixel text-xs text-stone-700">
             Begin the campaign to start your tale
           </p>
         </div>
@@ -37,11 +37,11 @@ export function MessageList({ messages, isProcessing }: MessageListProps) {
             <div key={i} className="relative ">
               {/*<div className="absolute left-0 top-0 bottom-0 w-0.5 bg-gradient-to-b from-bronze-500/60 via-bronze-500/20 to-transparent" />*/}
               <div className="bg-zinc-900/60 p-4 pixel-border">
-                <p className="font-pixel text-[10px] text-gold-500 mb-2 inline-flex items-center gap-1.5">
+                <p className="font-pixel text-xs text-gold-500 mb-2 inline-flex items-center gap-1.5">
                   <Crown width={12} height={12} className="text-gold-400" />
                   THE GAME MASTER
                 </p>
-                <div className="font-pixel text-[14px] text-stone-300 leading-relaxed">
+                <div className="font-pixel text-sm text-stone-300 leading-relaxed">
                   <ReactMarkdown
                     remarkPlugins={[remarkGfm]}
                     components={{
@@ -74,7 +74,7 @@ export function MessageList({ messages, isProcessing }: MessageListProps) {
                         </blockquote>
                       ),
                       code: ({ children }) => (
-                        <code className="bg-zinc-900 px-1.5 py-0.5 text-cyan-400/80 text-[13px]">
+                        <code className="bg-zinc-900 px-1.5 py-0.5 text-cyan-400/80 text-sm">
                           {children as ReactNode}
                         </code>
                       ),
@@ -85,27 +85,27 @@ export function MessageList({ messages, isProcessing }: MessageListProps) {
                       ),
                       hr: () => <div className="divider-gold my-3" />,
                       h1: ({ children }) => (
-                        <h1 className="font-pixel text-[11px] text-gold-400 mt-4 mb-2">
+                        <h1 className="font-pixel text-xs text-gold-400 mt-4 mb-2">
                           {children}
                         </h1>
                       ),
                       h2: ({ children }) => (
-                        <h2 className="font-pixel text-[10px] text-gold-400/80 mt-3 mb-2">
+                        <h2 className="font-pixel text-xs text-gold-400/80 mt-3 mb-2">
                           {children}
                         </h2>
                       ),
                       h3: ({ children }) => (
-                        <h3 className="font-pixel text-[9px] text-gold-500/70 mt-3 mb-1">
+                        <h3 className="font-pixel text-xs text-gold-500/70 mt-3 mb-1">
                           {children}
                         </h3>
                       ),
                       table: ({ children }) => (
-                        <table className="border-collapse my-2 w-full text-[13px]">
+                        <table className="border-collapse my-2 w-full text-sm">
                           {children}
                         </table>
                       ),
                       th: ({ children }) => (
-                        <th className="border border-zinc-800 px-2 py-1 text-left font-pixel text-[7px] text-gold-500/70 bg-zinc-900/50">
+                        <th className="border border-zinc-800 px-2 py-1 text-left font-pixel text-xs text-gold-500/70 bg-zinc-900/50">
                           {children}
                         </th>
                       ),
@@ -131,10 +131,10 @@ export function MessageList({ messages, isProcessing }: MessageListProps) {
                 <AvatarCircle width={16} height={16} />
               </span>
               <div className="flex flex-col justify-start min-w-0">
-                <span className="font-pixel text-[10px] text-magic-500 mb-0.5">
+                <span className="font-pixel text-xs text-magic-500 mb-0.5">
                   {msg.characterName}
                 </span>
-                <p className="font-pixel text-[14px] text-stone-300 leading-relaxed">
+                <p className="font-pixel text-sm text-stone-300 leading-relaxed">
                   {msg.content}
                 </p>
               </div>
@@ -163,10 +163,10 @@ export function MessageList({ messages, isProcessing }: MessageListProps) {
                 </svg>
               </span>
               <div>
-                <span className="font-pixel text-[8px] text-gold-400 mb-0.5">
+                <span className="font-pixel text-xs text-gold-400 mb-0.5">
                   {msg.characterName}
                 </span>
-                <p className="font-mono text-[14px] text-stone-300 leading-relaxed">
+                <p className="font-mono text-sm text-stone-300 leading-relaxed">
                   {msg.content}
                 </p>
               </div>
@@ -177,7 +177,7 @@ export function MessageList({ messages, isProcessing }: MessageListProps) {
         if (msg.type === "system") {
           return (
             <div key={i} className="text-center py-1">
-              <span className="font-pixel text-[7px] text-stone-600 italic">
+              <span className="font-pixel text-xs text-stone-600 italic">
                 {msg.content}
               </span>
             </div>
@@ -192,7 +192,7 @@ export function MessageList({ messages, isProcessing }: MessageListProps) {
           <span className="text-cyan-400 animate-crystal-pulse">
             <Star width={12} height={12} />
           </span>
-          <span className="font-pixel text-[8px] text-cyan-400/70 text-shadow-glow-cyan">
+          <span className="font-pixel text-xs text-cyan-400/70 text-shadow-glow-cyan">
             The Arcane Master is consulting the ancient scrolls
             <ThinkingDots />
           </span>

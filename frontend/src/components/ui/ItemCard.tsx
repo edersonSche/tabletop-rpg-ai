@@ -38,28 +38,28 @@ export const ItemCard = memo(function ItemCard({
           {customIcon || (Icon && <Icon width={18} height={18} className="text-gold-400" />)}
         </div>
         <div className="min-w-0">
-          <div className="font-pixel text-[10px] text-gold-400 truncate">{name}</div>
+          <div className="font-pixel text-xs text-gold-400 truncate">{name}</div>
           {quantity !== undefined && quantity > 1 && (
-            <div className="font-pixel text-[8px] text-stone-600">x{quantity}</div>
+            <div className="font-pixel text-xs text-stone-600">x{quantity}</div>
           )}
         </div>
       </div>
 
-      <div className="font-pixel text-[9px] text-stone-400 mb-3">{description}</div>
+      <div className="font-pixel text-xs text-stone-400 mb-3">{description}</div>
 
       {antidoteFor && (
         <div className="mb-2 p-1 bg-forest-800/30 border border-forest-600/30 pixel-border">
-          <span className="font-pixel text-[8px] text-forest-600">Antidote: {antidoteFor}</span>
+          <span className="font-pixel text-xs text-forest-600">Antidote: {antidoteFor}</span>
         </div>
       )}
 
       {effects && effects.length > 0 && (
         <div className="mb-3 p-2 bg-zinc-900 pixel-border">
-          <div className="font-pixel text-[8px] text-stone-500 mb-1 tracking-wider">EFFECTS</div>
+          <div className="font-pixel text-xs text-stone-500 mb-1 tracking-wider">EFFECTS</div>
           {effects.map((ef, i) => (
             <div key={i} className="mb-2 last:mb-0">
               <div className="flex justify-between items-center">
-                <span className="font-pixel text-[8px] text-stone-600">
+                <span className="font-pixel text-xs text-stone-600">
                   {ef.type === 'immediate'
                     ? 'Instant'
                     : ef.type === 'temporary'
@@ -67,7 +67,7 @@ export const ItemCard = memo(function ItemCard({
                       : 'Permanent'}
                   {ef.duration ? ` (${ef.duration}t)` : ''}
                 </span>
-                <span className="font-pixel text-[8px] text-stone-600">{ef.origin}</span>
+                <span className="font-pixel text-xs text-stone-600">{ef.origin}</span>
               </div>
               <EffectRow effect={ef} />
             </div>
@@ -76,7 +76,7 @@ export const ItemCard = memo(function ItemCard({
       )}
 
       {priceInfo && (
-        <div className={`font-pixel text-[9px] text-right ${priceColor === 'gold' ? 'text-gold-500' : 'text-blood-600'}`}>
+        <div className={`font-pixel text-xs text-right ${priceColor === 'gold' ? 'text-gold-500' : 'text-blood-600'}`}>
           {priceInfo}
         </div>
       )}

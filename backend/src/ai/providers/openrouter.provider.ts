@@ -39,18 +39,19 @@ export class OpenRouterProvider implements AIProvider, OnModuleInit {
 
   async generate(context: AIContext): Promise<AIResponse> {
     const fullPrompt = buildFullPrompt(context);
+    const model = this.selectModel(context);
 
     try {
-      return await this.callModel(this.model, fullPrompt);
+      return await this.callModel(model, fullPrompt);
     } catch (error) {
       console.error(
-        `OpenRouter primary model (${this.model}) error:`,
+        `OpenRouter model (${model}) error:`,
         error.message,
       );
 
       if (
         OpenRouterProvider.FALLBACK_MODEL &&
-        OpenRouterProvider.FALLBACK_MODEL !== this.model
+        OpenRouterProvider.FALLBACK_MODEL !== model
       ) {
         console.log(
           `OpenRouter: falling back to ${OpenRouterProvider.FALLBACK_MODEL}`,
@@ -72,13 +73,41 @@ export class OpenRouterProvider implements AIProvider, OnModuleInit {
     }
   }
 
+  private selectModel(context: AIContext): string {
+    if (context.gamePhase === 'trade' && this.config.tradeModel) {
+      return this.config.tradeModel;
+    }
+    return this.model;
+  }
+
   private async callModel(model: string, prompt: string): Promise<AIResponse> {
+    try {
+      return await this.sendRequest(model, prompt, true);
+    } catch (error) {
+      if (this.isValidationError(error)) {
+        console.warn(
+          `Model ${model} does not support response_format — retrying without JSON mode`,
+        );
+        return await this.sendRequest(model, prompt, false);
+      }
+      throw error;
+    }
+  }
+
+  private async sendRequest(
+    model: string,
+    prompt: string,
+    useJsonFormat: boolean,
+  ): Promise<AIResponse> {
     const chatRequest: any = {
       messages: [{ role: "system", content: prompt }],
       model,
       temperature: OpenRouterProvider.TEMPERATURE,
-      response_format: { type: OpenRouterProvider.RESPONSE_FORMAT },
     };
+
+    if (useJsonFormat) {
+      chatRequest.response_format = { type: OpenRouterProvider.RESPONSE_FORMAT };
+    }
 
     const result = await this.client.chat.send({ chatRequest });
 
@@ -86,47 +115,13 @@ export class OpenRouterProvider implements AIProvider, OnModuleInit {
     return parseResponse(text);
   }
 
-  async summarize(
-    entries: string[],
-    existingSummary?: string,
-  ): Promise<string> {
-    const promptLines: string[] = [];
-
-    if (existingSummary) {
-      promptLines.push(`Existing campaign summary:\n${existingSummary}\n`);
-      promptLines.push(
-        "Below are new events that happened after that summary. Please produce an updated, merged narrative summary that incorporates both the existing summary and these new events. Keep it concise but capture key plot points, character developments, locations, NPCs, and important decisions.",
-      );
-    } else {
-      promptLines.push(
-        "Summarize the following RPG campaign history concisely in narrative prose, capturing key plot points, character developments, locations visited, NPCs encountered, and important decisions made by the players.",
-      );
-    }
-
-    promptLines.push("");
-    promptLines.push(...entries);
-    promptLines.push("");
-    promptLines.push(
-      "Return only the updated summary as plain text, no JSON, no formatting.",
+  private isValidationError(error: any): boolean {
+    const msg = (error?.message || "").toLowerCase();
+    return (
+      msg.includes("validation") ||
+      msg.includes("response_format") ||
+      error?.status === 400
     );
-
-    const prompt = promptLines.join("\n");
-
-    try {
-      const result = await this.client.chat.send({
-        chatRequest: {
-          messages: [{ role: "system", content: prompt }],
-          model: this.model,
-          temperature: 0.5,
-        },
-      });
-
-      const text = this.extractText(result);
-      return text.trim();
-    } catch (error) {
-      console.error("OpenRouter summarize error:", error.message);
-      throw error;
-    }
   }
 
   private extractText(result: any): string {
@@ -146,6 +141,7 @@ export class OpenRouterProvider implements AIProvider, OnModuleInit {
   private fallbackResponse(context: AIContext): AIResponse {
     return {
       narration: `The adventure continues... ${context.currentAction?.action || "The group awaits the next move."}`,
+      summary: context.summary || "The adventure continues.",
       next: {
         type: "group_action",
       },

@@ -105,7 +105,7 @@
     }
 
     .btn-primary {
-        @apply font-pixel py-3 px-4 text-[12px] tracking-wider transition-all;
+        @apply font-pixel py-3 px-4 text-xs tracking-wider transition-all;
         @apply bg-cyan-400 text-navy-900 font-bold;
         @apply hover:bg-cyan-300 hover:shadow-glow-cyan;
         @apply active:scale-[0.98];
@@ -116,7 +116,7 @@
     }
 
     .btn-gold {
-        @apply font-pixel py-3 px-4 text-[12px] tracking-wider transition-all;
+        @apply font-pixel py-3 px-4 text-xs tracking-wider transition-all;
         @apply bg-gold-500 text-navy-900 font-bold;
         @apply hover:bg-gold-400 hover:shadow-glow-gold;
         @apply active:scale-[0.98];
@@ -127,7 +127,7 @@
     }
 
     .btn-secondary {
-        @apply font-pixel py-3 px-4 text-[12px] tracking-wider transition-all;
+        @apply font-pixel py-3 px-4 text-xs tracking-wider transition-all;
         @apply bg-panel-800 text-stone-300 pixel-border;
         @apply hover:bg-panel-700 hover:text-gold-400;
         @apply active:scale-[0.98];
@@ -135,7 +135,7 @@
     }
 
     .btn-danger {
-        @apply font-pixel py-3 px-4 text-[12px] tracking-wider transition-all;
+        @apply font-pixel py-3 px-4 text-xs tracking-wider transition-all;
         @apply bg-blood-700 text-stone-300 pixel-border;
         @apply hover:bg-blood-600 hover:text-stone-300;
         @apply active:scale-[0.98];
@@ -143,14 +143,14 @@
     }
 
     .input-field {
-        @apply w-full bg-zinc-900 text-stone-300 p-3 font-pixel text-[12px] tracking-wider;
+        @apply w-full bg-zinc-900 text-stone-300 p-3 font-pixel text-xs tracking-wider;
         @apply pixel-border outline-none transition-all;
         @apply placeholder:text-stone-700;
         @apply focus:border-cyan-400 focus:shadow-glow-cyan;
     }
 
     .btn-rpg {
-        @apply font-pixel py-2.5 px-5 text-[11px] tracking-wider transition-all uppercase;
+        @apply font-pixel py-2.5 px-5 text-xs tracking-wider transition-all uppercase;
         @apply bg-bronze-500 text-stone-200 font-bold;
         @apply hover:bg-bronze-400 hover:shadow-glow-gold;
         @apply active:scale-[0.97];

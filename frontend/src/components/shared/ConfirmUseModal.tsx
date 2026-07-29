@@ -19,14 +19,14 @@ export function ConfirmUseModal({ item, onUse, onClose }: ConfirmUseModalProps) 
           <TypeIcon width={20} height={20} className="text-gold-400" />
         </div>
         <div>
-          <div className="font-pixel text-[11px] text-gold-400">Use {item.name}?</div>
+          <div className="font-pixel text-xs text-gold-400">Use {item.name}?</div>
           {item.quantity > 1 && (
-            <div className="font-pixel text-[9px] text-stone-600">x{item.quantity}</div>
+            <div className="font-pixel text-xs text-stone-600">x{item.quantity}</div>
           )}
         </div>
       </div>
 
-      <div className="font-pixel text-[9px] text-stone-400 mb-4">
+      <div className="font-pixel text-xs text-stone-400 mb-4">
         {item.effects?.map((ef, i) => (
           <div key={i} className="mb-1">
             {ef.hpChange?.type === 'heal' && <span>Restores <span className="text-forest-600">{ef.hpChange.formula}</span> HP</span>}

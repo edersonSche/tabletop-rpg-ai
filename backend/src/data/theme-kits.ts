@@ -26,7 +26,7 @@ export interface ResolvedKit {
   name: string;
   description: string;
   recommendedStats: string[];
-  items: Array<{ name: string; quantity: number }>;
+  items: Array<{ name: string; quantity: number; type: string }>;
 }
 
 const ARCHETYPES: KitArchetype[] = [
@@ -190,6 +190,7 @@ export function getKitsForTheme(language: NarrativeLanguage): ResolvedKit[] {
       return {
         name: localized?.name || entry.key,
         quantity: entry.quantity,
+        type: localized?.type || 'misc',
       };
     });
 

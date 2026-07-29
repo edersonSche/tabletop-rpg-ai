@@ -11,7 +11,7 @@ export const PlayerCircles = memo(function PlayerCircles({ players, currentTurn 
       {players.map(p => (
         <div
           key={p.id}
-          className={`w-6 h-6 flex items-center justify-center font-pixel text-[9px] font-bold transition-all ${
+          className={`w-6 h-6 flex items-center justify-center font-pixel text-xs font-bold transition-all ${
             p.id === currentTurn
               ? 'bg-bronze-500/20 text-gold-400 pixel-border-gold'
               : 'bg-zinc-800 text-stone-400 pixel-border'

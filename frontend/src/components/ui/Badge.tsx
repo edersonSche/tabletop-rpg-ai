@@ -7,11 +7,11 @@ interface BadgeProps {
 }
 
 const variantClasses: Record<string, string> = {
-  you: 'font-pixel text-[9px] text-cyan-400',
-  host: 'font-pixel text-[8px] text-gold-500 bg-gold-500/10 px-2 py-0.5',
-  suggested: 'font-pixel text-[8px] text-gold-400 bg-gold-500/10 px-2 py-0.5 border border-gold-500/20',
-  quantity: 'font-pixel text-[8px] text-stone-600',
-  default: 'font-pixel text-[8px] bg-zinc-900 text-stone-400 px-1.5 py-0.5 pixel-border-light',
+  you: 'font-pixel text-xs text-cyan-400',
+  host: 'font-pixel text-xs text-gold-500 bg-gold-500/10 px-2 py-0.5',
+  suggested: 'font-pixel text-xs text-gold-400 bg-gold-500/10 px-2 py-0.5 border border-gold-500/20',
+  quantity: 'font-pixel text-xs text-stone-600',
+  default: 'font-pixel text-xs bg-zinc-900 text-stone-400 px-1.5 py-0.5 pixel-border-light',
 };
 
 export const Badge = memo(function Badge({

@@ -47,7 +47,7 @@ export function AttributeAllocationModal({ player, isOpen, onClose, onAllocate }
   return (
     <Modal isOpen={isOpen} onClose={onClose} maxWidth="sm" className="p-5">
       <ModalTitle>ABILITY SCORE IMPROVEMENT</ModalTitle>
-      <p className="font-pixel text-[9px] text-stone-400 mb-4 text-center">
+      <p className="font-pixel text-xs text-stone-400 mb-4 text-center">
         {player.name} &mdash; POINTS: <span className="text-gold-400">{remaining}</span>
       </p>
 
@@ -63,9 +63,9 @@ export function AttributeAllocationModal({ player, isOpen, onClose, onAllocate }
           return (
             <div key={key} className="flex items-center gap-2 bg-zinc-900 p-2 pixel-border">
               <Icon width={14} height={14} className="text-gold-400 shrink-0" />
-              <span className="font-pixel text-[9px] text-stone-400 w-8">{label}</span>
-              <span className="font-pixel text-[9px] text-stone-600 ml-1">{baseValue}</span>
-              {allocated > 0 && <span className="font-pixel text-[9px] text-cyan-400">+{allocated}</span>}
+              <span className="font-pixel text-xs text-stone-400 w-8">{label}</span>
+              <span className="font-pixel text-xs text-stone-600 ml-1">{baseValue}</span>
+              {allocated > 0 && <span className="font-pixel text-xs text-cyan-400">+{allocated}</span>}
               <div className="flex items-center gap-2 ml-auto">
                 <button
                   onClick={() => handleDecrement(key)}
@@ -74,7 +74,7 @@ export function AttributeAllocationModal({ player, isOpen, onClose, onAllocate }
                 >
                   <Minus width={12} height={12} />
                 </button>
-                <span className="font-pixel text-[12px] text-gold-400 font-bold w-6 text-center">{currentValue}</span>
+                <span className="font-pixel text-xs text-gold-400 font-bold w-6 text-center">{currentValue}</span>
                 <button
                   onClick={() => handleIncrement(key)}
                   disabled={!canInc}

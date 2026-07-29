@@ -24,7 +24,15 @@ import {
 } from "../shared/constants";
 import { HoverPopup } from "../shared/HoverPopup";
 import { ConfirmUseModal } from "../shared/ConfirmUseModal";
-import { Modal, ModalTitle, SectionTitle, StatRow, Button, EmptyState, EquipmentSlot } from "../ui";
+import {
+  Modal,
+  ModalTitle,
+  SectionTitle,
+  StatRow,
+  Button,
+  EmptyState,
+  EquipmentSlot,
+} from "../ui";
 
 interface CharacterSheetProps {
   player: Player | undefined;
@@ -84,7 +92,7 @@ export function EffectRow({
   if (!text) return null;
 
   return (
-    <div className="flex justify-between font-pixel text-[8px] text-stone-500 ml-2 mt-0.5">
+    <div className="flex justify-between font-pixel text-xs text-stone-500 ml-2 mt-0.5">
       <span>{text}</span>
       {remainingDuration !== undefined && remainingDuration > 0 && (
         <span className="text-stone-600">{remainingDuration}t</span>
@@ -119,7 +127,7 @@ function ActiveConditionsSection({
 
   return (
     <div className="mt-4">
-      <div className="font-pixel text-[9px] text-stone-500 mb-2 tracking-wider">
+      <div className="font-pixel text-xs text-stone-500 mb-2 tracking-wider">
         ACTIVE CONDITIONS
       </div>
       <div className="space-y-2">
@@ -131,15 +139,15 @@ function ActiveConditionsSection({
             <div className="flex justify-between items-center">
               <div className="flex items-center gap-2">
                 <ConditionIcon condition={ac.condition.name} />
-                <span className="font-pixel text-[10px] text-blood-500">
+                <span className="font-pixel text-xs text-blood-500">
                   {ac.condition.name}
                 </span>
               </div>
-              <span className="font-pixel text-[8px] text-stone-600">
+              <span className="font-pixel text-xs text-stone-600">
                 {formatDuration(ac.remainingDurations)}
               </span>
             </div>
-            <div className="font-pixel text-[8px] text-stone-400 mt-1">
+            <div className="font-pixel text-xs text-stone-400 mt-1">
               {ac.condition.description}
             </div>
             {ac.condition.effects.map((ef, i) => (
@@ -152,7 +160,7 @@ function ActiveConditionsSection({
             {hasAntidoteInInventory(player, ac.condition.name) && (
               <button
                 onClick={() => onUseAntidote(ac.condition.name)}
-                className="mt-2 w-full bg-forest-800/50 border border-forest-600/30 pixel-border py-1 font-pixel text-[8px] text-forest-600 hover:bg-forest-700/50 transition-all"
+                className="mt-2 w-full bg-forest-800/50 border border-forest-600/30 pixel-border py-1 font-pixel text-xs text-forest-600 hover:bg-forest-700/50 transition-all"
               >
                 USE ANTIDOTE
               </button>
@@ -185,12 +193,12 @@ function ItemCell({
         />
       </div>
       <div
-        className={`font-pixel text-[9px] flex-1 min-w-0 truncate ${isEquipped ? "text-gold-400" : "text-stone-300"}`}
+        className={`font-pixel text-xs flex-1 min-w-0 truncate ${isEquipped ? "text-gold-400" : "text-stone-300"}`}
       >
         {item.name}
       </div>
       {item.quantity > 1 && (
-        <div className="font-pixel text-[8px] text-stone-600 flex-shrink-0">
+        <div className="font-pixel text-xs text-stone-600 flex-shrink-0">
           x{item.quantity}
         </div>
       )}
@@ -214,8 +222,8 @@ function EquipmentCard({
         <div className="flex items-center gap-2">
           <Icon width={14} height={14} className="text-stone-700" />
           <div className="flex-1 min-w-0">
-            <div className="font-pixel text-[8px] text-stone-600">Empty</div>
-            <div className="font-pixel text-[8px] text-stone-700 uppercase">
+            <div className="font-pixel text-xs text-stone-600">Empty</div>
+            <div className="font-pixel text-xs text-stone-700 uppercase">
               {SLOT_LABELS[slot]}
             </div>
           </div>
@@ -229,10 +237,10 @@ function EquipmentCard({
       <div className="flex items-center gap-2">
         <Icon width={14} height={14} className="text-gold-400" />
         <div className="flex-1 min-w-0">
-          <div className="font-pixel text-[9px] text-stone-300 truncate">
+          <div className="font-pixel text-xs text-stone-300 truncate">
             {item.name}
           </div>
-          <div className="font-pixel text-[8px] text-stone-600 uppercase">
+          <div className="font-pixel text-xs text-stone-600 uppercase">
             {SLOT_LABELS[slot]}
           </div>
         </div>
@@ -278,30 +286,28 @@ function ItemPopupContent({
             <TypeIcon width={18} height={18} className="text-gold-400" />
           </div>
           <div>
-            <div className="font-pixel text-[10px] text-gold-400">
-              {item.name}
-            </div>
+            <div className="font-pixel text-xs text-gold-400">{item.name}</div>
             {item.quantity > 1 && (
-              <div className="font-pixel text-[8px] text-stone-600">
+              <div className="font-pixel text-xs text-stone-600">
                 x{item.quantity}
               </div>
             )}
           </div>
         </div>
 
-        <div className="font-pixel text-[9px] text-stone-400 mb-3">
+        <div className="font-pixel text-xs text-stone-400 mb-3">
           {item.description}
         </div>
 
         {item.effects && item.effects.length > 0 && (
           <div className="mb-3 p-2 bg-zinc-900 pixel-border">
-            <div className="font-pixel text-[8px] text-stone-500 mb-1 tracking-wider">
+            <div className="font-pixel text-xs text-stone-500 mb-1 tracking-wider">
               EFFECTS
             </div>
             {item.effects.map((ef, i) => (
               <div key={i} className="mb-2 last:mb-0">
                 <div className="flex justify-between items-center">
-                  <span className="font-pixel text-[8px] text-stone-600">
+                  <span className="font-pixel text-xs text-stone-600">
                     {ef.type === "immediate"
                       ? "Instant"
                       : ef.type === "temporary"
@@ -309,7 +315,7 @@ function ItemPopupContent({
                         : "Permanent"}
                     {ef.duration ? ` (${ef.duration}t)` : ""}
                   </span>
-                  <span className="font-pixel text-[8px] text-stone-600">
+                  <span className="font-pixel text-xs text-stone-600">
                     {ef.origin}
                   </span>
                 </div>
@@ -321,11 +327,7 @@ function ItemPopupContent({
 
         <div className="space-y-1">
           {item.effects && item.effects.some((e) => e.type === "immediate") && (
-            <Button
-              size="xs"
-              fullWidth
-              onClick={() => setConfirmUse(true)}
-            >
+            <Button size="xs" fullWidth onClick={() => setConfirmUse(true)}>
               USE
             </Button>
           )}
@@ -441,13 +443,13 @@ export function CharacterSheet({
   );
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} maxWidth="xl" maxHeight>
+    <Modal isOpen={isOpen} onClose={onClose} maxWidth="2xl" maxHeight>
       {/* Header */}
       <div className="px-4 pt-4 pb-3 flex-shrink-0 border-b border-zinc-800">
         <ModalTitle className="mb-3">CHARACTER SHEET</ModalTitle>
 
         <div className="flex gap-3 items-end">
-          <div className="flex-1 font-pixel flex flex-col bg-zinc-900 border border-zinc-800 px-1 py-1 text-[11px]">
+          <div className="flex-1 font-pixel flex flex-col bg-zinc-900 border border-zinc-800 px-1 py-1 text-xs">
             <div className="flex gap-1.5">
               <span className="font-semibold text-stone-500">Name:</span>
               <span>{player.name}</span>
@@ -486,7 +488,7 @@ export function CharacterSheet({
       <div className="flex-1 overflow-y-auto scrollbar-quest p-4">
         <div className="flex flex-col md:flex-row gap-4 min-h-0">
           {/* Left Column: AC + Attributes + Conditions */}
-          <div className="min-w-28 space-y-1">
+          <div className="min-w-32 space-y-1">
             <SectionTitle>ATTRIBUTES</SectionTitle>
             <StatRow
               icon={Shield}
@@ -516,7 +518,7 @@ export function CharacterSheet({
           </div>
 
           {/* Center Column: Equipment */}
-          <div className="min-w-40 flex-shrink-0">
+          <div className="min-w-48 flex-shrink-0">
             <SectionTitle>EQUIPMENT</SectionTitle>
             <div className="space-y-1.5">
               {!bodyItem ? (
@@ -582,7 +584,7 @@ export function CharacterSheet({
               <SectionTitle className="mb-0">INVENTORY</SectionTitle>
               <div className="flex items-center gap-1.5">
                 <Wallet width={12} height={12} className="text-gold-400" />
-                <span className="font-pixel text-[10px] text-gold-400">
+                <span className="font-pixel text-xs text-gold-400">
                   {player.coins}g
                 </span>
               </div>
