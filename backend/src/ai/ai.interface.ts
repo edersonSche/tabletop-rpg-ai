@@ -7,6 +7,8 @@ export interface AIConfig {
   baseUrl: string;
 }
 
+export type GamePhase = 'group_action' | 'call_player' | 'call_roll' | 'trade';
+
 export interface AIContext {
   roomId: string;
   campaignName: string;
@@ -17,15 +19,25 @@ export interface AIContext {
     name: string;
     level: number;
     activeConditions?: any[];
+    attributes?: {
+      strength: number;
+      dexterity: number;
+      constitution: number;
+      intelligence: number;
+      wisdom: number;
+      charisma: number;
+    };
+    hp?: number;
+    maxHp?: number;
   }>;
-  scene: string;
+  gamePhase: GamePhase;
   currentLocation: string | null;
   history: Array<{
     role: 'player' | 'assistant' | 'system';
     playerId?: string;
     content: string;
   }>;
-  summary?: string;
+  summary: string;
   currentAction: {
     playerId?: string;
     characterName?: string;
@@ -41,6 +53,5 @@ export interface AIProvider {
   generate(context: AIContext): Promise<AIResponse>;
   onRoomReady?(roomId: string, context: AIContext): Promise<void>;
   onRoomEmpty?(roomId: string): Promise<void>;
-  summarize?(entries: string[], existingSummary?: string): Promise<string>;
   destroy?(): Promise<void>;
 }

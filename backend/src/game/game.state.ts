@@ -150,9 +150,11 @@ export interface UseAntidoteResult {
 }
 
 export interface ServiceActionResult {
-  response: { narration: string; location?: string; merchants?: any[]; next: { type: string; target?: string; skill?: string; dc?: number } };
+  response: { narration: string; summary: string; location?: string; merchants?: any[]; next: { type: string; target?: string; skill?: string; dc?: number } };
   tickResults: TickResult[];
 }
+
+const MAX_HISTORY_LENGTH = 200;
 
 export interface GameStateData {
   campaignId: string;
@@ -162,12 +164,11 @@ export interface GameStateData {
   campaignTheme: string;
   players: Player[];
   currentTurn: string | null;
-  turnType: 'group_action' | 'call_player' | 'call_roll' | 'narration_only' | null;
+  turnType: 'group_action' | 'call_player' | 'call_roll' | null;
   turnTarget: string | null;
   turnSkill?: string;
   turnDc?: number;
   currentLocation: string | null;
-  scene: string;
   gameStarted: boolean;
   merchants?: Merchant[];
   merchantsLocation?: string;
@@ -180,7 +181,6 @@ export interface GameStateData {
     content: string;
   }>;
   summary: string;
-  lastSummarizedAt: number;
 }
 
 export class GameState {
@@ -200,7 +200,6 @@ export class GameState {
     turnSkill?: string;
     turnDc?: number;
     currentLocation: string | null;
-    scene: string;
     gameStarted: boolean;
     merchants?: Merchant[];
     merchantsLocation?: string;
@@ -209,7 +208,6 @@ export class GameState {
     tradeDone?: string[];
     history: GameStateData['history'];
     summary?: string;
-    lastSummarizedAt?: number;
   }): GameStateData {
     const state: GameStateData = {
       ...data,
@@ -217,7 +215,6 @@ export class GameState {
       turnSkill: data.turnSkill,
       turnDc: data.turnDc,
       summary: data.summary || '',
-      lastSummarizedAt: data.lastSummarizedAt || 0,
       merchants: data.merchants,
       merchantsLocation: data.merchantsLocation,
       isTradeLocked: data.isTradeLocked ?? false,
@@ -252,7 +249,6 @@ export class GameState {
       turnType: null,
       turnTarget: null,
       currentLocation: null,
-      scene: '',
       gameStarted: false,
       merchants: undefined,
       merchantsLocation: undefined,
@@ -261,7 +257,6 @@ export class GameState {
       tradeDone: [],
       history: [],
       summary: '',
-      lastSummarizedAt: 0,
     };
     this.rooms.set(roomId, state);
     return state;
@@ -303,6 +298,9 @@ export class GameState {
     const room = this.rooms.get(roomId);
     if (!room) return;
     room.history.push(entry);
+    if (room.history.length > MAX_HISTORY_LENGTH) {
+      room.history.splice(0, room.history.length - MAX_HISTORY_LENGTH);
+    }
   }
 
   setTurn(roomId: string, turn: string | null, type: GameStateData['turnType'], target: string | null): void {

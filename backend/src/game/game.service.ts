@@ -8,14 +8,10 @@ import { TurnManager } from './turn.manager';
 import { AiService } from '../ai/ai.service';
 import { isUnknownLocation } from '../utils/is-unknown-location';
 import { AIResponse, MerchantSeed, ConditionSeed } from '../dto/ai-response.dto';
-
-const MAX_NARRATION_DEPTH = 5;
-const SUMMARY_THRESHOLD = 50;
+import { GamePhase } from '../ai/ai.interface';
 
 @Injectable()
 export class GameService {
-  private isSummarizing = new Set<string>();
-
   constructor(
     private gameState: GameState,
     private conditionEngine: ConditionEngine,
@@ -76,35 +72,37 @@ export class GameService {
 
     try {
       const currentAction = buildAction(player);
-      let response: AIResponse = { narration: '', next: { type: 'group_action' } };
-      let allTickResults: TickResult[] = [];
 
-      for (let depth = 0; depth <= MAX_NARRATION_DEPTH; depth++) {
-        const currentRoom = this.gameState.getRoom(roomId);
-        if (!currentRoom) throw new Error('Room deleted');
+      const gamePhase: GamePhase = room.turnType === 'call_player' ? 'call_player'
+        : room.turnType === 'call_roll' ? 'call_roll'
+        : 'group_action';
 
-        response = await this.aiService.generate({
-          roomId,
-          campaignName: currentRoom.campaignName,
-          campaignTheme: currentRoom.campaignTheme,
-          language: currentRoom.language,
-          players: currentRoom.players,
-          scene: currentRoom.scene,
-          currentLocation: currentRoom.currentLocation,
-          history: currentRoom.history,
-          summary: currentRoom.summary || undefined,
-          currentAction: depth === 0 ? currentAction : null,
-        });
+      const response = await this.aiService.generate({
+        roomId,
+        campaignName: room.campaignName,
+        campaignTheme: room.campaignTheme,
+        language: room.language,
+        players: room.players.map(p => ({
+          id: p.id,
+          name: p.name,
+          level: p.level,
+          activeConditions: p.activeConditions,
+          attributes: p.attributes,
+          hp: p.hp,
+          maxHp: p.maxHp,
+        })),
+        gamePhase,
+        currentLocation: room.currentLocation,
+        history: room.history,
+        summary: room.summary,
+        currentAction: currentAction as any,
+      });
 
-        allTickResults = allTickResults.concat(this.processAiResponse(roomId, response));
+      const tickResults = this.processAiResponse(roomId, response);
 
-        if (response.next?.type !== 'narration_only') break;
-      }
-
-      return { response, tickResults: allTickResults };
+      return { response, tickResults };
     } finally {
       this.turnManager.unlock(roomId);
-      this.maybeSummarize(roomId).catch(() => {});
     }
   }
 
@@ -117,6 +115,7 @@ export class GameService {
       return {
         response: {
           narration: '',
+          summary: room.summary,
           next: {
             type: room.turnType || 'group_action',
             target: room.turnTarget || undefined,
@@ -129,37 +128,34 @@ export class GameService {
     this.turnManager.lock(roomId);
 
     try {
-      let response: AIResponse = { narration: '', next: { type: 'group_action' } };
-      let allTickResults: TickResult[] = [];
+      const response = await this.aiService.generate({
+        roomId,
+        campaignName: room.campaignName,
+        campaignTheme: room.campaignTheme,
+        language: room.language,
+        players: room.players.map(p => ({
+          id: p.id,
+          name: p.name,
+          level: p.level,
+          activeConditions: p.activeConditions,
+          attributes: p.attributes,
+          hp: p.hp,
+          maxHp: p.maxHp,
+        })),
+        gamePhase: 'group_action',
+        currentLocation: room.currentLocation,
+        history: room.history,
+        summary: room.summary || 'The adventure is about to begin.',
+        currentAction: null,
+      });
 
-      for (let depth = 0; depth <= MAX_NARRATION_DEPTH; depth++) {
-        const currentRoom = this.gameState.getRoom(roomId);
-        if (!currentRoom) throw new Error('Room deleted');
+      room.gameStarted = true;
 
-        response = await this.aiService.generate({
-          roomId,
-          campaignName: currentRoom.campaignName,
-          campaignTheme: currentRoom.campaignTheme,
-          language: currentRoom.language,
-          players: currentRoom.players,
-          scene: currentRoom.history.length === 0 ? 'The adventure is about to begin.' : currentRoom.scene,
-          currentLocation: currentRoom.currentLocation,
-          history: currentRoom.history,
-          summary: currentRoom.summary || undefined,
-          currentAction: null,
-        });
+      const tickResults = this.processAiResponse(roomId, response);
 
-        currentRoom.gameStarted = true;
-
-        allTickResults = allTickResults.concat(this.processAiResponse(roomId, response));
-
-        if (response.next?.type !== 'narration_only') break;
-      }
-
-      return { response, tickResults: allTickResults };
+      return { response, tickResults };
     } finally {
       this.turnManager.unlock(roomId);
-      this.maybeSummarize(roomId).catch(() => {});
     }
   }
 
@@ -173,6 +169,7 @@ export class GameService {
     if (room.merchants && room.merchantsLocation == room.currentLocation) {
       return {
         narration: '',
+        summary: room.summary,
         next: { type: 'group_action' },
       };
     }
@@ -180,6 +177,7 @@ export class GameService {
     if (!room.currentLocation || isUnknownLocation(room.currentLocation)) {
       return {
         narration: '',
+        summary: room.summary,
         next: { type: 'group_action' },
       };
     }
@@ -192,11 +190,18 @@ export class GameService {
         campaignName: room.campaignName,
         campaignTheme: room.campaignTheme,
         language: room.language,
-        players: room.players,
-        scene: room.scene,
+        players: room.players.map(p => ({
+          id: p.id,
+          name: p.name,
+          level: p.level,
+          attributes: p.attributes,
+          hp: p.hp,
+          maxHp: p.maxHp,
+        })),
+        gamePhase: 'trade',
         currentLocation: room.currentLocation,
         history: room.history,
-        summary: room.summary || undefined,
+        summary: room.summary,
         currentAction: {
           playerId,
           characterName: player.name,
@@ -211,11 +216,11 @@ export class GameService {
       }
 
       if (response.narration) {
-        room.scene = this.buildSceneContext(response, room.currentLocation, room);
         this.gameState.addHistory(roomId, {
           role: 'assistant',
           content: response.narration,
         });
+        room.summary = response.summary || room.summary;
       }
 
       return response;
@@ -271,65 +276,16 @@ export class GameService {
     this.turnManager.processTurn(roomId, room, response);
 
     if (response.narration) {
-      room.scene = this.buildSceneContext(response, room.currentLocation, room);
       this.gameState.addHistory(roomId, {
         role: 'assistant',
         content: response.narration,
       });
     }
 
+    room.summary = response.summary || room.summary;
+
     const tickResults = this.conditionEngine.tickEffects(room);
     return tickResults;
-  }
-
-  private extractSummary(narration: string, maxChars: number = 300): string {
-    const sentences = narration.match(/[^.!?\n]+[.!?\n]+/g) || [narration];
-    let summary = '';
-    for (const s of sentences) {
-      if ((summary + s).length > maxChars) break;
-      summary += s;
-    }
-    return summary.trim();
-  }
-
-  private buildSceneContext(response: AIResponse, currentLocation: string | null, room: GameStateData): string {
-    const summary = this.extractSummary(response.narration);
-    const location = response.location || currentLocation || 'unknown';
-
-    let nextDesc = 'The group awaits the next move.';
-    if (response.next) {
-      switch (response.next.type) {
-        case 'call_player':
-          nextDesc = `Waiting for ${response.next.target || 'a player'}.`;
-          break;
-        case 'call_roll':
-          nextDesc = `Waiting for ${response.next.target || 'a player'} to roll ${response.next.skill || 'a skill'} (DC ${response.next.dc || 10}).`;
-          break;
-        case 'narration_only':
-          nextDesc = 'The GM will narrate next.';
-          break;
-      }
-    }
-
-    const conditionsDesc = room.players
-      .filter(p => p.active && p.activeConditions.length > 0)
-      .map(p => {
-        const conds = p.activeConditions
-          .filter(ac => !ac.isSuppressed)
-          .map(ac => {
-            const parts = [ac.condition.name];
-            const temps = ac.remainingDurations.filter(d => d > 0);
-            if (temps.length > 0) {
-              parts.push(`(${Math.min(...temps)} turns remaining)`);
-            }
-            return parts.join(' ');
-          });
-        return conds.length > 0 ? `${p.name}: ${conds.join(', ')}` : null;
-      })
-      .filter(Boolean)
-      .join('; ');
-
-    return `Scene: ${summary}\nLocation: ${location}\n${nextDesc}${conditionsDesc ? `\nActive Conditions: ${conditionsDesc}` : ''}`;
   }
 
   private validateAiResponseTarget(response: AIResponse, players: Player[]): void {
@@ -437,40 +393,6 @@ export class GameService {
     return effect;
   }
 
-  private async maybeSummarize(roomId: string): Promise<void> {
-    const room = this.gameState.getRoom(roomId);
-    if (!room || room.history.length < SUMMARY_THRESHOLD) return;
-    if (this.isSummarizing.has(roomId)) return;
-
-    this.isSummarizing.add(roomId);
-    try {
-      const currentRoom = this.gameState.getRoom(roomId);
-      if (!currentRoom) return;
-
-      const newEntries = currentRoom.history.slice(currentRoom.lastSummarizedAt)
-        .map(h =>
-          h.role === 'player' ? `[${h.playerId}] ${h.content}`
-          : h.role === 'assistant' ? `GM: ${h.content}`
-          : `[system] ${h.content}`
-        );
-
-      if (newEntries.length === 0) return;
-
-      const summary = await this.aiService.summarizeHistory(
-        newEntries,
-        currentRoom.summary || undefined,
-      );
-
-      const roomAfter = this.gameState.getRoom(roomId);
-      if (!roomAfter) return;
-
-      roomAfter.summary = summary;
-      roomAfter.lastSummarizedAt = roomAfter.history.length;
-    } finally {
-      this.isSummarizing.delete(roomId);
-    }
-  }
-
   getState(roomId: string) {
     const room = this.gameState.getRoom(roomId);
     if (!room) return null;
@@ -485,7 +407,6 @@ export class GameService {
       turnType: room.turnType,
       turnTarget: room.turnTarget,
       currentLocation: room.currentLocation,
-      scene: room.scene,
       gameStarted: room.gameStarted,
       creatorId: room.creatorId,
       history: room.history,
@@ -539,9 +460,9 @@ export class GameService {
       campaignTheme: room.campaignTheme,
       language: room.language,
       players: room.players,
-      scene: room.scene,
       currentLocation: room.currentLocation,
       history: room.history,
+      summary: room.summary,
     };
   }
 
@@ -582,5 +503,4 @@ export class GameService {
   ) {
     return this.levelingService.allocateAttributes(roomId, playerId, allocations);
   }
-
 }

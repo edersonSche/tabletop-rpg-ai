@@ -1,4 +1,4 @@
-export type TurnType = 'group_action' | 'call_player' | 'call_roll' | 'narration_only';
+export type TurnType = 'group_action' | 'call_player' | 'call_roll';
 
 export interface ConditionEffectSeed {
   type: 'immediate' | 'temporary' | 'permanent';
@@ -40,6 +40,7 @@ export interface MerchantSeed {
 
 export interface AIResponse {
   narration: string;
+  summary: string;
   location?: string;
   merchants?: MerchantSeed[];
   conditions?: ConditionSeed[];

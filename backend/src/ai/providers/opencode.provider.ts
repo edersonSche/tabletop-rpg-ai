@@ -3,9 +3,10 @@ import { AIProvider, AIConfig, AIContext } from '../ai.interface';
 import { AIResponse } from '../../dto/ai-response.dto';
 import { getSystemPrompt } from '../prompts/system.prompt';
 import {
-  formatHistoryEntries,
   buildActionLines,
   buildTradePrompt,
+  buildPhaseContexts,
+  buildTargetPlayerContext,
   buildFullPrompt,
   parseResponse,
 } from '../shared/prompt-builder';
@@ -82,49 +83,14 @@ export class OpencodeProvider implements AIProvider, OnModuleInit {
       this.sessions.set(roomId, sessionId);
     }
 
-    let systemPrompt = getSystemPrompt(context);
+    const lines: string[] = [
+      getSystemPrompt(context),
+      '',
+      ...buildPhaseContexts(context),
+    ];
 
-    if (context.summary) {
-      systemPrompt += `\n\n## Long-Term Memory (campaign summary)\n${context.summary}`;
-    }
-
-    const historyBlock = context.history.length > 0
-      ? '\n\n## Recent Events (last 30 actions)\n' + formatHistoryEntries(context.history)
-      : '';
-
-    await this.sendMessage(roomId, systemPrompt + historyBlock);
+    await this.sendMessage(roomId, lines.join('\n'));
     this.sessionContextSent.add(roomId);
-  }
-
-  async summarize(entries: string[], existingSummary?: string): Promise<string> {
-    const promptLines: string[] = [];
-
-    if (existingSummary) {
-      promptLines.push(`Existing campaign summary:\n${existingSummary}\n`);
-      promptLines.push('Below are new events that happened after that summary. Please produce an updated, merged narrative summary that incorporates both the existing summary and these new events. Keep it concise but capture key plot points, character developments, locations, NPCs, and important decisions.');
-    } else {
-      promptLines.push('Summarize the following RPG campaign history concisely in narrative prose, capturing key plot points, character developments, locations visited, NPCs encountered, and important decisions made by the players.');
-    }
-
-    promptLines.push('');
-    promptLines.push(...entries);
-    promptLines.push('');
-    promptLines.push('Return only the updated summary as plain text, no JSON, no formatting.');
-
-    const prompt = promptLines.join('\n');
-    const sessionId = await this.createSession();
-
-    try {
-      const result = await this.client.session.prompt({
-        path: { id: sessionId },
-        body: { parts: [{ type: 'text', text: prompt }] },
-      });
-
-      const text = this.extractText(result.data);
-      return text.trim();
-    } finally {
-      this.client.session.delete({ path: { id: sessionId } }).catch(() => {});
-    }
   }
 
   async destroy(): Promise<void> {
@@ -169,15 +135,18 @@ export class OpencodeProvider implements AIProvider, OnModuleInit {
   }
 
   private buildIncrementalPrompt(context: AIContext): string {
-    if (context.currentAction?.action === 'initiate_trade') {
-      return buildTradePrompt(context, true).join('\n');
+    if (context.gamePhase === 'trade') {
+      return buildTradePrompt(context).join('\n');
     }
 
-    const lines = buildActionLines(context.currentAction);
-    if (lines.length === 0) {
-      lines.push('The adventure continues. What happens next?');
+    const targetLines = buildTargetPlayerContext(context);
+    const actionLines = buildActionLines(context.currentAction);
+
+    if (actionLines.length === 0 && targetLines.length === 0) {
+      return 'The adventure continues. What happens next?';
     }
-    return lines.join('\n');
+
+    return [...targetLines, ...actionLines].join('\n');
   }
 
   private isSessionError(error: any): boolean {
@@ -197,6 +166,7 @@ export class OpencodeProvider implements AIProvider, OnModuleInit {
   private fallbackResponse(context: AIContext): AIResponse {
     return {
       narration: `The adventure continues... ${context.currentAction?.action || 'The group awaits the next move.'}`,
+      summary: context.summary || 'The adventure continues.',
       next: {
         type: 'group_action',
       },

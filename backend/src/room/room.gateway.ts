@@ -111,6 +111,7 @@ export class RoomGateway {
     if (aiCtx) {
       await this.aiService.onRoomReady(roomId, {
         ...aiCtx,
+        gamePhase: 'group_action',
         currentAction: null,
       });
     }

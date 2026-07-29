@@ -45,7 +45,7 @@ export class TurnManager {
   }
 
   processTurn(roomId: string, state: GameStateData, aiResponse: { next: { type: string; target?: string; skill?: string; dc?: number } }): void {
-    state.currentTurn = aiResponse.next.type === 'narration_only' ? null : (aiResponse.next.target || state.currentTurn);
+    state.currentTurn = aiResponse.next.target || null;
     state.turnType = aiResponse.next.type as any;
     state.turnTarget = aiResponse.next.target || null;
     if (aiResponse.next.type === 'call_roll') {
