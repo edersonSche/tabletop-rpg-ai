@@ -2,7 +2,7 @@
 
 Two-package monorepo: `backend/` (NestJS 11, Socket.IO 4.8), `frontend/` (React 19, Vite 6, Tailwind 3.4, react-markdown 9, remark-gfm 4). No root `package.json` — each package is independent. **No tests, no lint, no formatter, no CI.**
 
-**Game state is in-memory** — restarting wipes active rooms (but not saved campaigns). **Campaign persistence** writes per-campaign files to `data/campaigns/{id}.json` (schema v2 with flattened `SavedEffect` format, atomic temp+rename writes) on every action/roll/start/disconnect/create_character/leave — `saveFromMemory()` skips if `!gameStarted`, so pre-start creates/leaves do not persist. Old v1 saves (with nested `modifiers`/`effects`) are auto-migrated to v2 on restore via `migrateV1ToV2()`. Saved campaigns survive restarts and can be resumed via `lobby:resume`.
+**Game state is in-memory** — restarting wipes active rooms (but not saved campaigns). **Campaign persistence** writes per-campaign files to `data/campaigns/{id}.json` (schema v3 with flattened `SavedEffect` format, atomic temp+rename writes) on every action/roll/start/disconnect/create_character/leave — `saveFromMemory()` skips if `!gameStarted`, so pre-start creates/leaves do not persist. Old v1 saves (with nested `modifiers`/`effects`) are auto-migrated to v2 on restore via `migrateV1ToV2()`. Saved campaigns survive restarts and can be resumed via `lobby:resume`.
 
 **`.gitignore`**: root gitignores `docs`, `backend/data`, `.tsbuildinfo`, and `.DS_Store`; each package gitignores `dist/`, `node_modules/`, `.env` independently. Template env files (`.env.example`) are committed for both packages. `npm run build` is the only validation gate (frontend: `tsc && vite build`).
 
@@ -63,7 +63,7 @@ RoomModule ↔ CampaignModule circular dependency is resolved via `forwardRef()`
 - `auth/` — `AuthGateway` (auth:login, disconnect), `AuthService` (userId↔socketId + playerId↔socketId), `AuthWsGuard`
 - `game/` — `GameState` (`game.state.ts`) — Data layer: in-memory `rooms` Map, `playerByUserId` Map, `createRoom`/`getRoom`/`removeRoom`/`restoreCampaign`, `addHistory`/`setTurn`, shared `recomputePlayer()` for AC recalculation, all type definitions (`Player`, `Effect`, `Condition`, `ActiveCondition`, `InventoryItem`, `Merchant`, `MerchantItem`, `GameStateData`, `TickResult`, etc.)
   - `GameGateway` (`game.gateway.ts`) — Thin delegation layer: validates input, delegates to services, emits results. Four emission helpers (`emitGameState`, `emitNarration`, `emitNarrationText`, `emitTradeStateToAll`, `emitTradeUnlock`) eliminate duplicated broadcast patterns across 16 handlers. All `game:state` emissions flow through `GameService.getState()` as the single source of truth. **Does not inject `GameState`** — all room data access goes through `GameService` methods (`getRoomContext`, `findPlayer`, `findPlayerWithItem`, `getTurnContext`, `getTradeEmitData`, `getRoomAiContext`, `hasMerchantsAtLocation`, `hasMerchants`, `isTradeLocked`)
-  - `GameService` (`game.service.ts`) — Turn orchestration (single-pass, no narration_only loop), AI target validation, `processConditions()`/`seedToEffect()` for AI-generated narrative conditions, `initiateTrade()` AI-driven merchant generation, calls `ConditionEngine.tickEffects()` at end of `processAiResponse`. `handleAction()`/`handleRoll()` delegate to a shared private `processTurn()` method. Stores `response.summary` directly as `room.summary` (no separate summarization step). `getState()` returns the complete `GameState` payload (all fields including `creatorId` and `history`). Also exposes data-access methods for gateways: `getRoomContext`, `findPlayer`, `findPlayerWithItem`, `getTurnContext`, `getTradeEmitData`, `getRoomAiContext`, `hasMerchantsAtLocation`, `hasMerchants`, `isTradeLocked`, `setCreatorId`, `setGameStarted`
+  - `GameService` (`game.service.ts`) — Turn orchestration (single-pass, no narration_only loop, no separate summarization step), AI target validation, `processConditions()`/`seedToEffect()` for AI-generated narrative conditions, `initiateTrade()` AI-driven merchant generation, calls `ConditionEngine.tickEffects()` at end of `processAiResponse`. `handleAction()`/`handleRoll()` delegate to a shared private `processTurn()` method. Extracts `response.summary` and stores directly as `room.summary` (AI maintains its own summary). Injects `gamePhase` into AI context. `getState()` returns the complete `GameState` payload (all fields including `creatorId` and `history`). Also exposes data-access methods for gateways: `getRoomContext`, `findPlayer`, `findPlayerWithItem`, `getTurnContext`, `getTradeEmitData`, `getRoomAiContext`, `hasMerchantsAtLocation`, `hasMerchants`, `isTradeLocked`, `setCreatorId`, `setGameStarted`
   - `ConditionEngine` (`condition.engine.ts`) — Condition/effect lifecycle: `applyConditionToPlayer`/`removeConditionFromPlayer`/`tickEffects`, `applyEffectToPlayer`/`applyHpChange`, `getPlayerModifier` (skill modifier with condition stat overrides). Depends on `DiceService` + `GameState.recomputePlayer`
   - `PlayerService` (`player.service.ts`) — Player CRUD (`addPlayer`/`findPlayerByUserId`/`disconnectPlayer`/`reactivatePlayer`/`removePlayer`), inventory (`addItem`/`removeItem`), equipment (`equipItem`/`unequipItem`), economy (`addCoins`/`removeCoins`), `useItem` (immediate/temporary/permanent effects via `ConditionEngine`), `useAntidote` (removes conditions via `ConditionEngine`). Depends on `GameState` + `ConditionEngine`
   - `MerchantService` (`merchant.service.ts`) — Merchant pricing (`adjustMerchantPrices`), `buyFromMerchant`/`sellToMerchant`, `clearMerchants`, `getMerchant`. Depends on `GameState`
@@ -72,10 +72,10 @@ RoomModule ↔ CampaignModule circular dependency is resolved via `forwardRef()`
   - `DiceService` (`dice.service.ts`) — Pure functions: `rollDice`, `rollDiceFormula`. No dependencies
   - `TurnManager` (`turn.manager.ts`) — Lock-per-room, stores `turnSkill`/`turnDc`, blocks actions during active trade. **Also guards trade state mutations** — `handleDisconnect`/`handleEndTrade`/`handleInitiateTrade` in `GameGateway` acquire the lock before calling `TradeService.removeFromTrade`/`markDone`/`lockTrade` to prevent races on `tradeParticipants`/`tradeDone`/`isTradeLocked`.
 - `room/` — `RoomGateway` (lobby:create/join/list/list_saved/resume/delete_saved/create_character, room:leave) with three emission helpers (`emitGameStateToClient`, `emitGameStateToRoom`, `emitGameStateToOthers`), `RoomService` (in-memory room registry, IDs = first 8 UUID chars, tracks `creatorId`). Uses `GameService.getState()` for consistent `game:state` emissions. **`RoomGateway` does not inject `GameState`** — room data access goes through `GameService` and `RoomService` methods
-- `campaign/` — `CampaignStore` (persist/restore per-campaign files in `data/campaigns/{id}.json`, schema v2 with flattened `SavedEffect` format, 1s debounced write with atomic temp+rename; OnModuleInit async load, OnModuleDestroy flush; stores HP/XP/level/summary/campaignTheme/inventory/coins/equipment/merchants/trade state; `migrateV1ToV2()` auto-converts old saves)
+- `campaign/` — `CampaignStore` (persist/restore per-campaign files in `data/campaigns/{id}.json`, schema v3 with flattened `SavedEffect` format, atomic temp+rename writes; OnModuleInit async load, OnModuleDestroy flush; stores HP/XP/level/summary/campaignTheme/inventory/coins/equipment/merchants/trade state; `migrateV1ToV2()` auto-converts old saves; v3 removed `scene`/`lastSummarizedAt` fields)
 - `dto/` — `schemas.ts` (24 Zod schemas for all WebSocket handlers with `.strict()` mode and inferred types; replaces old class-based DTOs), `ai-response.dto.ts` (incl. `MerchantSeed`/`MerchantSeedItem`/`ConditionSeed`/`ConditionEffectSeed` with unified `statValue`/`statOperation`)
 - `pipes/` — `zod-validation.pipe.ts` (global NestJS pipe: `safeParse` → `BadRequestException` on failure, no-op when no schema attached)
-- `ai/` — Provider pattern: `AiService` → `OpencodeProvider` / `OpenRouterProvider` (`@Injectable()` with `OnModuleInit`, DI-configured). `AIProvider` interface requires `validateConfig(config: AIConfig): void` — each provider validates its own config at startup (e.g., OpenCode requires `AI_MODEL` + `AI_BASE_URL`, no `AI_API_KEY`; OpenRouter requires all three). `AiService` implements `OnModuleDestroy` — calls `provider.destroy()` to clean up all active AI sessions on shutdown. `AiService` does not inject `AI_CONFIG` — auth/config validation is each provider's responsibility. Summary is returned per-response by the AI (no separate `summarizeHistory()` step). `onRoomReady()`/`onRoomEmpty()` lifecycle for session create/delete (stateless providers like OpenRouter skip these). `AiService.ensureSummaryQuality()` validates AI-provided summaries (checks for empty, unchanged, too-short, or narration-copied summaries). `OpencodeProvider` has private helpers: `createSession()` (shared session creation), `extractText()` (response text extraction), `isSessionError()` (404/410/400 detection), `fallbackResponse()` (error fallback). `buildIncrementalPrompt()` uses shared `buildTradePrompt()`, `buildTargetPlayerContext()`, and `buildActionLines()` from `shared/prompt-builder.ts`. `OpenRouterProvider` uses `buildFullPrompt()` (full context per call, stateless) and `@openrouter/sdk` (ESM-only, dynamic `await import()` in `OnModuleInit`). Both providers use ESM-only SDKs imported via dynamic `await import()` in `OnModuleInit` — `@opencode-ai/sdk` types resolved via `paths` in tsconfig (no `main` field, `exports`-only package).
+- `ai/` — Provider pattern: `AiService` → `OpencodeProvider` / `OpenRouterProvider` (`@Injectable()` with `OnModuleInit`, DI-configured). `AIProvider` interface requires `validateConfig(config: AIConfig): void` — each provider validates its own config at startup (e.g., OpenCode requires `AI_MODEL` + `AI_BASE_URL`, no `AI_API_KEY`; OpenRouter requires all three). `AiService` implements `OnModuleDestroy` — calls `provider.destroy()` to clean up all active AI sessions on shutdown. `AiService` does not inject `AI_CONFIG` — auth/config validation is each provider's responsibility. Summary is returned per-response by the AI (no separate `summarizeHistory()` step). `onRoomReady()`/`onRoomEmpty()` lifecycle for session create/delete (stateless providers like OpenRouter skip these). `AiService.ensureSummaryQuality()` validates AI-provided summaries (checks for empty, unchanged, too-short, or narration-copied summaries). `OpencodeProvider` has private helpers: `createSession()` (shared session creation), `extractText()` (response text extraction), `isSessionError()` (404/410/400 detection), `fallbackResponse()` (error fallback). `buildIncrementalPrompt()` uses shared `getPhasePrompt()`, `buildTargetPlayerContext()`, and `buildActionLines()` from `shared/prompt-builder.ts`. `OpenRouterProvider` uses `buildFullPrompt()` (full context per call, stateless) and `@openrouter/sdk` (ESM-only, dynamic `await import()` in `OnModuleInit`). Both providers use ESM-only SDKs imported via dynamic `await import()` in `OnModuleInit` — `@opencode-ai/sdk` types resolved via `paths` in tsconfig (no `main` field, `exports`-only package).
 
 **Frontend** — under `frontend/src/`:
 
@@ -106,26 +106,40 @@ Repo `.env` defaults: `AI_PROVIDER=opencode`, `AI_API_KEY=` (empty), `AI_BASE_UR
 
 Opencode provider uses inline JSON prompt + regex extraction. OpenRouter provider uses `@openrouter/sdk` (ESM-only, dynamic import) with `buildFullPrompt()` per call (stateless). Both use shared `parseResponse()` for JSON extraction from AI text. Invalid `call_player`/`call_roll` targets get coerced to `group_action` by `GameService.validateAiResponseTarget()` (also warns on invalid `conditions[].targetPlayerId`).
 
-System prompt (`system.prompt.ts`) documents: Markdown narration, two-tier memory (history + summary), player levels, location/target rules, and out-of-game question handling.
+System prompt (`system.prompt.ts`) documents: Markdown narration, two-tier memory (history + summary), player levels, location/target rules, and out-of-game question handling. Summary guidelines use a structured 5-point format (SCENE/EVENTS/NPCS/THREATS/STATUS).
+
+**Phase-specific prompts** — Context is tailored per game phase to reduce token waste:
+- `group-action.prompt.ts` — Any player acts (default, includes all players)
+- `call-player.prompt.ts` — AI calls a specific player to act
+- `call-roll.prompt.ts` — AI requests a skill check from a player
+- `trade.prompt.ts` — AI generates merchant inventories during trade initiation
+
+History sent per phase is capped: `group_action: 8`, `call_player: 5`, `call_roll: 4`, `trade: 3` entries (defined in `HISTORY_PER_PHASE`).
 
 ### Provider: OpenCode (default)
 
 - Session-based communication with local OpenCode server
-- Two-phase prompt: session init (full context) + incremental (action only)
+- Two-phase prompt: session init (full context via `buildPhaseContexts()`) + incremental (action only via `getPhasePrompt()`)
 - Works without API key (HTTP Basic Auth optional)
 - Requires running OpenCode server at AI_BASE_URL
 
 ### Provider: OpenRouter
 
 - Stateless communication via @openrouter/sdk
-- Full context sent on every call (system prompt + summary + history + action)
+- Full context sent on every call via `buildFullPrompt()` (system + summary + phase context + history + action)
 - Requires AI_API_KEY (OpenRouter API key)
 - Access to 400+ models across providers
 - Default base URL: https://openrouter.ai/api/v1
 
 ### AI Provider Architecture
 
-- `ai/shared/prompt-builder.ts` — Shared utilities (prompt building, response parsing)
+- `ai/prompts/system.prompt.ts` — Global system prompt (game rules, summary guidelines)
+- `ai/prompts/group-action.prompt.ts` — Phase prompt for group actions
+- `ai/prompts/call-player.prompt.ts` — Phase prompt for targeted player actions
+- `ai/prompts/call-roll.prompt.ts` — Phase prompt for skill checks
+- `ai/prompts/trade.prompt.ts` — Phase prompt for merchant generation
+- `ai/shared/prompt-builder.ts` — Shared utilities (`getPhasePrompt()`, `buildPhaseContexts()`, `buildFullPrompt()`, `parseResponse()`)
+- `ai/ai.service.ts` — `ensureSummaryQuality()` auto-corrects empty/unchanged/short/copied summaries (no retry)
 - `ai/providers/opencode.provider.ts` — OpenCode provider (sessions, incremental prompts)
 - `ai/providers/openrouter.provider.ts` — OpenRouter provider (stateless, full context)
 - `ai/ai.module.ts` — Dynamic provider selection based on AI_PROVIDER env var

@@ -3,10 +3,8 @@ import { AIProvider, AIConfig, AIContext } from '../ai.interface';
 import { AIResponse } from '../../dto/ai-response.dto';
 import { getSystemPrompt } from '../prompts/system.prompt';
 import {
-  buildActionLines,
-  buildTradePrompt,
+  getPhasePrompt,
   buildPhaseContexts,
-  buildTargetPlayerContext,
   buildFullPrompt,
   parseResponse,
 } from '../shared/prompt-builder';
@@ -135,18 +133,9 @@ export class OpencodeProvider implements AIProvider, OnModuleInit {
   }
 
   private buildIncrementalPrompt(context: AIContext): string {
-    if (context.gamePhase === 'trade') {
-      return buildTradePrompt(context).join('\n');
-    }
-
-    const targetLines = buildTargetPlayerContext(context);
-    const actionLines = buildActionLines(context.currentAction);
-
-    if (actionLines.length === 0 && targetLines.length === 0) {
-      return 'The adventure continues. What happens next?';
-    }
-
-    return [...targetLines, ...actionLines].join('\n');
+    const phasePrompt = getPhasePrompt(context);
+    if (phasePrompt) return phasePrompt;
+    return 'The adventure continues. What happens next?';
   }
 
   private isSessionError(error: any): boolean {

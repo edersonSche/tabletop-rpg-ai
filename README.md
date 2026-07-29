@@ -262,27 +262,31 @@ backend/src/
 │   └── auth.guard.ts        # AuthWsGuard
 ├── ai/
 │   ├── ai.module.ts         # AiModule (providers: AiService, OpencodeProvider, OpenRouterProvider, AI_CONFIG factory, AI_PROVIDER dynamic selection via useFactory)
-│   ├── ai.interface.ts      # AIConfig / AIProvider interface, GamePhase type, AIContext (no summarize method)
-│   ├── ai.service.ts        # Provider dispatcher + ensureSummaryQuality() quality checks + onRoomReady/onRoomEmpty lifecycle (no AI_CONFIG injection)
+│   ├── ai.interface.ts      # AIConfig / AIProvider interface, GamePhase type, AIContext (gamePhase replaces scene)
+│   ├── ai.service.ts        # Provider dispatcher + ensureSummaryQuality() auto-correction (empty/unchanged/short/copied) + onRoomReady/onRoomEmpty lifecycle (no AI_CONFIG injection)
 │   ├── prompts/
-│   │   └── system.prompt.ts # Multilingual system prompt builder (summary-based memory, required fields, active conditions inlined)
+│   │   ├── system.prompt.ts       # Multilingual system prompt (summary-based memory, required fields, compressed output rules)
+│   │   ├── group-action.prompt.ts # Phase prompt: any player acts (includes all players)
+│   │   ├── call-player.prompt.ts  # Phase prompt: AI calls a specific player
+│   │   ├── call-roll.prompt.ts    # Phase prompt: AI requests a skill check
+│   │   └── trade.prompt.ts        # Phase prompt: merchant generation
 │   ├── shared/
-│   │   └── prompt-builder.ts # Pure functions: formatHistoryEntries, buildActionLines, buildTradePrompt, buildPhaseContexts, buildTargetPlayerContext, buildFullPrompt, parseResponse
+│   │   └── prompt-builder.ts # Pure functions: getPhasePrompt, formatHistoryEntries, buildActionLines, buildPhaseContexts, buildTargetPlayerContext, buildFullPrompt, parseResponse
 │   └── providers/
 │       ├── opencode.provider.ts  # @Injectable provider — @opencode-ai/sdk (ESM dynamic import), per-room sessions, incremental prompts, error recovery
 │       └── openrouter.provider.ts # @Injectable provider — stateless, @openrouter/sdk (ESM dynamic import), full prompt per call, validateConfig (apiKey+model+baseUrl required)
 ├── game/
 │   ├── game.module.ts       # GameModule (imports AuthModule, AiModule — exports all game services)
 │   ├── game.gateway.ts      # Game WebSocket handlers (thin delegation layer, no GameState injection)
-│   ├── game.service.ts      # Turn orchestration (single-pass processTurn, no narration_only loop) + AI response processing (summary-based, no separate summarization) + data-access methods for gateways
-│   ├── game.state.ts        # Data layer: rooms Map, types/interfaces, recomputePlayer, addHistory (capped at 200) + setTurn, no scene/lastSummarizedAt (services only)
+│   ├── game.service.ts      # Turn orchestration (single-pass processTurn, no narration_only loop, no separate summarization) + AI response processing (extracts summary, injects gamePhase) + data-access methods for gateways
+│   ├── game.state.ts        # Data layer: rooms Map, types/interfaces, recomputePlayer, addHistory (MAX_HISTORY_LENGTH=200 cap) + setTurn, no scene/lastSummarizedAt (services only)
 │   ├── dice.service.ts      # Dice rolling (rollDice, rollDiceFormula)
 │   ├── condition.engine.ts  # Condition/effect lifecycle: apply/remove/tick, getPlayerModifier
 │   ├── player.service.ts    # Player CRUD, inventory, equipment, coins, useItem, useAntidote
 │   ├── merchant.service.ts  # Merchant pricing, buy/sell, clearMerchants
 │   ├── trade.service.ts     # Trade lock/unlock state management (lockTrade, unlockTrade, markDone, removeFromTrade)
 │   ├── leveling.service.ts  # XP thresholds, awardXp, allocateAttributes
-│   └── turn.manager.ts      # Lock-per-room turn gate (stores turnSkill/turnDc, no narration_only handling)
+│   └── turn.manager.ts      # Lock-per-room turn gate (stores turnSkill/turnDc, no narration_only)
 ├── room/
 │   ├── room.module.ts       # RoomModule (imports GameModule, AuthModule, AiModule, CampaignModule)
 │   ├── room.gateway.ts      # Lobby WebSocket handlers (no GameState injection)
@@ -290,7 +294,7 @@ backend/src/
 ├── campaign/
 │   ├── campaign.module.ts   # CampaignModule (imports GameModule, RoomModule — exports CampaignStore)
 │   ├── campaign.store.ts    # Persist/restore to data/campaigns/{id}.json (OnModuleInit async load, OnModuleDestroy flush, atomic writes)
-│   └── campaign.types.ts    # SavedCampaign, SavedCampaignInfo (schemaVersion, SavedEffect, no scene/lastSummarizedAt)
+│   └── campaign.types.ts    # SavedCampaign, SavedCampaignInfo (schemaVersion=3, SavedEffect, no scene/lastSummarizedAt)
 ├── pipes/
 │   └── zod-validation.pipe.ts  # Global Zod validation pipe (safeParse → BadRequestException)
 └── dto/
@@ -445,5 +449,5 @@ The UI uses a dark panel-based design with pixel-art font styling:
 
 ## Limitations
 
-- **Active rooms are in-memory** — restarting the backend wipes active rooms, but saved campaigns persist as individual files in `data/campaigns/{id}.json` (schema v2, atomic writes) and can be resumed. Old v1 saves (with nested `modifiers`/`effects`) are auto-migrated to v2 on restore via `migrateV1ToV2()`.
+- **Active rooms are in-memory** — restarting the backend wipes active rooms, but saved campaigns persist as individual files in `data/campaigns/{id}.json` (schema v3, atomic temp+rename writes) and can be resumed. v3 removed `scene`/`lastSummarizedAt` fields. Old v1 saves (with nested `modifiers`/`effects`) are auto-migrated to v2 on restore via `migrateV1ToV2()`.
 - **XP gain not yet wired** — the HP/XP/leveling engine is structurally complete (levels 1-20, D&D 5e SRD XP thresholds, ASI at levels 4/8/12/16/19), but no server-side game action triggers XP gain yet. `game:level_up` is frontend-ready but not emitted by the backend.
