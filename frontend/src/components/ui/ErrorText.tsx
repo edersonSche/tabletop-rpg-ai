@@ -10,7 +10,7 @@ export const ErrorText = memo(function ErrorText({
   className = '',
 }: ErrorTextProps) {
   return (
-    <p className={`font-pixel text-[10px] text-blood-500 text-center mb-4 ${className}`}>
+    <p className={`font-pixel text-xs text-blood-500 text-center mb-4 ${className}`}>
       {children}
     </p>
   );

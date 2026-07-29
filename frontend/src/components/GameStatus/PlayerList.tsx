@@ -11,7 +11,7 @@ interface PlayerListProps {
 export const PlayerList = memo(function PlayerList({ players, currentTurn, playerId }: PlayerListProps) {
   return (
     <div className="space-y-1.5">
-      <div className="font-pixel text-[9px] text-stone-500 mb-2 tracking-wider">PARTY</div>
+      <div className="font-pixel text-xs text-stone-500 mb-2 tracking-wider">PARTY</div>
       {players.map(p => (
         <PlayerCard
           key={p.id}

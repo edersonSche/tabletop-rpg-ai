@@ -17,7 +17,7 @@ export const TypingIndicator = memo(function TypingIndicator({ typingPlayers, pl
 
   return (
     <div className="flex items-center gap-2 px-1 py-1">
-      <span className="font-pixel text-[9px] text-gold-500/60 italic">{text}</span>
+      <span className="font-pixel text-xs text-gold-500/60 italic">{text}</span>
     </div>
   );
 });

@@ -35,8 +35,8 @@ export const EquipmentSlot = memo(function EquipmentSlot({
         <div className="flex items-center gap-2">
           <Icon width={14} height={14} className="text-stone-700" />
           <div className="flex-1 min-w-0">
-            <div className="font-pixel text-[8px] text-stone-600">Empty</div>
-            <div className="font-pixel text-[8px] text-stone-700 uppercase">{SLOT_LABELS[slot]}</div>
+            <div className="font-pixel text-xs text-stone-600">Empty</div>
+            <div className="font-pixel text-xs text-stone-700 uppercase">{SLOT_LABELS[slot]}</div>
           </div>
         </div>
       </div>
@@ -48,8 +48,8 @@ export const EquipmentSlot = memo(function EquipmentSlot({
       <div className="flex items-center gap-2">
         <Icon width={14} height={14} className="text-gold-400" />
         <div className="flex-1 min-w-0">
-          <div className="font-pixel text-[9px] text-stone-300 truncate">{item.name}</div>
-          <div className="font-pixel text-[8px] text-stone-600 uppercase">{SLOT_LABELS[slot]}</div>
+          <div className="font-pixel text-xs text-stone-300 truncate">{item.name}</div>
+          <div className="font-pixel text-xs text-stone-600 uppercase">{SLOT_LABELS[slot]}</div>
         </div>
       </div>
     </div>

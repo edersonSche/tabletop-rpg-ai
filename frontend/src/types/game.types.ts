@@ -244,7 +244,7 @@ export interface CharacterKit {
   name: string;
   description: string;
   recommendedStats: string[];
-  items: Array<{ name: string; quantity: number }>;
+  items: Array<{ name: string; quantity: number; type: string }>;
 }
 
 export interface LoginResponse { success: boolean; error?: string }

@@ -25,10 +25,10 @@ const variantClasses: Record<string, string> = {
 };
 
 const sizeClasses: Record<string, string> = {
-  xs: 'py-1 px-2 text-[8px]',
-  sm: 'py-1.5 px-3 text-[9px]',
-  md: 'py-2.5 px-5 text-[11px]',
-  lg: 'py-3 px-4 text-[12px]',
+  xs: 'py-1 px-2 text-xs',
+  sm: 'py-1.5 px-3 text-xs',
+  md: 'py-2.5 px-5 text-xs',
+  lg: 'py-3 px-4 text-xs',
 };
 
 export const Button = memo(function Button({

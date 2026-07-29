@@ -22,7 +22,7 @@ export function Login() {
       <div className="w-full max-w-sm space-y-6 relative z-10">
         <div className="flex flex-col items-center">
           <img className="max-w-[300px]" src={logo} alt="Tabletop RPG AI" />
-          <p className="font-pixel text-[10px] text-stone-600 mt-3 tracking-widest">
+          <p className="font-pixel text-xs text-stone-600 mt-3 tracking-widest">
             ENTER THE REALM
           </p>
         </div>
@@ -64,7 +64,7 @@ export function Login() {
           </form>
         </Card>
 
-        <p className="font-pixel text-[8px] text-stone-700 text-center tracking-wider">
+        <p className="font-pixel text-xs text-stone-700 text-center tracking-wider">
           TABLETOP RPG AI - WHERE AI MEETS ADVENTURE
         </p>
       </div>

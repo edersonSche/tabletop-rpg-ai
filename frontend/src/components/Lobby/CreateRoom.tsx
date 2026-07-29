@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { ChevronDown } from 'pixelarticons/react';
 import type { NarrativeLanguage } from '../../types/game.types';
 import { Card, PanelTitle, Button, TextField } from '../../components/ui';
 
@@ -39,16 +40,23 @@ export function CreateRoom({ onCreate }: CreateRoomProps) {
           placeholder="Name your quest..."
         />
         <div>
-          <label className="font-pixel text-[9px] text-stone-400 block mb-2 tracking-wider">NARRATION LANGUAGE</label>
-          <select
-            value={language}
-            onChange={e => setLanguage(e.target.value as NarrativeLanguage)}
-            className="input-field cursor-pointer appearance-none"
-          >
-            {LANGUAGES.map(l => (
-              <option key={l.value} value={l.value}>{l.label}</option>
-            ))}
-          </select>
+          <label className="font-pixel text-xs text-stone-400 block mb-2 tracking-wider">NARRATION LANGUAGE</label>
+          <div className="relative">
+            <select
+              value={language}
+              onChange={e => setLanguage(e.target.value as NarrativeLanguage)}
+              className="input-field cursor-pointer appearance-none pr-6"
+            >
+              {LANGUAGES.map(l => (
+                <option key={l.value} value={l.value}>{l.label}</option>
+              ))}
+            </select>
+            <ChevronDown
+              width={14}
+              height={14}
+              className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-stone-400"
+            />
+          </div>
         </div>
         <Button type="submit" fullWidth disabled={!roomName.trim() || creating}>
           {creating ? 'CONJURING...' : 'CREATE CAMPAIGN'}

@@ -33,10 +33,10 @@ export const ItemRow = memo(function ItemRow({
         {customIcon || (Icon && <Icon width={12} height={12} className={isEquipped ? 'text-gold-400' : 'text-stone-500'} />)}
       </div>
       <div className="flex-1 min-w-0">
-        <div className={`font-pixel text-[9px] truncate ${isEquipped ? 'text-gold-400' : 'text-stone-300'}`}>
+        <div className={`font-pixel text-xs truncate ${isEquipped ? 'text-gold-400' : 'text-stone-300'}`}>
           {name}
         </div>
-        {detail && <div className="font-pixel text-[8px] text-stone-600">{detail}</div>}
+        {detail && <div className="font-pixel text-xs text-stone-600">{detail}</div>}
         {children}
       </div>
       {action}

@@ -1,9 +1,20 @@
 import { useState, useEffect, useMemo } from "react";
-import { Logout } from "pixelarticons/react";
+import { Logout, Box as BoxIcon } from "pixelarticons/react";
 import { usePlayer } from "../hooks/usePlayer";
 import { useGame } from "../hooks/useGame";
 import type { CharacterKit } from "../types/game.types";
-import { Card, PanelTitle, Button, TextButton, ThinkingDots, Badge, EmptyState, IconButton, TextField } from "../components/ui";
+import { ITEM_TYPE_ICONS } from "../components/shared/constants";
+import {
+  Card,
+  PanelTitle,
+  Button,
+  TextButton,
+  ThinkingDots,
+  Badge,
+  EmptyState,
+  IconButton,
+  TextField,
+} from "../components/ui";
 import logo from "../assets/logo.png";
 
 type StatKey =
@@ -152,15 +163,15 @@ export function CharacterCreation() {
 
   return (
     <div className="min-h-screen flex items-start justify-center p-4 pt-8 relative bg-panel-950">
-      <div className="w-full max-w-2xl space-y-6 relative z-10">
+      <div className="w-full max-w-3xl space-y-6 relative z-10">
         <div className="flex flex-col items-center">
           <img className="max-w-[280px]" src={logo} alt="Tabletop RPG AI" />
-          <p className="font-pixel text-[10px] text-gold-500/70 mt-3 tracking-widest">
+          <p className="font-pixel text-xs text-gold-500/70 mt-3 tracking-widest">
             FORGE YOUR HERO
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="flex gap-6">
           {/* Left column: Name + Attributes */}
           <Card padding="md">
             <PanelTitle size="sm" center className="mb-4">
@@ -178,7 +189,7 @@ export function CharacterCreation() {
               />
 
               <div className="divider-gold pt-4">
-                <p className="font-pixel text-[10px] text-stone-400 mb-3 text-center">
+                <p className="font-pixel text-xs text-stone-400 mb-3 text-center">
                   POINTS: <span className="text-gold-400">{remaining}</span> /{" "}
                   {POINTS}
                 </p>
@@ -189,21 +200,21 @@ export function CharacterCreation() {
                       key={key}
                       className="flex items-center justify-between bg-zinc-900 border border-zinc-800 px-3 py-2"
                     >
-                      <span className="font-pixel text-[10px] text-stone-400 w-10">
+                      <span className="font-pixel text-xs text-stone-400 w-10">
                         {label}
                       </span>
                       <div className="flex items-center gap-3">
                         <IconButton
-                          icon={<span className="font-pixel text-[12px]">-</span>}
+                          icon={<span className="font-pixel text-xs">-</span>}
                           onClick={() => adjust(key, -1)}
                           disabled={attributes[key] <= MIN}
                           variant="panel"
                         />
-                        <span className="font-pixel text-[13px] text-gold-400 w-6 text-center font-bold">
+                        <span className="font-pixel text-sm text-gold-400 w-6 text-center font-bold">
                           {attributes[key]}
                         </span>
                         <IconButton
-                          icon={<span className="font-pixel text-[12px]">+</span>}
+                          icon={<span className="font-pixel text-xs">+</span>}
                           onClick={() => adjust(key, 1)}
                           disabled={
                             attributes[key] >= MAX ||
@@ -217,11 +228,7 @@ export function CharacterCreation() {
                 </div>
               </div>
 
-              <Button
-                type="submit"
-                fullWidth
-                disabled={!canSubmit}
-              >
+              <Button type="submit" fullWidth disabled={!canSubmit}>
                 {loading ? "FORGING..." : "CREATE HERO"}
               </Button>
             </form>
@@ -231,7 +238,7 @@ export function CharacterCreation() {
                 onClick={backToLobby}
                 icon={<Logout width={12} height={12} />}
                 color="blood"
-                className="text-[9px]"
+                className="text-xs"
               >
                 ABANDON
               </TextButton>
@@ -239,11 +246,11 @@ export function CharacterCreation() {
           </Card>
 
           {/* Right column: Kit Selection */}
-          <Card padding="md">
+          <Card padding="md" className="flex-1">
             <PanelTitle size="sm" center className="mb-3">
               STARTING KIT
             </PanelTitle>
-            <p className="font-pixel text-[9px] text-stone-500 mb-4 text-center">
+            <p className="font-pixel text-xs text-stone-500 mb-4 text-center">
               CHOOSE YOUR GEAR
             </p>
 
@@ -268,24 +275,11 @@ export function CharacterCreation() {
                           : "bg-zinc-900 border border-zinc-800 hover:bg-panel-800"
                       } ${isRecommended && !isSelected ? "ring-1 ring-gold-500/30" : ""}`}
                     >
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0">
-                          <div className="font-pixel text-[10px] text-gold-400 truncate">
-                            {kit.name}
-                          </div>
-                          <div className="font-pixel text-[8px] text-stone-500 mt-1 line-clamp-2 leading-relaxed">
-                            {kit.description}
-                          </div>
-                          <div className="flex flex-wrap gap-1 mt-2">
-                            {kit.items.map((item, idx) => (
-                              <Badge key={idx}>
-                                {item.name}
-                                {item.quantity > 1 ? ` x${item.quantity}` : ""}
-                              </Badge>
-                            ))}
-                          </div>
-                        </div>
-                        <div className="flex flex-col items-end gap-1 shrink-0">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-pixel text-xs text-gold-400">
+                          {kit.name}
+                        </span>
+                        <div className="flex items-center gap-1 shrink-0">
                           {isRecommended && (
                             <Badge variant="suggested">SUGGESTED</Badge>
                           )}
@@ -301,6 +295,25 @@ export function CharacterCreation() {
                             )}
                           </div>
                         </div>
+                      </div>
+                      <div className="font-pixel text-xs text-stone-500 mt-2 leading-relaxed">
+                        {kit.description}
+                      </div>
+                      <div className="flex flex-wrap gap-1 mt-2">
+                        {kit.items.map((item, idx) => {
+                          const Icon = ITEM_TYPE_ICONS[item.type] || BoxIcon;
+                          return (
+                            <Badge key={idx}>
+                              <Icon
+                                width={10}
+                                height={10}
+                                className="inline mr-1 -mt-0.5"
+                              />
+                              {item.name}
+                              {item.quantity > 1 ? ` x${item.quantity}` : ""}
+                            </Badge>
+                          );
+                        })}
                       </div>
                     </button>
                   );

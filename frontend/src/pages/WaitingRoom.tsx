@@ -37,14 +37,14 @@ export function WaitingRoom() {
 
         {/* Room Code Card */}
         <Card padding="sm" center>
-          <p className="font-pixel text-[11px] text-stone-400 mb-1">
+          <p className="font-pixel text-xs text-stone-400 mb-1">
             {gameState?.campaignName || "Campaign"}
           </p>
-          <p className="font-pixel text-[9px] text-stone-600 mb-3">
+          <p className="font-pixel text-xs text-stone-600 mb-3">
             SHARE THIS CODE WITH YOUR ALLIES
           </p>
           <div className="bg-zinc-900 pixel-border-gold py-3 px-6 inline-block">
-            <p className="font-pixel text-[20px] text-gold-400 tracking-[0.3em] select-all text-shadow-glow-gold">
+            <p className="font-pixel text-xl text-gold-400 tracking-[0.3em] select-all text-shadow-glow-gold">
               {player.roomId}
             </p>
           </div>
@@ -52,7 +52,7 @@ export function WaitingRoom() {
 
         {/* Connected Players */}
         <Card padding="md">
-          <SectionTitle className="text-center mb-4 text-gold-500 text-[11px]">
+          <SectionTitle className="text-center mb-4 text-gold-500 text-xs">
             GATHERED HEROES ({gameState?.players.length || 0})
           </SectionTitle>
 

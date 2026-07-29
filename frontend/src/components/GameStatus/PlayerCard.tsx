@@ -17,9 +17,9 @@ export const PlayerCard = memo(function PlayerCard({ name, level, isActive, isMe
         <span className={isActive ? 'text-cyan-400' : 'text-stone-600'}>
           {isActive ? <Play width={10} height={10} /> : <Circle width={10} height={10} />}
         </span>
-        <span className="font-pixel text-[10px] text-stone-300 flex-1">{name}</span>
-        <span className="font-pixel text-[9px] text-stone-500">Lv{level}</span>
-        {isMe && <span className="font-pixel text-[8px] text-cyan-400">(YOU)</span>}
+        <span className="font-pixel text-xs text-stone-300 flex-1">{name}</span>
+        <span className="font-pixel text-xs text-stone-500">Lv{level}</span>
+        {isMe && <span className="font-pixel text-xs text-cyan-400">(YOU)</span>}
       </div>
     </div>
   );

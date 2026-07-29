@@ -27,7 +27,7 @@ export const NavButton = memo(function NavButton({
     <button
       onClick={onClick}
       disabled={disabled}
-      className={`w-full flex items-center gap-2 px-3 py-2 font-pixel text-[10px] tracking-wider transition-all disabled:opacity-30 disabled:cursor-not-allowed ${accentClasses[accent]} ${className}`}
+      className={`w-full flex items-center gap-2 px-3 py-2 font-pixel text-xs tracking-wider transition-all disabled:opacity-30 disabled:cursor-not-allowed ${accentClasses[accent]} ${className}`}
     >
       {icon}
       {label}

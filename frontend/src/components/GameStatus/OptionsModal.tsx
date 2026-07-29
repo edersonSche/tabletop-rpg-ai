@@ -27,7 +27,7 @@ export function OptionsModal({ roomId, isOpen, onClose }: OptionsModalProps) {
 
       <SectionTitle>ROOM CODE</SectionTitle>
       <div className="flex items-center justify-between bg-zinc-900 pixel-border p-3">
-        <span className="font-pixel text-[12px] text-gold-400 tracking-widest">{roomId || '---'}</span>
+        <span className="font-pixel text-xs text-gold-400 tracking-widest">{roomId || '---'}</span>
         <button
           onClick={handleCopy}
           className="text-stone-500 hover:text-gold-400 transition-colors"
@@ -38,7 +38,7 @@ export function OptionsModal({ roomId, isOpen, onClose }: OptionsModalProps) {
       </div>
 
       {copied && (
-        <p className="font-pixel text-[9px] text-forest-600 mt-2">COPIED TO SCROLL</p>
+        <p className="font-pixel text-xs text-forest-600 mt-2">COPIED TO SCROLL</p>
       )}
     </Modal>
   );

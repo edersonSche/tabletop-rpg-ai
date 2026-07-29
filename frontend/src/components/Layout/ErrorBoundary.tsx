@@ -35,12 +35,12 @@ export class ErrorBoundary extends Component<Props, State> {
       <div className="min-h-screen flex items-center justify-center bg-navy-900">
         <div className="text-center max-w-md px-6">
           <div className="w-12 h-12 mx-auto mb-6 rounded-full border-2 border-blood-600 flex items-center justify-center">
-            <span className="text-blood-600 font-pixel text-[20px]">!</span>
+            <span className="text-blood-600 font-pixel text-xl">!</span>
           </div>
-          <h1 className="text-gold-500 font-pixel text-[18px] tracking-wider mb-2">
+          <h1 className="text-gold-500 font-pixel text-lg tracking-wider mb-2">
             SOMETHING WENT WRONG
           </h1>
-          <p className="text-stone-500 font-pixel text-[12px] mb-8 leading-relaxed">
+          <p className="text-stone-500 font-pixel text-xs mb-8 leading-relaxed">
             {this.state.error?.message || "An unexpected error occurred"}
           </p>
           <div className="flex gap-3 justify-center">
