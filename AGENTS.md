@@ -100,11 +100,12 @@ RoomModule ↔ CampaignModule circular dependency is resolved via `forwardRef()`
 | `AI_PROVIDER` | `opencode`              | Yes             | `opencode` or `openrouter`. Invalid value → backend fails to start            |
 | `AI_API_KEY`  | `(empty)`               | OpenRouter only | Empty → fallback narration for OpenRouter. OpenCode works without it          |
 | `AI_MODEL`    | `(empty)`               | Yes             | Model identifier. OpenRouter: "provider/model" format (e.g., "openai/gpt-4o") |
+| `AI_TRADE_MODEL` | `(empty)`           | No              | Separate model for trade phase (e.g., `nvidia/nemotron-3-nano-30b-a3b:free`). Falls back to `AI_MODEL` if not set |
 | `AI_BASE_URL` | `http://localhost:4096` | Yes             | OpenCode: local server URL. OpenRouter: `https://openrouter.ai/api/v1`        |
 
 Repo `.env` defaults: `AI_PROVIDER=opencode`, `AI_API_KEY=` (empty), `AI_BASE_URL=http://localhost:4096`. Config loaded in `ai.module.ts` via `ConfigService` factories. Provider is selected dynamically via a `useFactory` that switches on `AI_CONFIG.provider` — invalid values throw at startup.
 
-Opencode provider uses inline JSON prompt + regex extraction. OpenRouter provider uses `@openrouter/sdk` (ESM-only, dynamic import) with `buildFullPrompt()` per call (stateless). Both use shared `parseResponse()` for JSON extraction from AI text. Invalid `call_player`/`call_roll` targets get coerced to `group_action` by `GameService.validateAiResponseTarget()` (also warns on invalid `conditions[].targetPlayerId`).
+Opencode provider uses inline JSON prompt + regex extraction. OpenRouter provider uses `@openrouter/sdk` (ESM-only, dynamic import) with `buildFullPrompt()` per call (stateless). If a model does not support `response_format: json_object`, the OpenRouter provider auto-retries without JSON mode and relies on `parseResponse()` for text-based JSON extraction. Both providers use shared `parseResponse()` for JSON extraction from AI text. Invalid `call_player`/`call_roll` targets get coerced to `group_action` by `GameService.validateAiResponseTarget()` (also warns on invalid `conditions[].targetPlayerId`).
 
 System prompt (`system.prompt.ts`) documents: Markdown narration, two-tier memory (history + summary), player levels, location/target rules, and out-of-game question handling. Summary guidelines use a structured 5-point format (SCENE/EVENTS/NPCS/THREATS/STATUS).
 
@@ -112,7 +113,7 @@ System prompt (`system.prompt.ts`) documents: Markdown narration, two-tier memor
 - `group-action.prompt.ts` — Any player acts (default, includes all players)
 - `call-player.prompt.ts` — AI calls a specific player to act
 - `call-roll.prompt.ts` — AI requests a skill check from a player
-- `trade.prompt.ts` — AI generates merchant inventories during trade initiation
+- `trade.prompt.ts` — AI generates merchant inventories during trade initiation (language-aware, enforces effects: weapons/armor/shields/potions/antidotes MUST have effects, others optional)
 
 History sent per phase is capped: `group_action: 8`, `call_player: 5`, `call_roll: 4`, `trade: 3` entries (defined in `HISTORY_PER_PHASE`).
 
@@ -127,6 +128,8 @@ History sent per phase is capped: `group_action: 8`, `call_player: 5`, `call_rol
 
 - Stateless communication via @openrouter/sdk
 - Full context sent on every call via `buildFullPrompt()` (system + summary + phase context + history + action)
+- Auto-retries without `response_format: json_object` if model rejects it (falls back to text-based JSON extraction via `parseResponse()`)
+- Optional `AI_TRADE_MODEL` env var for a separate model during trade phase (`selectModel()` in `openrouter.provider.ts`)
 - Requires AI_API_KEY (OpenRouter API key)
 - Access to 400+ models across providers
 - Default base URL: https://openrouter.ai/api/v1
@@ -141,7 +144,7 @@ History sent per phase is capped: `group_action: 8`, `call_player: 5`, `call_rol
 - `ai/shared/prompt-builder.ts` — Shared utilities (`getPhasePrompt()`, `buildPhaseContexts()`, `buildFullPrompt()`, `parseResponse()`)
 - `ai/ai.service.ts` — `ensureSummaryQuality()` auto-corrects empty/unchanged/short/copied summaries (no retry)
 - `ai/providers/opencode.provider.ts` — OpenCode provider (sessions, incremental prompts)
-- `ai/providers/openrouter.provider.ts` — OpenRouter provider (stateless, full context)
+- `ai/providers/openrouter.provider.ts` — OpenRouter provider (stateless, full context, JSON mode fallback, per-phase model selection via `selectModel()`)
 - `ai/ai.module.ts` — Dynamic provider selection based on AI_PROVIDER env var
 
 ## Key gotchas

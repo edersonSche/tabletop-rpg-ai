@@ -5,6 +5,7 @@ export interface AIConfig {
   apiKey: string;
   model: string;
   baseUrl: string;
+  tradeModel?: string;
 }
 
 export type GamePhase = 'group_action' | 'call_player' | 'call_roll' | 'trade';
