@@ -1,6 +1,12 @@
 import { Injectable, Inject, OnModuleDestroy } from '@nestjs/common';
 import { AIProvider, AIContext } from './ai.interface';
-import { AIResponse } from '../dto/ai-response.dto';
+import {
+  AIResponse,
+  AIResponseSchema,
+  ConditionSeed,
+  MerchantSeed,
+  NextSchema,
+} from '../dto/ai-response.dto';
 
 class AiTimeoutError extends Error {}
 
@@ -15,13 +21,13 @@ export class AiService implements OnModuleDestroy {
   async generate(context: AIContext): Promise<AIResponse> {
     try {
       const response = await this.withTimeout(this.provider.generate(context));
-      return this.validateResponse(response, context);
+      return this.sanitizeResponse(response, context);
     } catch (error) {
       if (error instanceof AiTimeoutError) {
         console.error(`[room ${context.roomId}] AI call timed out — retrying once`);
         try {
           const response = await this.withTimeout(this.provider.generate(context));
-          return this.validateResponse(response, context);
+          return this.sanitizeResponse(response, context);
         } catch (retryError) {
           if (retryError instanceof AiTimeoutError) {
             console.error(`[room ${context.roomId}] AI call timed out on retry — propagating error`);
@@ -55,25 +61,68 @@ export class AiService implements OnModuleDestroy {
     });
   }
 
-  private validateResponse(response: AIResponse, context: AIContext): AIResponse {
-    const validTypes = ['group_action', 'call_player', 'call_roll'];
+  private sanitizeResponse(response: unknown, context: AIContext): AIResponse {
+    const parsed = AIResponseSchema.safeParse(response);
+    const sanitized = parsed.success ? parsed.data : this.recoverResponse(response, context);
 
-    if (!response.narration) {
-      response.narration = 'The Game Master reflects for a moment...';
+    if (!sanitized.narration) {
+      sanitized.narration = 'The Game Master reflects for a moment...';
     }
 
-    response.summary = this.ensureSummaryQuality(response, context);
+    sanitized.summary = this.ensureSummaryQuality(sanitized, context);
 
-    if (!response.next || !validTypes.includes(response.next.type)) {
-      response.next = { type: 'group_action' };
+    if (sanitized.next.type === 'call_roll') {
+      sanitized.next.skill = sanitized.next.skill || 'dexterity';
+      sanitized.next.dc = sanitized.next.dc || 10;
     }
 
-    if (response.next.type === 'call_roll') {
-      response.next.skill = response.next.skill || 'dexterity';
-      response.next.dc = response.next.dc || 10;
+    return sanitized;
+  }
+
+  private recoverResponse(raw: unknown, context: AIContext): AIResponse {
+    const src = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {};
+    const warn = (field: string): void => {
+      console.warn(`[room ${context.roomId}] AI response has invalid field "${field}" — using default.`);
+    };
+
+    const narration = typeof src.narration === 'string' ? src.narration : '';
+    if (src.narration !== undefined && narration === '') warn('narration');
+
+    const summary = typeof src.summary === 'string' ? src.summary : '';
+    if (src.summary !== undefined && summary === '') warn('summary');
+
+    const location = typeof src.location === 'string' && src.location.length > 0 ? src.location : undefined;
+    if (src.location !== undefined && location === undefined) warn('location');
+
+    let next: AIResponse['next'] = { type: 'group_action' };
+    const nextParsed = NextSchema.safeParse(src.next);
+    if (nextParsed.success) {
+      next = nextParsed.data;
+    } else if (src.next !== undefined) {
+      warn('next');
     }
 
-    return response;
+    let merchants: MerchantSeed[] | undefined;
+    if (src.merchants !== undefined) {
+      const merchantsParsed = AIResponseSchema.shape.merchants.safeParse(src.merchants);
+      if (merchantsParsed.success) {
+        merchants = merchantsParsed.data;
+      } else {
+        warn('merchants');
+      }
+    }
+
+    let conditions: ConditionSeed[] | undefined;
+    if (src.conditions !== undefined) {
+      const conditionsParsed = AIResponseSchema.shape.conditions.safeParse(src.conditions);
+      if (conditionsParsed.success) {
+        conditions = conditionsParsed.data;
+      } else {
+        warn('conditions');
+      }
+    }
+
+    return { narration, summary, location, merchants, conditions, next };
   }
 
   private ensureSummaryQuality(response: AIResponse, context: AIContext): string {
