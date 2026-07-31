@@ -23,7 +23,6 @@ import { AuthService } from '../auth/auth.service';
 import { AuthWsGuard } from '../auth/auth.guard';
 import { CampaignStore } from '../campaign/campaign.store';
 import { ZodValidationPipe } from '../pipes/zod-validation.pipe';
-import { isUnknownLocation } from '../utils/is-unknown-location';
 import {
   RoomJoinSchema,
   GameActionSchema,
@@ -150,16 +149,20 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
     this.playerService.disconnectPlayer(roomId, playerId);
 
-    this.turnManager.lock(roomId);
-    try {
-      if (this.gameService.isTradeLocked(roomId)) {
-        const shouldUnlock = this.tradeService.removeFromTrade(roomId, playerId);
-        if (shouldUnlock) {
-          this.emitTradeUnlock(roomId);
-        }
+    const room = this.gameService.getRoomContext(roomId);
+    if (room && (room.currentTurn === playerId || room.turnTarget === playerId)) {
+      room.currentTurn = null;
+      room.turnType = 'group_action';
+      room.turnTarget = null;
+      room.turnSkill = undefined;
+      room.turnDc = undefined;
+    }
+
+    if (this.gameService.isTradeLocked(roomId)) {
+      const shouldUnlock = this.tradeService.removeFromTrade(roomId, playerId);
+      if (shouldUnlock) {
+        this.emitTradeUnlock(roomId);
       }
-    } finally {
-      this.turnManager.unlock(roomId);
     }
 
     this.emitGameState(roomId);
@@ -559,27 +562,6 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
   ) {
     const { roomId, playerId } = data as { roomId: string; playerId: string };
 
-    if (this.gameService.hasMerchantsAtLocation(roomId)) {
-      this.turnManager.lock(roomId);
-      try {
-        this.tradeService.lockTrade(roomId);
-        this.emitTradeStateToAll(roomId);
-      } finally {
-        this.turnManager.unlock(roomId);
-      }
-      this.campaignStore.saveFromMemory(roomId);
-      return { success: true };
-    }
-
-    const roomCtx = this.gameService.getRoomContext(roomId);
-    if (!roomCtx || isUnknownLocation(roomCtx.currentLocation)) {
-      client.emit('game:message', {
-        type: 'system',
-        content: "You don't know where you are. There are no merchants here.",
-      });
-      return { success: true };
-    }
-
     this.server.to(roomId).emit('game:processing', { processing: true });
     try {
       const response = await this.gameService.initiateTrade(roomId, playerId);
@@ -588,15 +570,9 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
         this.emitNarrationText(roomId, response.narration, response.next);
       }
 
-      if (this.gameService.hasMerchants(roomId)) {
-        this.turnManager.lock(roomId);
-        try {
-          this.tradeService.lockTrade(roomId);
-          this.emitTradeStateToAll(roomId);
-        } finally {
-          this.turnManager.unlock(roomId);
-        }
-      } else {
+      if (response.merchantsReady) {
+        this.emitTradeStateToAll(roomId);
+      } else if (!response.narration) {
         client.emit('game:message', {
           type: 'system',
           content: 'No merchants available at this location.',
@@ -628,6 +604,11 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     };
 
     try {
+      if (this.turnManager.isLocked(roomId)) {
+        client.emit('game:error', { message: 'AI is processing an action...' });
+        return { success: false, error: 'AI is processing an action...' };
+      }
+
       const result = this.merchantService.buyFromMerchant(
         roomId, playerId, merchantId,
         merchantItemId, quantity,
@@ -666,6 +647,11 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     };
 
     try {
+      if (this.turnManager.isLocked(roomId)) {
+        client.emit('game:error', { message: 'AI is processing an action...' });
+        return { success: false, error: 'AI is processing an action...' };
+      }
+
       const result = this.merchantService.sellToMerchant(
         roomId, playerId, merchantId,
         itemId, quantity,
@@ -698,7 +684,20 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const { roomId, playerId } = data as { roomId: string; playerId: string };
 
     try {
-      this.turnManager.lock(roomId);
+      if (this.turnManager.isLocked(roomId)) {
+        client.emit('game:error', { message: 'AI is processing an action...' });
+        return { success: false, error: 'AI is processing an action...' };
+      }
+
+      if (!this.gameService.isTradeLocked(roomId)) {
+        return { success: true };
+      }
+
+      if (!this.turnManager.acquire(roomId, playerId)) {
+        client.emit('game:error', { message: 'AI is processing an action...' });
+        return { success: false, error: 'AI is processing an action...' };
+      }
+
       let allDone = false;
       try {
         allDone = this.tradeService.markDone(roomId, playerId);
@@ -708,7 +707,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
           this.emitTradeUnlock(roomId);
         }
       } finally {
-        this.turnManager.unlock(roomId);
+        this.turnManager.release(roomId, playerId);
       }
 
       if (allDone) {

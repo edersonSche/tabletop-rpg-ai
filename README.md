@@ -134,6 +134,8 @@ Template files (`.env.example`) are committed for both packages — copy to `.en
 | `game:end_trade` | `GameGateway` | `{ roomId, playerId }` |
 | `game:use_antidote` | `GameGateway` | `{ roomId, playerId, itemId, targetConditionName? }` |
 
+> **Note:** `game:buy_item`, `game:sell_item`, and `game:end_trade` are rejected with `game:error` (`"AI is processing an action..."`) while the AI is generating a response; `game:end_trade` is also a no-op when no trade is active.
+
 ### Server → Client
 
 | Event | Payload |
@@ -163,16 +165,18 @@ Template files (`.env.example`) are committed for both packages — copy to `.en
 The backend uses a **provider pattern** with two available providers:
 
 - **`AiModule`** configures `AI_CONFIG` via a factory and selects the active provider dynamically based on the `AI_PROVIDER` env var (`"opencode"` or `"openrouter"`). Invalid values cause a startup error. Exports `AiService`, `AI_PROVIDER`, and `AI_CONFIG`.
-- **`AiService`** dispatches to the configured provider. Also exposes `onRoomReady()` and `onRoomEmpty()` lifecycle methods for session management. Does not inject `AI_CONFIG` — auth/config validation is each provider's responsibility.
-- **`OpencodeProvider`** — `@Injectable()` class configured via `OnModuleInit()` with dynamic ESM import (`await import('@opencode-ai/sdk')`). Stateful: tracks sessions per room via `createOpencodeClient()`, incremental prompts, auto-recovers from 404/410 session errors. Uses `@opencode-ai/sdk` (ESM-only) with `baseUrl` and optional auth headers. Implements `validateConfig()` which requires `AI_MODEL` and `AI_BASE_URL` (does not require `AI_API_KEY`).
-- **`OpenRouterProvider`** — `@Injectable()` class configured via `OnModuleInit()` with dynamic ESM import (`await import('@openrouter/sdk')`). Stateless: no sessions, full prompt sent per call via `buildFullPrompt()`. Uses `@openrouter/sdk` (ESM-only) with `serverURL` constructor option. Implements `validateConfig()` which requires `AI_API_KEY`, `AI_MODEL`, and `AI_BASE_URL`. If a model does not support `response_format: json_object`, the provider automatically retries without JSON mode and extracts JSON from free text via `parseResponse()`. Supports `AI_TRADE_MODEL` env var for a separate model during the trade phase.
-- **Fallback** — if a provider's `generate()` throws, `AiService` catches the error and returns a static fallback narration.
+- **`AiService`** dispatches to the configured provider. Also exposes `onRoomReady()` and `onRoomEmpty()` lifecycle methods for session management. Does not inject `AI_CONFIG` — auth/config validation is each provider's responsibility. Wraps every provider call with a **30s timeout** and retries once on timeout, and validates/sanitizes every AI response against `AIResponseSchema` (Zod) via `sanitizeResponse()` — invalid responses are recovered field-by-field by `recoverResponse()` (with a `console.warn` per bad field), defaulting narration to empty, `next` to `group_action`, and `call_roll` skill/DC to `dexterity`/10.
+- **`OpencodeProvider`** — `@Injectable()` class configured via `OnModuleInit()` with dynamic ESM import (`await import('@opencode-ai/sdk')`). Stateful: tracks sessions per room via `createOpencodeClient()`, incremental prompts, auto-recovers from session errors. Uses `@opencode-ai/sdk` (ESM-only) with `baseUrl` and optional auth headers. Implements `validateConfig()` which requires `AI_MODEL` and `AI_BASE_URL` (does not require `AI_API_KEY`). Retries transient failures (408/429/5xx/network) up to 2 extra attempts with exponential backoff before falling back; session errors (400/404/410 or `NotFoundError`/`BadRequest` body) auto-recreate the session and resend the full prompt.
+- **`OpenRouterProvider`** — `@Injectable()` class configured via `OnModuleInit()` with dynamic ESM import (`await import('@openrouter/sdk')`). Stateless: no sessions, full prompt sent per call via `buildFullPrompt()`. Uses `@openrouter/sdk` (ESM-only) with `serverURL` constructor option. Implements `validateConfig()` which requires `AI_API_KEY`, `AI_MODEL`, and `AI_BASE_URL`. If a model does not support `response_format: json_object`, the provider automatically retries without JSON mode and extracts JSON from free text via `parseResponse()`. Supports `AI_TRADE_MODEL` env var for a separate model during the trade phase. Transient failures (408/429/5xx/524/529/network) are retried up to 2 extra attempts with backoff on the primary model (429 honors `Retry-After`, capped at 5s), then a single `openrouter/free` fallback attempt.
+- **Fallback** — if a provider's `generate()` still throws after timeouts/retries, `AiService` catches the error and returns a static fallback narration.
 
-The system prompt supports **English**, **Portuguese (Brazil)**, and **Spanish** narration. The AI responds in strict JSON with `narration`, required `summary` (structured narrative memory: SCENE/EVENTS/NPCS/THREATS/STATUS), mandatory `location`, optional `conditions` (narrative conditions with effects on players), optional `merchants` (array of merchants with items/prices using unified `statValue`/`statOperation`), and `next` (with `type`, `target`, `skill`, `dc`). Narration supports **Markdown** formatting rendered via `react-markdown`.
+The system prompt supports **English**, **Portuguese (Brazil)**, and **Spanish** narration. The AI responds in strict JSON with `narration`, required `summary` (structured narrative memory: SCENE/EVENTS/NPCS/THREATS/STATUS), mandatory `location`, optional `conditions` (narrative conditions with effects on players), optional `merchants` (array of merchants with items/prices using unified `statValue`/`statOperation`), and `next` (with `type`, `target`, `skill`, `dc`). Responses are validated against `AIResponseSchema` (Zod) — `effects` arrays are capped at 5 and `dc` is constrained to an int 1-50. Narration supports **Markdown** formatting rendered via `react-markdown`.
 
 The AI has a **summary-based memory system**: every response must include a `summary` field structured as SCENE/EVENTS/NPCS/THREATS/STATUS, which replaces the entire previous summary. This summary serves as the AI's long-term context — no separate summarization step is needed. History is capped at 200 entries (oldest truncated automatically) and is limited per game phase (8 entries for group_action, 5 for call_player, 4 for call_roll, 3 for trade) to stay within token budgets.
 
-AI context now includes a `gamePhase` field (`group_action`, `call_player`, `call_roll`, or `trade`) that controls how much history is sent and whether target player attributes are shown. The old `scene` field has been removed — `summary` replaces it. Invalid AI targets (`call_player`/`call_roll` pointing to missing players) are coerced to `group_action` by `GameService.validateAiResponseTarget()`.
+AI context now includes a `gamePhase` field (`group_action`, `call_player`, `call_roll`, or `trade`) that controls how much history is sent and whether target player attributes are shown. The old `scene` field has been removed — `summary` replaces it. Invalid AI targets (`call_player`/`call_roll` pointing to missing **or disconnected** players) are coerced to `group_action` by `GameService.validateAiResponseTarget()`; conditions targeting disconnected players are skipped.
+
+**Disconnect vs in-flight AI** — `handleDisconnect` is fully synchronous and lock-free by design: it never blocks or steals an in-flight AI lock, and its trade branch (`removeFromTrade`) requires `isTradeLocked`, which can never be true while the turn lock is held across an `await`. The real race — a disconnect setting `active = false` while the AI holds a stale snapshot — is handled at apply time: `validateAiResponseTarget()` coerces `call_player`/`call_roll` targets pointing to inactive players to `group_action`, `processConditions()` skips inactive targets, and `TurnManager.canPlayerAct()` treats a turn whose target is inactive or missing as open. As a final safety net, `handleDisconnect` resets the turn state (`currentTurn`/`turnTarget`/`turnType`/`turnSkill`/`turnDc`) when it points at the departing player — so a disconnect during `await aiService.generate()` can never freeze the room.
 
 When a player initiates trade via `game:initiate_trade`, the AI generates merchant data in the `merchants` field of the response. Each merchant includes an inventory of 3-8 items with prices and effects (stat modifiers and/or hp formulas). Location must be known — `"unknown location"` disables trading. The `gamePhase` is set to `trade` during trade prompts, limiting history to 3 recent entries. The trade prompt enforces language consistency (`english`/`portuguese`/`spanish`) and requires that weapons, armor, shields, potions, and antidotes always include mechanical effects — other item types may have empty effects.
 
@@ -211,12 +215,13 @@ Two-handed weapons block the off-hand slot when equipped. `game:equip` auto-uneq
 
 Players can trade with AI-generated merchants at known locations:
 
-- **Initiate trade** — `game:initiate_trade` sends a request to the AI, which generates 1–10 merchants depending on location type (cities have many, wilderness has few). Each merchant has a unique name, specialty, greeting, coins, and 3–8 items. Weapons, armor, shields, potions, and antidotes always include mechanical effects (`stat` or `hpChange`); other types may have empty effects. All dialogue, names, and descriptions follow the campaign language. All trade mutations (`lockTrade`/`unlockTrade`/`markDone`/`removeFromTrade`) are guarded by the `TurnManager` per-room lock to prevent races between concurrent disconnect, buy/sell, and end-trade operations.
+- **Initiate trade** — `game:initiate_trade` sends a request to the AI, which generates 1–10 merchants depending on location type (cities have many, wilderness has few). Each merchant has a unique name, specialty, greeting, coins, and 3–8 items. Weapons, armor, shields, potions, and antidotes always include mechanical effects (`stat` or `hpChange`); other types may have empty effects. All dialogue, names, and descriptions follow the campaign language. Trade mutations on the active-turn path (`lockTrade`/`unlockTrade`/`markDone`) are guarded by the owner-aware `TurnManager` per-room lock (`acquire`/`release` with an owner token — double-acquire rejected, non-owner release a no-op); `removeFromTrade` on disconnect runs lock-free (synchronous — never blocks or steals the turn lock).
 - **Location‑gated** — if the current location is `"unknown location"`, no merchants are available. Changing locations clears the merchant state.
 - **Price adjustments** — prices are modified per player by Charisma modifier (±5% per mod point). Each player sees their own adjusted prices via `game:trade_state`.
 - **Buying** — `game:buy_item` deducts coins and adds the item to the player's inventory. Merchant stock decreases.
 - **Selling** — `game:sell_item` removes the item from inventory and adds coins. Merchants have a coin pool that limits buybacks.
 - **Ending trade** — `game:end_trade` marks that player as done. When all participants are done, the trade lock is released and normal actions resume. Trading blocks all other player actions (`isTradeLocked`).
+- **AI-flight guards** — `game:buy_item`/`game:sell_item`/`game:end_trade` early-return with `game:error` `"AI is processing an action..."` while the AI is generating (`turnManager.isLocked()`), and `game:end_trade` is a no-op when the trade isn't locked — preventing the release of an in-flight turn lock. The per-room lock is **owner-aware** (`acquire`/`release` with an owner token): double-acquire is rejected and a non-owner release is a no-op, so no handler can steal or release an in-flight AI lock. `game:initiate_trade` returns `TradeInitResult.merchantsReady` so the trade is only locked / broadcast when merchants were actually generated.
 - **Merchant persistence** — merchant state (inventory, coins, location) is saved in campaign data and survives restarts.
 
 ## Campaign Themes
@@ -264,7 +269,7 @@ backend/src/
 ├── ai/
 │   ├── ai.module.ts         # AiModule (providers: AiService, OpencodeProvider, OpenRouterProvider, AI_CONFIG factory, AI_PROVIDER dynamic selection via useFactory)
 │   ├── ai.interface.ts      # AIConfig / AIProvider interface, GamePhase type, AIContext (gamePhase replaces scene)
-│   ├── ai.service.ts        # Provider dispatcher + ensureSummaryQuality() auto-correction (empty/unchanged/short/copied) + onRoomReady/onRoomEmpty lifecycle (no AI_CONFIG injection)
+│   ├── ai.service.ts        # Provider dispatcher + 30s timeout w/ single retry + sanitizeResponse() (Zod AIResponseSchema, field-by-field recoverResponse()) + ensureSummaryQuality() + onRoomReady/onRoomEmpty lifecycle (no AI_CONFIG injection)
 │   ├── prompts/
 │   │   ├── system.prompt.ts       # Multilingual system prompt (summary-based memory, required fields, compressed output rules)
 │   │   ├── group-action.prompt.ts # Phase prompt: any player acts (includes all players)
@@ -272,14 +277,15 @@ backend/src/
 │   │   ├── call-roll.prompt.ts    # Phase prompt: AI requests a skill check
 │   │   └── trade.prompt.ts        # Phase prompt: merchant generation
 │   ├── shared/
-│   │   └── prompt-builder.ts # Pure functions: getPhasePrompt, formatHistoryEntries, buildActionLines, buildPhaseContexts, buildTargetPlayerContext, buildFullPrompt, parseResponse
+│   │   ├── prompt-builder.ts # Pure functions: getPhasePrompt, formatHistoryEntries, buildActionLines, buildPhaseContexts, buildTargetPlayerContext, buildFullPrompt, parseResponse
+│   │   └── retry.ts          # retryWithBackoff() helper (exponential backoff, per-error decide, Retry-After support) for transient 429/5xx/network retries
 │   └── providers/
-│       ├── opencode.provider.ts  # @Injectable provider — @opencode-ai/sdk (ESM dynamic import), per-room sessions, incremental prompts, error recovery
-│       └── openrouter.provider.ts # @Injectable provider — stateless, @openrouter/sdk (ESM dynamic import), full prompt per call, validateConfig (apiKey+model+baseUrl required)
+│       ├── opencode.provider.ts  # @Injectable provider — @opencode-ai/sdk (ESM dynamic import), per-room sessions, incremental prompts, session-error recovery, sendMessageWithRetry
+│       └── openrouter.provider.ts # @Injectable provider — stateless, @openrouter/sdk (ESM dynamic import), full prompt per call, JSON mode fallback, validateConfig (apiKey+model+baseUrl required), callModelWithRetry + openrouter/free fallback
 ├── game/
 │   ├── game.module.ts       # GameModule (imports AuthModule, AiModule — exports all game services)
 │   ├── game.gateway.ts      # Game WebSocket handlers (thin delegation layer, no GameState injection)
-│   ├── game.service.ts      # Turn orchestration (single-pass processTurn, no narration_only loop, no separate summarization) + AI response processing (extracts summary, injects gamePhase) + data-access methods for gateways
+│   ├── game.service.ts      # Turn orchestration (single-pass processTurn, no narration_only loop, no separate summarization) + AI response processing (extracts summary, injects gamePhase) + initiateTrade critical section (canInitiateTrade + acquire + lockTrade, returns TradeInitResult) + data-access methods for gateways
 │   ├── game.state.ts        # Data layer: rooms Map, types/interfaces, recomputePlayer, addHistory (MAX_HISTORY_LENGTH=200 cap) + setTurn, no scene/lastSummarizedAt (services only)
 │   ├── dice.service.ts      # Dice rolling (rollDice, rollDiceFormula)
 │   ├── condition.engine.ts  # Condition/effect lifecycle: apply/remove/tick, getPlayerModifier
@@ -287,7 +293,7 @@ backend/src/
 │   ├── merchant.service.ts  # Merchant pricing, buy/sell, clearMerchants
 │   ├── trade.service.ts     # Trade lock/unlock state management (lockTrade, unlockTrade, markDone, removeFromTrade)
 │   ├── leveling.service.ts  # XP thresholds, awardXp, allocateAttributes
-│   └── turn.manager.ts      # Lock-per-room turn gate (stores turnSkill/turnDc, no narration_only)
+│   └── turn.manager.ts      # Owner-aware per-room lock (acquire/release with owner token — double-acquire rejected, non-owner release a no-op), stores turnSkill/turnDc, no narration_only
 ├── room/
 │   ├── room.module.ts       # RoomModule (imports GameModule, AuthModule, AiModule, CampaignModule)
 │   ├── room.gateway.ts      # Lobby WebSocket handlers (no GameState injection)
@@ -300,7 +306,7 @@ backend/src/
 │   └── zod-validation.pipe.ts  # Global Zod validation pipe (safeParse → BadRequestException)
 └── dto/
     ├── schemas.ts            # Zod schemas for all WebSocket handlers (24 schemas with inferred types)
-    └── ai-response.dto.ts    # AI response types (MerchantSeed/ConditionSeed with statValue/statOperation)
+    └── ai-response.dto.ts    # AI response Zod schemas (AIResponseSchema/NextSchema/MerchantSeedSchema/ConditionSeedSchema with statValue/statOperation) + TradeInitResult type
 
 frontend/src/
 ├── main.tsx                 # React entry point
@@ -311,7 +317,7 @@ frontend/src/
 │   ├── SocketContext.tsx    # Socket.IO connection + event routing (internal)
 │   ├── AuthContext.tsx       # userId, page (useReducer), connected, error
 │   ├── PlayerContext.tsx     # player identity + room lobby operations
-│   ├── GameContext.tsx       # gameState, messages, turnUpdate, typingPlayers, isAiProcessing
+│   ├── GameContext.tsx       # gameState, messages, turnUpdate, typingPlayers, isAiProcessing (resets isAiProcessing on connect/disconnect/reset)
 │   ├── TradeContext.tsx      # tradeState, isTradeLocked + trade actions
 │   └── InventoryContext.tsx  # equip/unequip/useItem/antidote actions
 ├── hooks/
@@ -320,7 +326,7 @@ frontend/src/
 │   ├── useGame.ts           # useGame() — GameContext consumer
 │   ├── useTrade.ts          # useTrade() — TradeContext consumer
 │   ├── useInventory.ts      # useInventory() — InventoryContext consumer
-│   └── useGameTurn.ts       # Turn logic hook (isMyTurn, isRollRequest, etc.)
+│   └── useGameTurn.ts       # Turn logic hook (isMyTurn, isRollRequest, isCallPhase, actionsLocked, etc.)
 ├── routing/
 │   └── pageRouter.ts        # Page state machine (reducer + types)
 ├── pages/
@@ -346,7 +352,7 @@ frontend/src/
 │   ├── Chat/
 │   │   ├── MessageList.tsx
 │   │   ├── MessageInput.tsx
-│   │   ├── DiceRollButton.tsx
+│   │   ├── RollRequestModal.tsx   # Skill-check modal (narration + skill + DC + ROLL THE DICE), replaces the old DiceRollButton
 │   │   └── UseItemButton.tsx  # Consumable dropdown + shared ConfirmUseModal
 │   ├── GameStatus/
 │   │   ├── LocationBadge.tsx
@@ -374,7 +380,8 @@ frontend/src/
 │   └── shared/
 │       ├── constants.ts      # Shared icon maps: CONDITION_ICONS, ITEM_TYPE_ICONS, ATTRIBUTE_ICONS, ATTRIB_KEYS
 │       ├── HoverPopup.tsx    # Generic render-prop hover popup (portal + boundary clamping + mouse-leave detection)
-│       └── ConfirmUseModal.tsx  # Unified fullscreen item confirmation modal
+│       ├── ConfirmUseModal.tsx  # Unified fullscreen item confirmation modal
+│       └── NarrationMarkdown.tsx  # Shared Markdown renderer for AI narration (react-markdown + remark-gfm), used by MessageList and RollRequestModal
 └── types/
     └── game.types.ts        # Shared TypeScript interfaces (Message, Player incl. activeConditions, Effect, inventory/coins/equipment, UseAntidoteResult, ConditionTickPayload, Merchant, plus typed socket response interfaces: LoginResponse, CreateRoomResponse, JoinRoomResponse, etc.)
 ```

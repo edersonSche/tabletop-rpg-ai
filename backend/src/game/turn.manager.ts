@@ -3,20 +3,24 @@ import { GameState, GameStateData } from './game.state';
 
 @Injectable()
 export class TurnManager {
-  private locks: Map<string, boolean> = new Map();
+  private locks: Map<string, string> = new Map();
 
   constructor(private gameState: GameState) {}
 
   isLocked(roomId: string): boolean {
-    return this.locks.get(roomId) || false;
+    return this.locks.has(roomId);
   }
 
-  lock(roomId: string): void {
-    this.locks.set(roomId, true);
+  acquire(roomId: string, ownerId: string): boolean {
+    if (this.locks.has(roomId)) return false;
+    this.locks.set(roomId, ownerId);
+    return true;
   }
 
-  unlock(roomId: string): void {
-    this.locks.set(roomId, false);
+  release(roomId: string, ownerId: string): void {
+    if (this.locks.get(roomId) === ownerId) {
+      this.locks.delete(roomId);
+    }
   }
 
   canPlayerAct(roomId: string, playerId: string): { allowed: boolean; reason?: string } {
@@ -36,12 +40,28 @@ export class TurnManager {
     }
 
     if (room.turnType === 'call_player' || room.turnType === 'call_roll') {
+      const targetPlayer = room.players.find(p => p.id === room.turnTarget);
+      if (room.turnTarget && !targetPlayer?.active) {
+        return { allowed: true };
+      }
       if (room.turnTarget && room.turnTarget !== playerId) {
         return { allowed: false, reason: 'Not your turn' };
       }
     }
 
     return { allowed: true };
+  }
+
+  canInitiateTrade(roomId: string, playerId: string): { allowed: boolean; reason?: string } {
+    const base = this.canPlayerAct(roomId, playerId);
+    if (!base.allowed) return base;
+
+    const room = this.gameState.getRoom(roomId);
+    if (room && (room.turnType === 'call_player' || room.turnType === 'call_roll')) {
+      return { allowed: false, reason: 'Waiting for a player to act...' };
+    }
+
+    return base;
   }
 
   processTurn(roomId: string, state: GameStateData, aiResponse: { next: { type: string; target?: string; skill?: string; dc?: number } }): void {
