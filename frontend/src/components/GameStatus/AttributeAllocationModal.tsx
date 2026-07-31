@@ -9,10 +9,11 @@ interface AttributeAllocationModalProps {
   isOpen: boolean;
   onClose: () => void;
   onAllocate: (allocations: Record<string, number>) => void;
+  disabled?: boolean;
 }
 const MAX_ATTRIBUTE = 20;
 
-export function AttributeAllocationModal({ player, isOpen, onClose, onAllocate }: AttributeAllocationModalProps) {
+export function AttributeAllocationModal({ player, isOpen, onClose, onAllocate, disabled = false }: AttributeAllocationModalProps) {
   const [allocations, setAllocations] = useState<Record<string, number>>({});
 
   if (!isOpen || !player) return null;
@@ -69,7 +70,7 @@ export function AttributeAllocationModal({ player, isOpen, onClose, onAllocate }
               <div className="flex items-center gap-2 ml-auto">
                 <button
                   onClick={() => handleDecrement(key)}
-                  disabled={!canDec}
+                  disabled={disabled || !canDec}
                   className="text-stone-500 hover:text-blood-500 transition-colors disabled:opacity-20 disabled:cursor-not-allowed"
                 >
                   <Minus width={12} height={12} />
@@ -77,7 +78,7 @@ export function AttributeAllocationModal({ player, isOpen, onClose, onAllocate }
                 <span className="font-pixel text-xs text-gold-400 font-bold w-6 text-center">{currentValue}</span>
                 <button
                   onClick={() => handleIncrement(key)}
-                  disabled={!canInc}
+                  disabled={disabled || !canInc}
                   className="text-stone-500 hover:text-cyan-400 transition-colors disabled:opacity-20 disabled:cursor-not-allowed"
                 >
                   <Plus width={12} height={12} />
@@ -90,7 +91,7 @@ export function AttributeAllocationModal({ player, isOpen, onClose, onAllocate }
 
       <Button
         onClick={handleConfirm}
-        disabled={totalAllocated === 0}
+        disabled={disabled || totalAllocated === 0}
         fullWidth
       >
         CONFIRM ({totalAllocated} / {player.pendingAttributePoints})

@@ -28,7 +28,16 @@ export function useGameTurn({ gameState, turnUpdate, playerId, isAiProcessing, i
     return turnUpdate?.type === 'call_roll' && turnUpdate?.target === playerId;
   }, [turnUpdate, playerId]);
 
+  const isCallPhase = useMemo(() => {
+    return turnUpdate?.type === 'call_player' || turnUpdate?.type === 'call_roll';
+  }, [turnUpdate]);
+
+  const actionsLocked = useMemo(() => {
+    return isAiProcessing || isTradeLocked || isCallPhase;
+  }, [isAiProcessing, isTradeLocked, isCallPhase]);
+
   const disabledReason = useMemo(() => {
+    if (isAiProcessing) return 'AI is processing an action...';
     if (isTradeLocked) return 'Trade in progress';
     if (!isMyTurn) return 'Not your turn';
     return undefined;
@@ -51,6 +60,8 @@ export function useGameTurn({ gameState, turnUpdate, playerId, isAiProcessing, i
     canAct,
     isMyTurn,
     isRollRequest,
+    isCallPhase,
+    actionsLocked,
     isInputDisabled,
     isRollDisabled,
     disabledReason,

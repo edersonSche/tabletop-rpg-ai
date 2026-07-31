@@ -51,3 +51,7 @@ export interface AIResponse {
     dc?: number;
   };
 }
+
+export interface TradeInitResult extends AIResponse {
+  merchantsReady: boolean;
+}

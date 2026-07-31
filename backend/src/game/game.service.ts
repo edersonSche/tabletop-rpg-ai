@@ -7,7 +7,8 @@ import { LevelingService } from './leveling.service';
 import { TurnManager } from './turn.manager';
 import { AiService } from '../ai/ai.service';
 import { isUnknownLocation } from '../utils/is-unknown-location';
-import { AIResponse, MerchantSeed, ConditionSeed } from '../dto/ai-response.dto';
+import { TradeService } from './trade.service';
+import { AIResponse, MerchantSeed, ConditionSeed, TradeInitResult } from '../dto/ai-response.dto';
 import { GamePhase } from '../ai/ai.interface';
 
 @Injectable()
@@ -19,6 +20,7 @@ export class GameService {
     private levelingService: LevelingService,
     private turnManager: TurnManager,
     private aiService: AiService,
+    private tradeService: TradeService,
   ) {}
 
   async handleAction(roomId: string, playerId: string, message: string): Promise<{ response: AIResponse; tickResults: TickResult[] }> {
@@ -159,32 +161,38 @@ export class GameService {
     }
   }
 
-  async initiateTrade(roomId: string, playerId: string): Promise<AIResponse> {
+  async initiateTrade(roomId: string, playerId: string): Promise<TradeInitResult> {
     const room = this.gameState.getRoom(roomId);
     if (!room) throw new Error('Room not found');
 
     const player = room.players.find(p => p.id === playerId);
     if (!player) throw new Error('Player not found');
 
-    if (room.merchants && room.merchantsLocation == room.currentLocation) {
-      return {
-        narration: '',
-        summary: room.summary,
-        next: { type: 'group_action' },
-      };
-    }
-
-    if (!room.currentLocation || isUnknownLocation(room.currentLocation)) {
-      return {
-        narration: '',
-        summary: room.summary,
-        next: { type: 'group_action' },
-      };
-    }
+    const check = this.turnManager.canInitiateTrade(roomId, playerId);
+    if (!check.allowed) throw new Error(check.reason);
 
     this.turnManager.lock(roomId);
 
     try {
+      if (room.merchants && room.merchantsLocation == room.currentLocation) {
+        this.tradeService.lockTrade(roomId);
+        return {
+          narration: '',
+          summary: room.summary,
+          next: { type: 'group_action' },
+          merchantsReady: true,
+        };
+      }
+
+      if (!room.currentLocation || isUnknownLocation(room.currentLocation)) {
+        return {
+          narration: '',
+          summary: room.summary,
+          next: { type: 'group_action' },
+          merchantsReady: false,
+        };
+      }
+
       const response = await this.aiService.generate({
         roomId,
         campaignName: room.campaignName,
@@ -209,7 +217,9 @@ export class GameService {
         },
       });
 
-      if (response.merchants && response.merchants.length > 0) {
+      const merchantsReady = !!(response.merchants && response.merchants.length > 0);
+
+      if (merchantsReady && response.merchants) {
         const merchants = response.merchants.map((seed: MerchantSeed) => this.seedToMerchant(seed));
         room.merchants = merchants;
         room.merchantsLocation = room.currentLocation ?? undefined;
@@ -223,7 +233,11 @@ export class GameService {
         room.summary = response.summary || room.summary;
       }
 
-      return response;
+      if (merchantsReady) {
+        this.tradeService.lockTrade(roomId);
+      }
+
+      return { ...response, merchantsReady };
     } finally {
       this.turnManager.unlock(roomId);
     }
@@ -464,12 +478,6 @@ export class GameService {
       history: room.history,
       summary: room.summary,
     };
-  }
-
-  hasMerchantsAtLocation(roomId: string): boolean {
-    const room = this.gameState.getRoom(roomId);
-    if (!room || !room.merchants || room.merchants.length === 0) return false;
-    return room.merchantsLocation === room.currentLocation;
   }
 
   hasMerchants(roomId: string): boolean {

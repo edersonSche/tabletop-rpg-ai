@@ -44,6 +44,18 @@ export class TurnManager {
     return { allowed: true };
   }
 
+  canInitiateTrade(roomId: string, playerId: string): { allowed: boolean; reason?: string } {
+    const base = this.canPlayerAct(roomId, playerId);
+    if (!base.allowed) return base;
+
+    const room = this.gameState.getRoom(roomId);
+    if (room && (room.turnType === 'call_player' || room.turnType === 'call_roll')) {
+      return { allowed: false, reason: 'Waiting for a player to act...' };
+    }
+
+    return base;
+  }
+
   processTurn(roomId: string, state: GameStateData, aiResponse: { next: { type: string; target?: string; skill?: string; dc?: number } }): void {
     state.currentTurn = aiResponse.next.target || null;
     state.turnType = aiResponse.next.type as any;

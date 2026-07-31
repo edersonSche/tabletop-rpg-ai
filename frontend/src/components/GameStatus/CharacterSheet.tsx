@@ -38,6 +38,7 @@ interface CharacterSheetProps {
   player: Player | undefined;
   isOpen: boolean;
   onClose: () => void;
+  disabled?: boolean;
 }
 
 type SlotKey = "body" | "mainHand" | "offHand";
@@ -117,9 +118,11 @@ function formatDuration(remainingDurations: number[]): string {
 function ActiveConditionsSection({
   player,
   onUseAntidote,
+  disabled = false,
 }: {
   player: Player;
   onUseAntidote: (conditionName: string) => void;
+  disabled?: boolean;
 }) {
   const conditions =
     player.activeConditions?.filter((ac) => !ac.isSuppressed) || [];
@@ -160,7 +163,8 @@ function ActiveConditionsSection({
             {hasAntidoteInInventory(player, ac.condition.name) && (
               <button
                 onClick={() => onUseAntidote(ac.condition.name)}
-                className="mt-2 w-full bg-forest-800/50 border border-forest-600/30 pixel-border py-1 font-pixel text-xs text-forest-600 hover:bg-forest-700/50 transition-all"
+                disabled={disabled}
+                className="mt-2 w-full bg-forest-800/50 border border-forest-600/30 pixel-border py-1 font-pixel text-xs text-forest-600 hover:bg-forest-700/50 transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-forest-800/50"
               >
                 USE ANTIDOTE
               </button>
@@ -256,6 +260,7 @@ function ItemPopupContent({
   onUnequip,
   onUseItem,
   onClose,
+  disabled = false,
 }: {
   item: InventoryItem;
   player: Player;
@@ -263,6 +268,7 @@ function ItemPopupContent({
   onUnequip: (slot: SlotKey) => void;
   onUseItem: (itemId: string) => void;
   onClose: () => void;
+  disabled?: boolean;
 }) {
   const [confirmUse, setConfirmUse] = useState(false);
   const TypeIcon = ITEM_TYPE_ICONS[item.type] || Box;
@@ -327,7 +333,7 @@ function ItemPopupContent({
 
         <div className="space-y-1">
           {item.effects && item.effects.some((e) => e.type === "immediate") && (
-            <Button size="xs" fullWidth onClick={() => setConfirmUse(true)}>
+            <Button size="xs" fullWidth onClick={() => setConfirmUse(true)} disabled={disabled}>
               USE
             </Button>
           )}
@@ -340,6 +346,7 @@ function ItemPopupContent({
                 onUnequip(equippedSlot!);
                 onClose();
               }}
+              disabled={disabled}
             >
               UNEQUIP ({SLOT_LABELS[equippedSlot!]})
             </Button>
@@ -353,6 +360,7 @@ function ItemPopupContent({
                     onEquip(item.id, "body");
                     onClose();
                   }}
+                  disabled={disabled}
                 >
                   EQUIP (BODY)
                 </Button>
@@ -365,6 +373,7 @@ function ItemPopupContent({
                     onEquip(item.id, "mainHand");
                     onClose();
                   }}
+                  disabled={disabled}
                 >
                   EQUIP (2-HANDED)
                 </Button>
@@ -378,6 +387,7 @@ function ItemPopupContent({
                       onEquip(item.id, "mainHand");
                       onClose();
                     }}
+                    disabled={disabled}
                   >
                     EQUIP (MAIN HAND)
                   </Button>
@@ -388,6 +398,7 @@ function ItemPopupContent({
                       onEquip(item.id, "offHand");
                       onClose();
                     }}
+                    disabled={disabled}
                   >
                     EQUIP (OFF HAND)
                   </Button>
@@ -415,6 +426,7 @@ export function CharacterSheet({
   player,
   isOpen,
   onClose,
+  disabled = false,
 }: CharacterSheetProps) {
   const { emitEquip, emitUnequip, emitUseItem, emitUseAntidote } =
     useInventory();
@@ -514,6 +526,7 @@ export function CharacterSheet({
             <ActiveConditionsSection
               player={player}
               onUseAntidote={handleUseAntidote}
+              disabled={disabled}
             />
           </div>
 
@@ -533,6 +546,7 @@ export function CharacterSheet({
                       onUnequip={handleUnequip}
                       onUseItem={handleUseItem}
                       onClose={close}
+                      disabled={disabled}
                     />
                   )}
                 >
@@ -551,6 +565,7 @@ export function CharacterSheet({
                       onUnequip={handleUnequip}
                       onUseItem={handleUseItem}
                       onClose={close}
+                      disabled={disabled}
                     />
                   )}
                 >
@@ -569,6 +584,7 @@ export function CharacterSheet({
                       onUnequip={handleUnequip}
                       onUseItem={handleUseItem}
                       onClose={close}
+                      disabled={disabled}
                     />
                   )}
                 >
@@ -604,6 +620,7 @@ export function CharacterSheet({
                         onUnequip={handleUnequip}
                         onUseItem={handleUseItem}
                         onClose={close}
+                        disabled={disabled}
                       />
                     )}
                   >

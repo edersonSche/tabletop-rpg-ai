@@ -6,9 +6,10 @@ import { ConfirmUseModal } from "../shared/ConfirmUseModal";
 interface UseItemButtonProps {
   items: InventoryItem[];
   onUseItem: (itemId: string) => void;
+  disabled?: boolean;
 }
 
-export function UseItemButton({ items, onUseItem }: UseItemButtonProps) {
+export function UseItemButton({ items, onUseItem, disabled = false }: UseItemButtonProps) {
   const [open, setOpen] = useState(false);
   const [confirmItem, setConfirmItem] = useState<InventoryItem | null>(null);
   const ref = useRef<HTMLDivElement>(null);
@@ -34,7 +35,8 @@ export function UseItemButton({ items, onUseItem }: UseItemButtonProps) {
           setOpen(!open);
           setConfirmItem(null);
         }}
-        className="w-11 h-11 flex items-center justify-center bg-panel-800 text-gold-400 pixel-border hover:bg-panel-700 hover:shadow-glow-gold transition-all shrink-0"
+        disabled={disabled}
+        className="w-11 h-11 flex items-center justify-center bg-panel-800 text-gold-400 pixel-border hover:bg-panel-700 hover:shadow-glow-gold transition-all shrink-0 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-panel-800 disabled:hover:shadow-none"
       >
         <Potion width={18} height={18} />
       </button>

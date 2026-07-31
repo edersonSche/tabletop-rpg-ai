@@ -64,10 +64,10 @@ export function MessageInput({
   }, []);
 
   const placeholder =
-    turnType === "call_roll"
-      ? "Cast the dice..."
-      : disabled
-        ? disabledReason || "Awaiting your turn..."
+    disabled
+      ? disabledReason || "Awaiting your turn..."
+      : turnType === "call_roll"
+        ? "Cast the dice..."
         : "Speak your action...";
 
   return (

@@ -6,7 +6,7 @@ import {
   Wallet,
   User,
 } from "pixelarticons/react";
-import { useState } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { usePlayer } from "../hooks/usePlayer";
 import { useGame } from "../hooks/useGame";
 import { useTrade } from "../hooks/useTrade";
@@ -17,8 +17,8 @@ import { Header } from "../components/Layout/Header";
 import { ErrorBoundary } from "../components/Layout/ErrorBoundary";
 import { MessageList } from "../components/Chat/MessageList";
 import { MessageInput } from "../components/Chat/MessageInput";
-import { DiceRollButton } from "../components/Chat/DiceRollButton";
 import { UseItemButton } from "../components/Chat/UseItemButton";
+import { RollRequestModal } from "../components/Chat/RollRequestModal";
 import { TypingIndicator } from "../components/GameStatus/TypingIndicator";
 import { CharacterSheet } from "../components/GameStatus/CharacterSheet";
 import { CharacterListModal } from "../components/GameStatus/CharacterListModal";
@@ -35,6 +35,7 @@ export function GameRoom() {
   const [showOptions, setShowOptions] = useState(false);
   const [showAttributeAllocation, setShowAttributeAllocation] = useState(false);
   const [leaving, setLeaving] = useState(false);
+  const [rollDismissed, setRollDismissed] = useState(false);
 
   const { player, leaveRoom, allocateAttributes } = usePlayer();
   const {
@@ -66,10 +67,9 @@ export function GameRoom() {
   const isCreator = player.playerId === gameState?.creatorId;
 
   const {
-    isMyTurn,
     isRollRequest,
+    actionsLocked,
     isInputDisabled,
-    isRollDisabled,
     disabledReason,
   } = useGameTurn({
     gameState,
@@ -79,11 +79,25 @@ export function GameRoom() {
     isTradeLocked,
   });
 
+  useEffect(() => {
+    setRollDismissed(false);
+  }, [turnUpdate]);
+
+  const rollPrompt = useMemo(() => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (messages[i].type === "narration") return messages[i].content;
+    }
+    return "";
+  }, [messages]);
+
+  const showRollModal = isRollRequest && !rollDismissed;
+
   const handleSend = (message: string) => {
     sendAction(message);
   };
 
   const handleRoll = () => {
+    setRollDismissed(true);
     sendRoll();
   };
 
@@ -135,6 +149,7 @@ export function GameRoom() {
                       onClick={() => setShowAttributeAllocation(true)}
                       size="sm"
                       fullWidth
+                      disabled={actionsLocked}
                     >
                       ATTRIBUTE PTS ({me.pendingAttributePoints})
                     </Button>
@@ -164,8 +179,7 @@ export function GameRoom() {
                       onClick={initiateTrade}
                       disabled={
                         !gameState?.gameStarted ||
-                        isAiProcessing ||
-                        isTradeLocked
+                        actionsLocked
                       }
                       accent="gold"
                     />
@@ -220,11 +234,7 @@ export function GameRoom() {
               <UseItemButton
                 items={me?.inventory || []}
                 onUseItem={emitUseItem}
-              />
-              <DiceRollButton
-                onRoll={handleRoll}
-                disabled={isRollDisabled}
-                show={isRollRequest}
+                disabled={actionsLocked}
               />
             </div>
           </div>
@@ -234,6 +244,7 @@ export function GameRoom() {
           player={me}
           isOpen={showSheet}
           onClose={() => setShowSheet(false)}
+          disabled={actionsLocked}
         />
 
         <CharacterListModal
@@ -255,7 +266,17 @@ export function GameRoom() {
           isOpen={showAttributeAllocation}
           onClose={() => setShowAttributeAllocation(false)}
           onAllocate={allocateAttributes}
+          disabled={actionsLocked}
         />
+
+        {showRollModal && (
+          <RollRequestModal
+            narration={rollPrompt}
+            skill={turnUpdate?.skill}
+            dc={turnUpdate?.dc}
+            onRoll={handleRoll}
+          />
+        )}
 
         {tradeState?.locked && tradeState.merchants && me && (
           <TradeModal
