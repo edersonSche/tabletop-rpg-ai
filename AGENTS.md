@@ -105,7 +105,7 @@ RoomModule ↔ CampaignModule circular dependency is resolved via `forwardRef()`
 
 Repo `.env` defaults: `AI_PROVIDER=opencode`, `AI_API_KEY=` (empty), `AI_BASE_URL=http://localhost:4096`. Config loaded in `ai.module.ts` via `ConfigService` factories. Provider is selected dynamically via a `useFactory` that switches on `AI_CONFIG.provider` — invalid values throw at startup.
 
-Opencode provider uses inline JSON prompt + regex extraction. OpenRouter provider uses `@openrouter/sdk` (ESM-only, dynamic import) with `buildFullPrompt()` per call (stateless). If a model does not support `response_format: json_object`, the OpenRouter provider auto-retries without JSON mode and relies on `parseResponse()` for text-based JSON extraction. Both providers use shared `parseResponse()` for JSON extraction from AI text. Invalid `call_player`/`call_roll` targets get coerced to `group_action` by `GameService.validateAiResponseTarget()` (also warns on invalid `conditions[].targetPlayerId`).
+Opencode provider uses inline JSON prompt + regex extraction. OpenRouter provider uses `@openrouter/sdk` (ESM-only, dynamic import) with `buildFullPrompt()` per call (stateless). If a model does not support `response_format: json_object`, the OpenRouter provider auto-retries without JSON mode and relies on `parseResponse()` for text-based JSON extraction. Both providers use shared `parseResponse()` for JSON extraction from AI text. Both providers also retry **transient failures** (429/408/5xx/network errors) up to 2 extra attempts with backoff via the shared `retryWithBackoff()` helper (`ai/shared/retry.ts`) before falling back; 429 honors `Retry-After` (capped at 5s) when present. Invalid `call_player`/`call_roll` targets get coerced to `group_action` by `GameService.validateAiResponseTarget()` (also warns on invalid `conditions[].targetPlayerId`).
 
 System prompt (`system.prompt.ts`) documents: Markdown narration, two-tier memory (history + summary), player levels, location/target rules, and out-of-game question handling. Summary guidelines use a structured 5-point format (SCENE/EVENTS/NPCS/THREATS/STATUS).
 
@@ -123,12 +123,14 @@ History sent per phase is capped: `group_action: 8`, `call_player: 5`, `call_rol
 - Two-phase prompt: session init (full context via `buildPhaseContexts()`) + incremental (action only via `getPhasePrompt()`)
 - Works without API key (HTTP Basic Auth optional)
 - Requires running OpenCode server at AI_BASE_URL
+- Transient failures (429/408/5xx/network) retried 2x with backoff; session errors (400/404/410 or `NotFoundError`/`BadRequest` body) recreate the session and resend the full prompt
 
 ### Provider: OpenRouter
 
 - Stateless communication via @openrouter/sdk
 - Full context sent on every call via `buildFullPrompt()` (system + summary + phase context + history + action)
 - Auto-retries without `response_format: json_object` if model rejects it (falls back to text-based JSON extraction via `parseResponse()`)
+- Transient failures (429/408/5xx/524/529/network) retried 2x with backoff on the primary model, then a single `openrouter/free` fallback attempt
 - Optional `AI_TRADE_MODEL` env var for a separate model during trade phase (`selectModel()` in `openrouter.provider.ts`)
 - Requires AI_API_KEY (OpenRouter API key)
 - Access to 400+ models across providers
@@ -142,6 +144,7 @@ History sent per phase is capped: `group_action: 8`, `call_player: 5`, `call_rol
 - `ai/prompts/call-roll.prompt.ts` — Phase prompt for skill checks
 - `ai/prompts/trade.prompt.ts` — Phase prompt for merchant generation
 - `ai/shared/prompt-builder.ts` — Shared utilities (`getPhasePrompt()`, `buildPhaseContexts()`, `buildFullPrompt()`, `parseResponse()`)
+- `ai/shared/retry.ts` — Shared `retryWithBackoff()` helper (exponential backoff, per-error `decide`, optional fixed delay e.g. `Retry-After`) for transient 429/5xx/network retries
 - `ai/ai.service.ts` — `ensureSummaryQuality()` auto-corrects empty/unchanged/short/copied summaries (no retry)
 - `ai/providers/opencode.provider.ts` — OpenCode provider (sessions, incremental prompts)
 - `ai/providers/openrouter.provider.ts` — OpenRouter provider (stateless, full context, JSON mode fallback, per-phase model selection via `selectModel()`)
@@ -164,7 +167,7 @@ History sent per phase is capped: `group_action: 8`, `call_player: 5`, `call_rol
 - **HP/XP/Leveling** — Player model includes `hp`, `maxHp`, `level` (1-20), `xp`, `maxXp`, `pendingAttributePoints`. HP = `10 + CON mod`. XP thresholds from D&D 5e SRD. ASI levels (4/8/12/16/19) grant +2 attribute points. Backend engine is complete; XP gain is not yet triggered by game actions (no server-side `game:level_up` emit).
 - **Attribute point-buy** — Character creation: 27-point pool, attributes range 8-15 (cost: 1pt for 8-12, 2pt for 13-14). Max attribute is 20.
 - **Inventory & Equipment** — Players start with a dagger, 2 healing potions, and 50 coins. Items have types, slots, and `effects: Effect[]` (unified stat modifiers + hp changes). Equipment slots: body, mainHand, offHand. `PlayerService.equipItem` auto-unequips existing slot items and recalculates AC/effects via `GameState.recomputePlayer`; `PlayerService.unequipItem` also triggers recalculation. Two-handed weapons block off-hand slot. `PlayerService.useItem` processes all effect types (immediate heal/damage via `ConditionEngine.applyHpChange`, temporary→synthetic condition via `ConditionEngine.applyConditionToPlayer`, permanent→temporary fallback). `PlayerService.useAntidote` removes a condition by name (matched via `item.antidoteFor`) via `ConditionEngine.removeConditionFromPlayer` and consumes the item. Items with `antidoteFor` in their definition (catalog or AI-generated merchant) work as condition cures. Inventory/coins/equipment are persisted in saved campaigns.
-- **AI sessions** — `AiService.onRoomReady()`/`onRoomEmpty()` delegate to the configured provider for session lifecycle. Called by gateways via `AiService` (no direct `AI_PROVIDER` injection). Created on character creation / campaign resume; deleted on last leave / disband / delete_saved. OpenCode provider: 404/410 errors auto-recreate sessions via SDK.
+- **AI sessions** — `AiService.onRoomReady()`/`onRoomEmpty()` delegate to the configured provider for session lifecycle. Called by gateways via `AiService` (no direct `AI_PROVIDER` injection). Created on character creation / campaign resume; deleted on last leave / disband / delete_saved. OpenCode provider: session errors (detected via `error.cause.status` 400/404/410 or `error.cause.body.name` `NotFoundError`/`BadRequest`) auto-recreate the session and resend the full prompt.
 - **History summarization** — No separate summarization step. The AI returns an updated `summary` in every response, replacing the old one. History is capped at 200 entries (oldest auto-truncated) and limited per game phase (group_action: 8, call_player: 5, call_roll: 4, trade: 3). Summary is persisted in saved campaigns.
 - **`isUnknownLocation()` utility** — extracted to `backend/src/utils/is-unknown-location.ts`, imported by `GameService` and `GameGateway` (was duplicated in both files before M12 fix).
 - **GameRoom layout** — Left sidebar (`bg-panel-900`, 48px) with `MyCharacterStatus` (HP/XP `bar-segmented` bars, name, level, condition indicators) + modal navigation buttons (Sheet, Characters, Options, Leave). Main area has `CampaignStatusBar` at top, Chat in center, TypingIndicator + MessageInput + DiceRollButton at bottom. All panels (CharacterSheet with ActiveConditionsSection, CharacterList, Options, AttributeAllocation) are modals.

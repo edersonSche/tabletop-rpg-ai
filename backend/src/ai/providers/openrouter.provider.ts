@@ -2,12 +2,20 @@ import { Injectable, Inject, OnModuleInit } from "@nestjs/common";
 import { AIProvider, AIConfig, AIContext } from "../ai.interface";
 import { AIResponse } from "../../dto/ai-response.dto";
 import { buildFullPrompt, parseResponse } from "../shared/prompt-builder";
+import { retryWithBackoff } from "../shared/retry";
 
 @Injectable()
 export class OpenRouterProvider implements AIProvider, OnModuleInit {
   private static readonly TEMPERATURE = 0.7;
   private static readonly RESPONSE_FORMAT = "json_object" as const;
   private static readonly FALLBACK_MODEL = "openrouter/free";
+  private static readonly RETRYABLE_STATUS = [408, 429, 500, 502, 503, 504, 524, 529];
+  private static readonly RETRYABLE_NETWORK_ERRORS = [
+    "ConnectionError",
+    "RequestTimeoutError",
+    "UnexpectedClientError",
+  ];
+  private static readonly MAX_RETRY_AFTER_MS = 5000;
 
   private client: any = null;
   private model: string = "";
@@ -42,7 +50,7 @@ export class OpenRouterProvider implements AIProvider, OnModuleInit {
     const model = this.selectModel(context);
 
     try {
-      return await this.callModel(model, fullPrompt);
+      return await this.callModelWithRetry(model, fullPrompt, 2);
     } catch (error) {
       console.error(
         `OpenRouter model (${model}) error:`,
@@ -57,9 +65,10 @@ export class OpenRouterProvider implements AIProvider, OnModuleInit {
           `OpenRouter: falling back to ${OpenRouterProvider.FALLBACK_MODEL}`,
         );
         try {
-          return await this.callModel(
+          return await this.callModelWithRetry(
             OpenRouterProvider.FALLBACK_MODEL,
             fullPrompt,
+            0,
           );
         } catch (fallbackError) {
           console.error(
@@ -71,6 +80,46 @@ export class OpenRouterProvider implements AIProvider, OnModuleInit {
 
       return this.fallbackResponse(context);
     }
+  }
+
+  private async callModelWithRetry(
+    model: string,
+    prompt: string,
+    retries: number,
+  ): Promise<AIResponse> {
+    return retryWithBackoff(
+      () => this.callModel(model, prompt),
+      {
+        retries,
+        decide: (error) => this.retryDelayFor(error),
+        onRetry: (attempt, error, delayMs) => {
+          console.warn(
+            `OpenRouter model (${model}) transient error (attempt ${attempt}): ${error.message} — retrying in ${delayMs}ms`,
+          );
+        },
+      },
+    );
+  }
+
+  private retryDelayFor(error: any): number | true | false {
+    const status = error?.statusCode;
+    if (typeof status === "number") {
+      if (status === 429) {
+        const retryAfter = this.parseRetryAfterMs(error?.headers?.get?.("Retry-After"));
+        return retryAfter ?? true;
+      }
+      return OpenRouterProvider.RETRYABLE_STATUS.includes(status);
+    }
+    if (OpenRouterProvider.RETRYABLE_NETWORK_ERRORS.includes(error?.name)) {
+      return true;
+    }
+    return false;
+  }
+
+  private parseRetryAfterMs(value: unknown): number | null {
+    const seconds = typeof value === "string" ? Number(value) : NaN;
+    if (!Number.isFinite(seconds) || seconds <= 0) return null;
+    return Math.min(seconds * 1000, OpenRouterProvider.MAX_RETRY_AFTER_MS);
   }
 
   private selectModel(context: AIContext): string {
@@ -120,7 +169,7 @@ export class OpenRouterProvider implements AIProvider, OnModuleInit {
     return (
       msg.includes("validation") ||
       msg.includes("response_format") ||
-      error?.status === 400
+      error?.statusCode === 400
     );
   }
 

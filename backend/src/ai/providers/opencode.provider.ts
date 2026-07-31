@@ -8,12 +8,17 @@ import {
   buildFullPrompt,
   parseResponse,
 } from '../shared/prompt-builder';
+import { retryWithBackoff } from '../shared/retry';
 
 @Injectable()
 export class OpencodeProvider implements AIProvider, OnModuleInit {
   private client: any = null;
   private sessions = new Map<string, string>();
   private sessionContextSent = new Set<string>();
+
+  private static readonly RETRYABLE_STATUS = [408, 429, 500, 502, 503, 504];
+  private static readonly NETWORK_ERROR_PATTERN =
+    /fetch failed|network error|econnrefused|econnreset|etimedout|enotfound|eai_again/i;
 
   constructor(@Inject('AI_CONFIG') private config: AIConfig) {}
 
@@ -49,7 +54,7 @@ export class OpencodeProvider implements AIProvider, OnModuleInit {
       }
 
       const prompt = this.buildIncrementalPrompt(context);
-      const message = await this.sendMessage(context.roomId, prompt);
+      const message = await this.sendMessageWithRetry(context.roomId, prompt);
       const text = this.extractText(message);
 
       return parseResponse(text);
@@ -63,7 +68,7 @@ export class OpencodeProvider implements AIProvider, OnModuleInit {
         try {
           await this.onRoomReady(context.roomId, context);
           const fullPrompt = buildFullPrompt(context);
-          const message = await this.sendMessage(context.roomId, fullPrompt);
+          const message = await this.sendMessageWithRetry(context.roomId, fullPrompt);
           return parseResponse(this.extractText(message));
         } catch (retryError) {
           console.error('Opencode provider retry failed:', retryError.message);
@@ -139,8 +144,42 @@ export class OpencodeProvider implements AIProvider, OnModuleInit {
   }
 
   private isSessionError(error: any): boolean {
-    const name = error?.cause?.name;
-    return name === 'NotFoundError' || name === 'BadRequest';
+    const cause = error?.cause;
+    const status = cause?.status;
+    const name = cause?.body?.name;
+    return (
+      status === 400 ||
+      status === 404 ||
+      status === 410 ||
+      name === 'NotFoundError' ||
+      name === 'BadRequest'
+    );
+  }
+
+  private async sendMessageWithRetry(roomId: string, content: string): Promise<{ info: any; parts: any[] }> {
+    return retryWithBackoff(
+      () => this.sendMessage(roomId, content),
+      {
+        decide: (error) => this.retryDelayFor(error),
+        onRetry: (attempt, error, delayMs) => {
+          console.warn(
+            `Opencode provider transient error (attempt ${attempt}): ${error.message} — retrying in ${delayMs}ms`,
+          );
+        },
+      },
+    );
+  }
+
+  private retryDelayFor(error: any): number | true | false {
+    const status = error?.cause?.status;
+    if (typeof status === 'number') {
+      return OpencodeProvider.RETRYABLE_STATUS.includes(status);
+    }
+    const message = error?.message || '';
+    if (OpencodeProvider.NETWORK_ERROR_PATTERN.test(message)) {
+      return true;
+    }
+    return false;
   }
 
   private extractText(message: { parts: any[] }): string {
