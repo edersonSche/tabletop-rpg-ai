@@ -315,10 +315,14 @@ export class GameService {
         response.next.type = 'group_action';
         response.next.target = undefined;
       } else {
-        const playerExists = players.some(p => p.id === response.next.target);
-        if (!playerExists) {
+        const targetPlayer = players.find(p => p.id === response.next.target);
+        if (!targetPlayer) {
           const availableIds = players.map(p => `${p.name}:${p.id}`).join(', ');
           console.warn(`AI returned invalid target "${response.next.target}" — no player with that ID in room. Available: [${availableIds}]. Coercing to group_action.`);
+          response.next.type = 'group_action';
+          response.next.target = undefined;
+        } else if (!targetPlayer.active) {
+          console.warn(`AI returned target "${response.next.target}" (${targetPlayer.name}) which is disconnected. Coercing to group_action.`);
           response.next.type = 'group_action';
           response.next.target = undefined;
         }
@@ -340,6 +344,10 @@ export class GameService {
       const targetPlayer = room.players.find(p => p.id === seed.targetPlayerId);
       if (!targetPlayer) {
         console.warn(`AI condition target "${seed.targetPlayerId}" not found in room. Skipping.`);
+        continue;
+      }
+      if (!targetPlayer.active) {
+        console.warn(`AI condition target "${seed.targetPlayerId}" (${targetPlayer.name}) is disconnected. Skipping.`);
         continue;
       }
 

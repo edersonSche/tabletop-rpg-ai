@@ -40,6 +40,10 @@ export class TurnManager {
     }
 
     if (room.turnType === 'call_player' || room.turnType === 'call_roll') {
+      const targetPlayer = room.players.find(p => p.id === room.turnTarget);
+      if (room.turnTarget && !targetPlayer?.active) {
+        return { allowed: true };
+      }
       if (room.turnTarget && room.turnTarget !== playerId) {
         return { allowed: false, reason: 'Not your turn' };
       }

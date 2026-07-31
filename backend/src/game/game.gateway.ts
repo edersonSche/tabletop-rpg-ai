@@ -149,6 +149,15 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
     this.playerService.disconnectPlayer(roomId, playerId);
 
+    const room = this.gameService.getRoomContext(roomId);
+    if (room && (room.currentTurn === playerId || room.turnTarget === playerId)) {
+      room.currentTurn = null;
+      room.turnType = 'group_action';
+      room.turnTarget = null;
+      room.turnSkill = undefined;
+      room.turnDc = undefined;
+    }
+
     if (this.gameService.isTradeLocked(roomId)) {
       const shouldUnlock = this.tradeService.removeFromTrade(roomId, playerId);
       if (shouldUnlock) {
