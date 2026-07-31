@@ -2,20 +2,57 @@ import { Injectable, Inject, OnModuleDestroy } from '@nestjs/common';
 import { AIProvider, AIContext } from './ai.interface';
 import { AIResponse } from '../dto/ai-response.dto';
 
+class AiTimeoutError extends Error {}
+
 @Injectable()
 export class AiService implements OnModuleDestroy {
+  private static readonly AI_TIMEOUT_MS = 60_000;
+
   constructor(
     @Inject('AI_PROVIDER') private provider: AIProvider,
   ) {}
 
   async generate(context: AIContext): Promise<AIResponse> {
     try {
-      const response = await this.provider.generate(context);
+      const response = await this.withTimeout(this.provider.generate(context));
       return this.validateResponse(response, context);
     } catch (error) {
+      if (error instanceof AiTimeoutError) {
+        console.error(`[room ${context.roomId}] AI call timed out — retrying once`);
+        try {
+          const response = await this.withTimeout(this.provider.generate(context));
+          return this.validateResponse(response, context);
+        } catch (retryError) {
+          if (retryError instanceof AiTimeoutError) {
+            console.error(`[room ${context.roomId}] AI call timed out on retry — propagating error`);
+            throw retryError;
+          }
+          console.error('AI provider retry error:', retryError.message);
+          return this.fallbackResponse(context);
+        }
+      }
       console.error('AI provider error:', error.message);
       return this.fallbackResponse(context);
     }
+  }
+
+  private withTimeout<T>(promise: Promise<T>): Promise<T> {
+    return new Promise<T>((resolve, reject) => {
+      const timer = setTimeout(() => {
+        reject(new AiTimeoutError(`AI call timed out after ${AiService.AI_TIMEOUT_MS}ms`));
+      }, AiService.AI_TIMEOUT_MS);
+
+      promise.then(
+        (value) => {
+          clearTimeout(timer);
+          resolve(value);
+        },
+        (error) => {
+          clearTimeout(timer);
+          reject(error);
+        },
+      );
+    });
   }
 
   private validateResponse(response: AIResponse, context: AIContext): AIResponse {
