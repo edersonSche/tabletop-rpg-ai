@@ -37,6 +37,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const handleConnect = () => {
+      setIsAiProcessing(false);
       const currentRoomId = playerRef.current.roomId;
       if (currentRoomId) {
         emit('game:get_state', { roomId: currentRoomId }, (response: GetStateResponse) => {
@@ -53,6 +54,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     const handleDisconnect = () => {
       setGameState(null);
       setTurnUpdate(null);
+      setIsAiProcessing(false);
     };
 
     const processHistoryEntries = (history: GameState['history'], players: GameState['players']): Message[] => {
@@ -211,6 +213,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       setGameState(null);
       setTurnUpdate(null);
       setMessages([]);
+      setIsAiProcessing(false);
     };
 
     on('connect', handleConnect);

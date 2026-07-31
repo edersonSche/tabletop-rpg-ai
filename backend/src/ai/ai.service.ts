@@ -12,7 +12,7 @@ class AiTimeoutError extends Error {}
 
 @Injectable()
 export class AiService implements OnModuleDestroy {
-  private static readonly AI_TIMEOUT_MS = 60_000;
+  private static readonly AI_TIMEOUT_MS = 30_000;
 
   constructor(
     @Inject('AI_PROVIDER') private provider: AIProvider,
