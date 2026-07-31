@@ -68,7 +68,9 @@ export class GameService {
     const check = this.turnManager.canPlayerAct(roomId, playerId);
     if (!check.allowed) throw new Error(check.reason);
 
-    this.turnManager.lock(roomId);
+    if (!this.turnManager.acquire(roomId, playerId)) {
+      throw new Error('AI is processing an action...');
+    }
 
     const player = room.players.find(p => p.id === playerId);
 
@@ -104,7 +106,7 @@ export class GameService {
 
       return { response, tickResults };
     } finally {
-      this.turnManager.unlock(roomId);
+      this.turnManager.release(roomId, playerId);
     }
   }
 
@@ -127,7 +129,9 @@ export class GameService {
       };
     }
 
-    this.turnManager.lock(roomId);
+    if (!this.turnManager.acquire(roomId, 'start')) {
+      throw new Error('AI is processing an action...');
+    }
 
     try {
       const response = await this.aiService.generate({
@@ -157,7 +161,7 @@ export class GameService {
 
       return { response, tickResults };
     } finally {
-      this.turnManager.unlock(roomId);
+      this.turnManager.release(roomId, 'start');
     }
   }
 
@@ -171,7 +175,9 @@ export class GameService {
     const check = this.turnManager.canInitiateTrade(roomId, playerId);
     if (!check.allowed) throw new Error(check.reason);
 
-    this.turnManager.lock(roomId);
+    if (!this.turnManager.acquire(roomId, playerId)) {
+      throw new Error('AI is processing an action...');
+    }
 
     try {
       if (room.merchants && room.merchantsLocation == room.currentLocation) {
@@ -239,7 +245,7 @@ export class GameService {
 
       return { ...response, merchantsReady };
     } finally {
-      this.turnManager.unlock(roomId);
+      this.turnManager.release(roomId, playerId);
     }
   }
 

@@ -149,16 +149,11 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
     this.playerService.disconnectPlayer(roomId, playerId);
 
-    this.turnManager.lock(roomId);
-    try {
-      if (this.gameService.isTradeLocked(roomId)) {
-        const shouldUnlock = this.tradeService.removeFromTrade(roomId, playerId);
-        if (shouldUnlock) {
-          this.emitTradeUnlock(roomId);
-        }
+    if (this.gameService.isTradeLocked(roomId)) {
+      const shouldUnlock = this.tradeService.removeFromTrade(roomId, playerId);
+      if (shouldUnlock) {
+        this.emitTradeUnlock(roomId);
       }
-    } finally {
-      this.turnManager.unlock(roomId);
     }
 
     this.emitGameState(roomId);
@@ -689,7 +684,11 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
         return { success: true };
       }
 
-      this.turnManager.lock(roomId);
+      if (!this.turnManager.acquire(roomId, playerId)) {
+        client.emit('game:error', { message: 'AI is processing an action...' });
+        return { success: false, error: 'AI is processing an action...' };
+      }
+
       let allDone = false;
       try {
         allDone = this.tradeService.markDone(roomId, playerId);
@@ -699,7 +698,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
           this.emitTradeUnlock(roomId);
         }
       } finally {
-        this.turnManager.unlock(roomId);
+        this.turnManager.release(roomId, playerId);
       }
 
       if (allDone) {

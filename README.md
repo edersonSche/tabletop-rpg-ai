@@ -213,13 +213,13 @@ Two-handed weapons block the off-hand slot when equipped. `game:equip` auto-uneq
 
 Players can trade with AI-generated merchants at known locations:
 
-- **Initiate trade** — `game:initiate_trade` sends a request to the AI, which generates 1–10 merchants depending on location type (cities have many, wilderness has few). Each merchant has a unique name, specialty, greeting, coins, and 3–8 items. Weapons, armor, shields, potions, and antidotes always include mechanical effects (`stat` or `hpChange`); other types may have empty effects. All dialogue, names, and descriptions follow the campaign language. All trade mutations (`lockTrade`/`unlockTrade`/`markDone`/`removeFromTrade`) are guarded by the `TurnManager` per-room lock to prevent races between concurrent disconnect, buy/sell, and end-trade operations.
+- **Initiate trade** — `game:initiate_trade` sends a request to the AI, which generates 1–10 merchants depending on location type (cities have many, wilderness has few). Each merchant has a unique name, specialty, greeting, coins, and 3–8 items. Weapons, armor, shields, potions, and antidotes always include mechanical effects (`stat` or `hpChange`); other types may have empty effects. All dialogue, names, and descriptions follow the campaign language. Trade mutations on the active-turn path (`lockTrade`/`unlockTrade`/`markDone`) are guarded by the owner-aware `TurnManager` per-room lock (`acquire`/`release` with an owner token — double-acquire rejected, non-owner release a no-op); `removeFromTrade` on disconnect runs lock-free (synchronous — never blocks or steals the turn lock).
 - **Location‑gated** — if the current location is `"unknown location"`, no merchants are available. Changing locations clears the merchant state.
 - **Price adjustments** — prices are modified per player by Charisma modifier (±5% per mod point). Each player sees their own adjusted prices via `game:trade_state`.
 - **Buying** — `game:buy_item` deducts coins and adds the item to the player's inventory. Merchant stock decreases.
 - **Selling** — `game:sell_item` removes the item from inventory and adds coins. Merchants have a coin pool that limits buybacks.
 - **Ending trade** — `game:end_trade` marks that player as done. When all participants are done, the trade lock is released and normal actions resume. Trading blocks all other player actions (`isTradeLocked`).
-- **AI-flight guards** — `game:buy_item`/`game:sell_item`/`game:end_trade` early-return with `game:error` `"AI is processing an action..."` while the AI is generating (`turnManager.isLocked()`), and `game:end_trade` is a no-op when the trade isn't locked — preventing the release of an in-flight turn lock. `game:initiate_trade` returns `TradeInitResult.merchantsReady` so the trade is only locked / broadcast when merchants were actually generated.
+- **AI-flight guards** — `game:buy_item`/`game:sell_item`/`game:end_trade` early-return with `game:error` `"AI is processing an action..."` while the AI is generating (`turnManager.isLocked()`), and `game:end_trade` is a no-op when the trade isn't locked — preventing the release of an in-flight turn lock. The per-room lock is **owner-aware** (`acquire`/`release` with an owner token): double-acquire is rejected and a non-owner release is a no-op, so no handler can steal or release an in-flight AI lock. `game:initiate_trade` returns `TradeInitResult.merchantsReady` so the trade is only locked / broadcast when merchants were actually generated.
 - **Merchant persistence** — merchant state (inventory, coins, location) is saved in campaign data and survives restarts.
 
 ## Campaign Themes
@@ -283,7 +283,7 @@ backend/src/
 ├── game/
 │   ├── game.module.ts       # GameModule (imports AuthModule, AiModule — exports all game services)
 │   ├── game.gateway.ts      # Game WebSocket handlers (thin delegation layer, no GameState injection)
-│   ├── game.service.ts      # Turn orchestration (single-pass processTurn, no narration_only loop, no separate summarization) + AI response processing (extracts summary, injects gamePhase) + initiateTrade critical section (canInitiateTrade + lock + lockTrade, returns TradeInitResult) + data-access methods for gateways
+│   ├── game.service.ts      # Turn orchestration (single-pass processTurn, no narration_only loop, no separate summarization) + AI response processing (extracts summary, injects gamePhase) + initiateTrade critical section (canInitiateTrade + acquire + lockTrade, returns TradeInitResult) + data-access methods for gateways
 │   ├── game.state.ts        # Data layer: rooms Map, types/interfaces, recomputePlayer, addHistory (MAX_HISTORY_LENGTH=200 cap) + setTurn, no scene/lastSummarizedAt (services only)
 │   ├── dice.service.ts      # Dice rolling (rollDice, rollDiceFormula)
 │   ├── condition.engine.ts  # Condition/effect lifecycle: apply/remove/tick, getPlayerModifier
@@ -291,7 +291,7 @@ backend/src/
 │   ├── merchant.service.ts  # Merchant pricing, buy/sell, clearMerchants
 │   ├── trade.service.ts     # Trade lock/unlock state management (lockTrade, unlockTrade, markDone, removeFromTrade)
 │   ├── leveling.service.ts  # XP thresholds, awardXp, allocateAttributes
-│   └── turn.manager.ts      # Lock-per-room turn gate (stores turnSkill/turnDc, no narration_only)
+│   └── turn.manager.ts      # Owner-aware per-room lock (acquire/release with owner token — double-acquire rejected, non-owner release a no-op), stores turnSkill/turnDc, no narration_only
 ├── room/
 │   ├── room.module.ts       # RoomModule (imports GameModule, AuthModule, AiModule, CampaignModule)
 │   ├── room.gateway.ts      # Lobby WebSocket handlers (no GameState injection)

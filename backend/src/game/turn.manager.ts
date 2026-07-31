@@ -3,20 +3,24 @@ import { GameState, GameStateData } from './game.state';
 
 @Injectable()
 export class TurnManager {
-  private locks: Map<string, boolean> = new Map();
+  private locks: Map<string, string> = new Map();
 
   constructor(private gameState: GameState) {}
 
   isLocked(roomId: string): boolean {
-    return this.locks.get(roomId) || false;
+    return this.locks.has(roomId);
   }
 
-  lock(roomId: string): void {
-    this.locks.set(roomId, true);
+  acquire(roomId: string, ownerId: string): boolean {
+    if (this.locks.has(roomId)) return false;
+    this.locks.set(roomId, ownerId);
+    return true;
   }
 
-  unlock(roomId: string): void {
-    this.locks.set(roomId, false);
+  release(roomId: string, ownerId: string): void {
+    if (this.locks.get(roomId) === ownerId) {
+      this.locks.delete(roomId);
+    }
   }
 
   canPlayerAct(roomId: string, playerId: string): { allowed: boolean; reason?: string } {
