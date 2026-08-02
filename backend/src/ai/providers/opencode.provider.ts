@@ -14,7 +14,7 @@ import { retryWithBackoff } from '../shared/retry';
 export class OpencodeProvider implements AIProvider, OnModuleInit {
   private client: any = null;
   private sessions = new Map<string, string>();
-  private sessionContextSent = new Set<string>();
+  private sessionContextSent = new Map<string, string>();
 
   private static readonly RETRYABLE_STATUS = [408, 429, 500, 502, 503, 504];
   private static readonly NETWORK_ERROR_PATTERN =
@@ -86,6 +86,11 @@ export class OpencodeProvider implements AIProvider, OnModuleInit {
       this.sessions.set(roomId, sessionId);
     }
 
+    const fingerprint = this.buildContextFingerprint(context);
+    if (this.sessionContextSent.get(roomId) === fingerprint) {
+      return;
+    }
+
     const lines: string[] = [
       getSystemPrompt(context),
       '',
@@ -93,7 +98,19 @@ export class OpencodeProvider implements AIProvider, OnModuleInit {
     ];
 
     await this.sendMessage(roomId, lines.join('\n'));
-    this.sessionContextSent.add(roomId);
+    this.sessionContextSent.set(roomId, fingerprint);
+  }
+
+  private buildContextFingerprint(context: AIContext): string {
+    return JSON.stringify({
+      players: context.players.map(p => ({
+        id: p.id,
+        name: p.name,
+        level: p.level,
+      })),
+      currentLocation: context.currentLocation,
+      summary: context.summary,
+    });
   }
 
   async destroy(): Promise<void> {
