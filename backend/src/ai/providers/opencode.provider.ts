@@ -97,7 +97,7 @@ export class OpencodeProvider implements AIProvider, OnModuleInit {
       ...buildPhaseContexts(context),
     ];
 
-    await this.sendMessage(roomId, lines.join('\n'));
+    await this.sendMessage(roomId, lines.join('\n'), true);
     this.sessionContextSent.set(roomId, fingerprint);
   }
 
@@ -140,7 +140,7 @@ export class OpencodeProvider implements AIProvider, OnModuleInit {
     return result.data.id;
   }
 
-  private async sendMessage(roomId: string, content: string): Promise<{ info: any; parts: any[] }> {
+  private async sendMessage(roomId: string, content: string, noReply = false): Promise<{ info: any; parts: any[] }> {
     const sessionId = this.sessions.get(roomId);
     if (!sessionId) {
       throw new Error(`No session for room: ${roomId}`);
@@ -148,7 +148,10 @@ export class OpencodeProvider implements AIProvider, OnModuleInit {
 
     const result = await this.client.session.prompt({
       path: { id: sessionId },
-      body: { parts: [{ type: 'text', text: content }] },
+      body: {
+        parts: [{ type: 'text', text: content }],
+        ...(noReply ? { noReply: true } : {}),
+      },
     });
 
     return result.data;
