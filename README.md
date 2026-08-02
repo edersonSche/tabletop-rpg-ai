@@ -124,6 +124,7 @@ Template files (`.env.example`) are committed for both packages — copy to `.en
 | `game:typing` | `GameGateway` | `{ roomId, playerId, username }` |
 | `game:typing_stop` | `GameGateway` | `{ roomId, playerId }` |
 | `game:get_state` | `GameGateway` | `{ roomId }` |
+| `game:reconnect` | `GameGateway` | `{ roomId }` (reactivates player + rejoins room after socket reconnect) |
 | `game:allocate_attributes` | `GameGateway` | `{ roomId, playerId, allocations }` |
 | `game:equip` | `GameGateway` | `{ roomId, playerId, itemId, slot }` |
 | `game:unequip` | `GameGateway` | `{ roomId, playerId, slot }` |
@@ -142,9 +143,9 @@ Template files (`.env.example`) are committed for both packages — copy to `.en
 |-------|---------|
 | `player:registered` | `{ playerId }` |
 | `game:state` | `GameState` (full room state) |
-| `game:narration` | `{ narration, next, state }` |
+| `game:narration` | `{ narration, location, historyLength }` (delta — no full state) |
 | `game:player_action` | `{ type, playerId, characterName, message }` |
-| `game:turn` | `{ currentTurn, type, target }` |
+| `game:turn` | `{ currentTurn, type, target, skill, dc }` |
 | `game:message` | `{ type, content, characterName? }` |
 | `game:error` | `{ message }` |
 | `game:typing` | `{ playerId, username }` |
@@ -156,9 +157,13 @@ Template files (`.env.example`) are committed for both packages — copy to `.en
 | `game:condition_tick` | `{ players: [{ id, hp, maxHp, ac, activeConditions, tickResult }] }` |
 | `game:antidote_result` | `{ success, conditionRemoved? }` |
 
+> **Note:** `game:narration` is a delta — it carries only `{ narration, location, historyLength }`. HP/AC/conditions arrive via `game:condition_tick`, turn state (with `skill`/`dc`) via `game:turn`, and a full `GameState` is only pushed via `game:state` on meaningful events (start, equip/use item, trade, join/leave, reconnect). The delta's `location`/`historyLength` let the client patch its state and skip already-received history, keeping per-turn payload flat (~1-3KB) regardless of session length. `GameState` includes `turnSkill`/`turnDc` so reconnects stay consistent with the last `game:turn`.
+
 ### Authentication & Reconnection
 
 `auth:login` is required for all game/room operations. The backend handles reconnection race conditions: if a new socket connects before the old one's `disconnect` fires (e.g., brief network drop), `AuthService.login()` force-logs out the old socket and registers the new one. Same-socket re-login is idempotent.
+
+On socket reconnect the client restores its session: `AuthContext` re-emits `auth:login`, then `GameContext` emits `game:reconnect { roomId }`. The server reactivates the player, re-registers the socket, and rejoins the Socket.IO room (rooms are per-connection, so this is required to resume broadcasts), restores an active trade's `game:trade_state`, and broadcasts a fresh `game:state` to the room — the client applies it via `applyGameState()`, whose history diff catches up any messages missed while offline. Player identity (`roomId`/`playerId`) survives disconnects on the client, so the game room stays mounted while reconnecting; if the restore fails or the 10-second timer expires, the page state resets to login.
 
 ## AI Integration
 
@@ -391,8 +396,8 @@ frontend/src/
 Two-layer error boundary system prevents white-screen crashes:
 
 - **Root `ErrorBoundary`** (`App.tsx`) — wraps `RoomRouter` + `Toast`. Catches render errors across all pages. Shows a styled fallback with "GO TO LOBBY" button that dispatches `LEFT_ROOM` to navigate back to the lobby.
-- **GameRoom `ErrorBoundary`** (`GameRoom.tsx`) — isolates game room render errors. Adds a "RETRY" button that calls `GameContext.refetchGameState()` to re-emit `game:get_state` and recover game state without leaving the room. "GO TO LOBBY" dispatches `LEFT_ROOM`.
-- **Loading overlay** — while `gameState` is null (during `game:get_state` initial fetch or reconnection), `GameRoom.tsx` renders a full-screen loading overlay with an animated crystal pulse and "SUMMONING THE REALM..." text, matching the `WaitingRoom` AI processing pattern. Once state arrives, the chat layout renders normally.
+- **GameRoom `ErrorBoundary`** (`GameRoom.tsx`) — isolates game room render errors. Adds a "RETRY" button that calls `GameContext.refetchGameState()` to re-emit `game:get_state` and apply the ACK response via `applyGameState()` to recover game state without leaving the room. "GO TO LOBBY" dispatches `LEFT_ROOM`.
+- **Loading overlay** — while `gameState` is null (during `game:get_state` initial fetch, reconnection, or `refetchGameState` in flight), `GameRoom.tsx` renders a full-screen loading overlay with an animated crystal pulse and "SUMMONING THE REALM..." text, matching the `WaitingRoom` AI processing pattern. Player identity survives disconnects, so the overlay stays up on reconnect until `game:reconnect` broadcasts a fresh `game:state`; then the chat layout renders normally.
 - **Error reporting** — all caught errors are logged to console via `componentDidCatch`.
 - The `ErrorBoundary` class component is in `components/Layout/ErrorBoundary.tsx`. Props: `onRetry?` (reset + retry), `onGoToLobby?` (navigate to lobby).
 

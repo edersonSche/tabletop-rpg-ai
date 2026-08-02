@@ -127,10 +127,10 @@ export interface GameAction {
   rollResult?: number;
 }
 
-export interface GameNarration {
+export interface NarrationResponse {
   narration: string;
-  next: AIResponse['next'];
-  state: GameState;
+  location?: string | null;
+  historyLength: number;
 }
 
 export interface GameState {
@@ -143,6 +143,8 @@ export interface GameState {
   currentTurn: string | null;
   turnType: TurnType | null;
   turnTarget: string | null;
+  turnSkill?: string;
+  turnDc?: number;
   currentLocation: string | null;
   gameStarted: boolean;
   history: Array<{
@@ -248,6 +250,7 @@ export interface CharacterKit {
 }
 
 export interface LoginResponse { success: boolean; error?: string }
+export interface ReconnectResponse { success: boolean; error?: string }
 export interface CreateRoomResponse { success: boolean; room: { id: string }; error?: string }
 export interface CreateCharacterResponse { success: boolean; playerId: string; campaignStarted?: boolean; error?: string }
 export interface JoinRoomResponse { success: boolean; needsCharacter?: boolean; room?: { id: string }; playerId?: string; campaignStarted?: boolean; error?: string }

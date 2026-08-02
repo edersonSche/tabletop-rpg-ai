@@ -2,7 +2,7 @@ import { createContext, useContext, useState, useEffect, useCallback, useRef, Re
 import { useSocketContext } from './SocketContext';
 import { usePlayerContext } from './PlayerContext';
 import { useAuthContext } from './AuthContext';
-import { GameState, TurnUpdate, ConditionTickPayload, Message, GetStateResponse } from '../types/game.types';
+import { GameState, TurnUpdate, ConditionTickPayload, Message, GetStateResponse, NarrationResponse, ReconnectResponse } from '../types/game.types';
 
 interface GameContextValue {
   gameState: GameState | null;
@@ -35,13 +35,70 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const lastHistoryLengthRef = useRef(0);
   const prevRoomIdRef = useRef<string | null>(null);
 
+  const processHistoryEntries = (history: GameState['history'], players: GameState['players']): Message[] => {
+    const playerMap = new Map((players || []).map(p => [p.id, p.name]));
+    const result: Message[] = [];
+
+    for (const entry of history) {
+      if (entry.role === 'player') {
+        result.push({
+          type: 'action',
+          content: entry.content,
+          characterName: playerMap.get(entry.playerId || '') || 'Unknown',
+          timestamp: Date.now(),
+        });
+      } else if (entry.role === 'assistant') {
+        let narration = entry.content;
+        try {
+          const parsed = JSON.parse(entry.content);
+          if (parsed.narration) narration = parsed.narration;
+        } catch {}
+        if (narration) {
+          result.push({ type: 'narration', content: narration, timestamp: Date.now() });
+        }
+      } else if (entry.role === 'system') {
+        result.push({ type: 'system', content: entry.content, timestamp: Date.now() });
+      }
+    }
+
+    return result;
+  };
+
+  const applyGameState = useCallback((data: GameState) => {
+    setGameState(data);
+    if (data.gameStarted) dispatch({ type: 'CAMPAIGN_STARTED' });
+    if (data.history) {
+      const prevLength = lastHistoryLengthRef.current;
+      const newLength = data.history.length;
+
+      if (newLength > prevLength) {
+        const newEntries = data.history.slice(prevLength);
+        const parsed = processHistoryEntries(newEntries, data.players);
+        setMessages(prev => [...prev, ...parsed]);
+      } else if (newLength < prevLength) {
+        const parsed = processHistoryEntries(data.history, data.players);
+        setMessages(parsed);
+      }
+
+      lastHistoryLengthRef.current = newLength;
+
+      setTurnUpdate({
+        currentTurn: data.currentTurn,
+        type: data.turnType,
+        target: data.turnTarget,
+        skill: data.turnSkill,
+        dc: data.turnDc,
+      });
+    }
+  }, [dispatch]);
+
   useEffect(() => {
     const handleConnect = () => {
       setIsAiProcessing(false);
       const currentRoomId = playerRef.current.roomId;
       if (currentRoomId) {
-        emit('game:get_state', { roomId: currentRoomId }, (response: GetStateResponse) => {
-          if (response?.error === 'Room not found') {
+        emit('game:reconnect', { roomId: currentRoomId }, (response: ReconnectResponse) => {
+          if (response && !response.success) {
             setGameState(null);
             setTurnUpdate(null);
             setMessages([{ type: 'system', content: 'Campaign is no longer available. Returning to lobby.', timestamp: Date.now() }]);
@@ -57,66 +114,12 @@ export function GameProvider({ children }: { children: ReactNode }) {
       setIsAiProcessing(false);
     };
 
-    const processHistoryEntries = (history: GameState['history'], players: GameState['players']): Message[] => {
-      const playerMap = new Map((players || []).map(p => [p.id, p.name]));
-      const result: Message[] = [];
-
-      for (const entry of history) {
-        if (entry.role === 'player') {
-          result.push({
-            type: 'action',
-            content: entry.content,
-            characterName: playerMap.get(entry.playerId || '') || 'Unknown',
-            timestamp: Date.now(),
-          });
-        } else if (entry.role === 'assistant') {
-          let narration = entry.content;
-          try {
-            const parsed = JSON.parse(entry.content);
-            if (parsed.narration) narration = parsed.narration;
-          } catch {}
-          if (narration) {
-            result.push({ type: 'narration', content: narration, timestamp: Date.now() });
-          }
-        } else if (entry.role === 'system') {
-          result.push({ type: 'system', content: entry.content, timestamp: Date.now() });
-        }
-      }
-
-      return result;
-    };
-
-    const handleGameState = (data: GameState) => {
-      setGameState(data);
-      if (data.gameStarted) dispatch({ type: 'CAMPAIGN_STARTED' });
-      if (data.history) {
-        const prevLength = lastHistoryLengthRef.current;
-        const newLength = data.history.length;
-
-        if (newLength > prevLength) {
-          const newEntries = data.history.slice(prevLength);
-          const parsed = processHistoryEntries(newEntries, data.players);
-          setMessages(prev => [...prev, ...parsed]);
-        } else if (newLength < prevLength) {
-          const parsed = processHistoryEntries(data.history, data.players);
-          setMessages(parsed);
-        }
-
-        lastHistoryLengthRef.current = newLength;
-
-        setTurnUpdate({
-          currentTurn: data.currentTurn,
-          type: data.turnType,
-          target: data.turnTarget,
-        });
-      }
-    };
-
-    const handleNarration = (data: { narration: string; next: { type: string; target?: string }; state: GameState }) => {
+    const handleNarration = (data: NarrationResponse) => {
       setMessages(prev => [...prev, { type: 'narration', content: data.narration, timestamp: Date.now() }]);
-      if (data.state) {
-        setGameState(data.state);
-        if (data.state.gameStarted) dispatch({ type: 'CAMPAIGN_STARTED' });
+      lastHistoryLengthRef.current = data.historyLength;
+      const location = data.location;
+      if (location !== undefined) {
+        setGameState(prev => (prev ? { ...prev, currentLocation: location } : prev));
       }
     };
 
@@ -218,7 +221,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
     on('connect', handleConnect);
     on('disconnect', handleDisconnect);
-    on('game:state', handleGameState);
+    on('game:state', applyGameState);
     on('game:narration', handleNarration);
     on('game:turn', handleTurn);
     on('game:message', handleMessage);
@@ -234,7 +237,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     return () => {
       off('connect', handleConnect);
       off('disconnect', handleDisconnect);
-      off('game:state', handleGameState);
+      off('game:state', applyGameState);
       off('game:narration', handleNarration);
       off('game:turn', handleTurn);
       off('game:message', handleMessage);
@@ -247,7 +250,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       off('game:antidote_result', handleAntidoteResult);
       off('game:disband', handleDisband);
     };
-  }, [on, off, emit, dispatch]);
+  }, [on, off, emit, dispatch, applyGameState]);
 
   useEffect(() => {
     const prev = prevRoomIdRef.current;
@@ -299,9 +302,11 @@ export function GameProvider({ children }: { children: ReactNode }) {
         setTurnUpdate(null);
         setMessages([{ type: 'system', content: 'Campaign is no longer available. Returning to lobby.', timestamp: Date.now() }]);
         dispatch({ type: 'LEFT_ROOM' });
+      } else if (response) {
+        applyGameState(response as GameState);
       }
     });
-  }, [player.roomId, emit, dispatch]);
+  }, [player.roomId, emit, dispatch, applyGameState]);
 
   return (
     <GameContext.Provider value={{

@@ -36,16 +36,10 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       setPlayer(prev => ({ ...prev, playerId: data.playerId }));
     };
 
-    const handleDisconnect = () => {
-      setPlayer({ playerId: '', roomId: null });
-    };
-
     on('player:registered', handleRegistered);
-    on('disconnect', handleDisconnect);
 
     return () => {
       off('player:registered', handleRegistered);
-      off('disconnect', handleDisconnect);
     };
   }, [on, off]);
 
