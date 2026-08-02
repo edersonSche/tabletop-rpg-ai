@@ -11,10 +11,6 @@ export function getTradePrompt(context: AIContext): string {
   lines.push(`Campaign theme: ${context.campaignTheme}`);
   lines.push(`Party levels: ${levels}`);
   lines.push(`Current location: ${location}`);
-  lines.push(`Language: ${context.language}`);
-  lines.push(
-    "All dialogue, narration, item names, descriptions, and greetings must be written in this language.",
-  );
   lines.push("");
 
   const partyState = context.players
@@ -41,11 +37,11 @@ export function getTradePrompt(context: AIContext): string {
   lines.push('Return between 1 and 10 merchants in the "merchants" array.');
   lines.push("");
   lines.push("For each merchant return:");
-  lines.push(`- name: unique, flavorful name in ${context.language}`);
+  lines.push("- name: unique, flavorful name");
   lines.push(
     '- type: specialty (e.g., "blacksmith", "alchemist", "general_goods")',
   );
-  lines.push(`- greeting: a line of dialogue in ${context.language}`);
+  lines.push("- greeting: a line of dialogue");
   lines.push("- coins: how much coin they have to buy from players");
   lines.push(
     "- items: 3-8 items for sale with name, description, type, slot (if equippable), baseBuyPrice, baseSellPrice, quantity, effects, antidoteFor (if antidote)",
@@ -71,26 +67,20 @@ export function getTradePrompt(context: AIContext): string {
   lines.push("");
   lines.push("Expected JSON structure:");
   lines.push("{");
-  lines.push(
-    '  "narration": "(narration in ' +
-      context.language +
-      ' describing the merchant scene)",',
-  );
-  lines.push('  "summary": "(updated summary in ' + context.language + ')",');
+  lines.push('  "narration": "(narration describing the merchant scene)",');
+  lines.push('  "summary": "(updated summary)",');
   lines.push('  "location": "Same as current location.",');
   lines.push('  "next": { "type": "group_action" },');
   lines.push('  "merchants": [');
   lines.push("    {");
   lines.push('      "name": "Merchant Name",');
   lines.push('      "type": "blacksmith",');
-  lines.push('      "greeting": "(greeting in ' + context.language + ')",');
+  lines.push('      "greeting": "(greeting)",');
   lines.push('      "coins": 100,');
   lines.push('      "items": [');
   lines.push("        {");
-  lines.push('          "name": "(item name in ' + context.language + ')",');
-  lines.push(
-    '          "description": "(description in ' + context.language + ')",',
-  );
+  lines.push('          "name": "(item name)",');
+  lines.push('          "description": "(description)",');
   lines.push('          "type": "weapon",');
   lines.push('          "slot": "hand",');
   lines.push('          "baseBuyPrice": 15,');
@@ -101,10 +91,8 @@ export function getTradePrompt(context: AIContext): string {
   );
   lines.push("        },");
   lines.push("        {");
-  lines.push('          "name": "(potion name in ' + context.language + ')",');
-  lines.push(
-    '          "description": "(description in ' + context.language + ')",',
-  );
+  lines.push('          "name": "(potion name)",');
+  lines.push('          "description": "(description)",');
   lines.push('          "type": "potion",');
   lines.push('          "baseBuyPrice": 50,');
   lines.push('          "baseSellPrice": 25,');

@@ -14,7 +14,7 @@ import { retryWithBackoff } from '../shared/retry';
 export class OpencodeProvider implements AIProvider, OnModuleInit {
   private client: any = null;
   private sessions = new Map<string, string>();
-  private sessionContextSent = new Set<string>();
+  private sessionContextSent = new Map<string, string>();
 
   private static readonly RETRYABLE_STATUS = [408, 429, 500, 502, 503, 504];
   private static readonly NETWORK_ERROR_PATTERN =
@@ -86,14 +86,31 @@ export class OpencodeProvider implements AIProvider, OnModuleInit {
       this.sessions.set(roomId, sessionId);
     }
 
+    const fingerprint = this.buildContextFingerprint(context);
+    if (this.sessionContextSent.get(roomId) === fingerprint) {
+      return;
+    }
+
     const lines: string[] = [
       getSystemPrompt(context),
       '',
       ...buildPhaseContexts(context),
     ];
 
-    await this.sendMessage(roomId, lines.join('\n'));
-    this.sessionContextSent.add(roomId);
+    await this.sendMessage(roomId, lines.join('\n'), true);
+    this.sessionContextSent.set(roomId, fingerprint);
+  }
+
+  private buildContextFingerprint(context: AIContext): string {
+    return JSON.stringify({
+      players: context.players.map(p => ({
+        id: p.id,
+        name: p.name,
+        level: p.level,
+      })),
+      currentLocation: context.currentLocation,
+      summary: context.summary,
+    });
   }
 
   async destroy(): Promise<void> {
@@ -123,7 +140,7 @@ export class OpencodeProvider implements AIProvider, OnModuleInit {
     return result.data.id;
   }
 
-  private async sendMessage(roomId: string, content: string): Promise<{ info: any; parts: any[] }> {
+  private async sendMessage(roomId: string, content: string, noReply = false): Promise<{ info: any; parts: any[] }> {
     const sessionId = this.sessions.get(roomId);
     if (!sessionId) {
       throw new Error(`No session for room: ${roomId}`);
@@ -131,7 +148,10 @@ export class OpencodeProvider implements AIProvider, OnModuleInit {
 
     const result = await this.client.session.prompt({
       path: { id: sessionId },
-      body: { parts: [{ type: 'text', text: content }] },
+      body: {
+        parts: [{ type: 'text', text: content }],
+        ...(noReply ? { noReply: true } : {}),
+      },
     });
 
     return result.data;

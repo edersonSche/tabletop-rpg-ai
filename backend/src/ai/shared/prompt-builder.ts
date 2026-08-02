@@ -61,8 +61,6 @@ export function buildPhaseContexts(
     lines.push('');
   }
 
-  lines.push(...buildTargetPlayerContext(context));
-
   return lines;
 }
 
@@ -94,20 +92,12 @@ export function buildActionLines(
 }
 
 export function buildFullPrompt(context: AIContext): string {
-  const lines: string[] = [
+  return [
     getSystemPrompt(context),
     '',
-  ];
-
-  lines.push(...buildPhaseContexts(context));
-
-  if (context.gamePhase === 'trade') {
-    lines.push(getTradePrompt(context));
-    return lines.join('\n');
-  }
-
-  lines.push(...buildActionLines(context.currentAction));
-  return lines.join('\n');
+    ...buildPhaseContexts(context),
+    getPhasePrompt(context),
+  ].join('\n');
 }
 
 export function parseResponse(text: string): AIResponse {
