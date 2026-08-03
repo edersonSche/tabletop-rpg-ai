@@ -258,12 +258,14 @@ export function GameRoom() {
           </div>
         </div>
 
-        <CharacterSheet
-          player={me}
-          isOpen={showSheet}
-          onClose={() => setShowSheet(false)}
-          disabled={actionsLocked}
-        />
+        {showSheet && (
+          <CharacterSheet
+            player={me}
+            isOpen={showSheet}
+            onClose={() => setShowSheet(false)}
+            disabled={actionsLocked}
+          />
+        )}
 
         <CharacterListModal
           players={gameState?.players || []}
