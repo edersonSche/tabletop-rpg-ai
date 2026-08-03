@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useShallow } from "zustand/react/shallow";
 import { CreateRoom } from "../components/Lobby/CreateRoom";
 import { RoomList } from "../components/Lobby/RoomList";
 import { SavedCampaigns } from "../components/Lobby/SavedCampaigns";
@@ -7,7 +8,11 @@ import type { NarrativeLanguage } from "../types/game.types";
 import logo from "../assets/logo.png";
 
 export function Lobby() {
-  const { createRoom, joinRoom, resumeCampaign } = usePlayer();
+  const { createRoom, joinRoom, resumeCampaign } = usePlayer(useShallow(s => ({
+    createRoom: s.createRoom,
+    joinRoom: s.joinRoom,
+    resumeCampaign: s.resumeCampaign,
+  })));
   const [mode, setMode] = useState<"create" | "join" | "resume">("join");
 
   const handleCreate = async (name: string, language: NarrativeLanguage) => {

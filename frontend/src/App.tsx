@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { AppProviders } from "./contexts/AppProviders";
+import { initStores } from "./stores/initStores";
 import { useAuth } from "./hooks/useAuth";
 import { useGame } from "./hooks/useGame";
 import { Login } from "./pages/Login";
@@ -11,8 +11,8 @@ import { Toast } from "./components/Layout/Toast";
 import { ErrorBoundary } from "./components/Layout/ErrorBoundary";
 
 function RoomRouter() {
-  const { page } = useAuth();
-  const { gameState } = useGame();
+  const page = useAuth(s => s.page);
+  const gameState = useGame(s => s.gameState);
 
   useEffect(() => {
     const name = gameState?.campaignName;
@@ -52,7 +52,7 @@ function RoomRouter() {
 }
 
 function AppContent() {
-  const { dispatch } = useAuth();
+  const dispatch = useAuth(s => s.dispatch);
   return (
     <ErrorBoundary onGoToLobby={() => dispatch({ type: 'LEFT_ROOM' })}>
       <RoomRouter />
@@ -62,9 +62,10 @@ function AppContent() {
 }
 
 export default function App() {
-  return (
-    <AppProviders>
-      <AppContent />
-    </AppProviders>
-  );
+  useEffect(() => {
+    const destroy = initStores();
+    return destroy;
+  }, []);
+
+  return <AppContent />;
 }

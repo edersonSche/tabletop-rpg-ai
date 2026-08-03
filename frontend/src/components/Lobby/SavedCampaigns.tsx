@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useShallow } from 'zustand/react/shallow';
 import { Play, Check, Close, Reload, Trash } from 'pixelarticons/react';
 import { SavedCampaignInfo } from '../../types/game.types';
 import { usePlayer } from '../../hooks/usePlayer';
@@ -21,7 +22,10 @@ function timeAgo(dateStr: string): string {
 }
 
 export function SavedCampaigns({ onResume }: SavedCampaignsProps) {
-  const { listSavedCampaigns, deleteSavedCampaign } = usePlayer();
+  const { listSavedCampaigns, deleteSavedCampaign } = usePlayer(useShallow(s => ({
+    listSavedCampaigns: s.listSavedCampaigns,
+    deleteSavedCampaign: s.deleteSavedCampaign,
+  })));
   const [campaigns, setCampaigns] = useState<SavedCampaignInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [confirmingDelete, setConfirmingDelete] = useState<string | null>(null);

@@ -3,7 +3,8 @@ import { Close } from 'pixelarticons/react';
 import { useAuth } from '../../hooks/useAuth';
 
 export const Toast = memo(function Toast() {
-  const { error, setError } = useAuth();
+  const error = useAuth(s => s.error);
+  const setError = useAuth(s => s.setError);
 
   useEffect(() => {
     if (!error) return;

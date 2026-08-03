@@ -1,13 +1,21 @@
 import { useState } from "react";
 import { Play, Logout } from "pixelarticons/react";
+import { useShallow } from "zustand/react/shallow";
 import { usePlayer } from "../hooks/usePlayer";
 import { useGame } from "../hooks/useGame";
 import { Card, Button, PlayerRow, TextButton, LoadingOverlay, SectionTitle } from "../components/ui";
 import logo from "../assets/logo.png";
 
 export function WaitingRoom() {
-  const { player, leaveRoom } = usePlayer();
-  const { gameState, startCampaign, isAiProcessing } = useGame();
+  const { player, leaveRoom } = usePlayer(useShallow(s => ({
+    player: s.player,
+    leaveRoom: s.leaveRoom,
+  })));
+  const { gameState, startCampaign, isAiProcessing } = useGame(useShallow(s => ({
+    gameState: s.gameState,
+    startCampaign: s.startCampaign,
+    isAiProcessing: s.isAiProcessing,
+  })));
   const [starting, setStarting] = useState(false);
   const [leaving, setLeaving] = useState(false);
 

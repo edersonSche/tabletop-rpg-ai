@@ -6,9 +6,9 @@ import { StatusDot } from "../ui";
 import logo from "../../assets/logo.png";
 
 export const Header = memo(function Header() {
-  const { connected } = useAuth();
-  const { player } = usePlayer();
-  const { gameState } = useGame();
+  const connected = useAuth(s => s.connected);
+  const player = usePlayer(s => s.player);
+  const gameState = useGame(s => s.gameState);
 
   return (
     <header className="bg-panel-900 border-b border-zinc-800 px-4 py-3 relative">

@@ -7,6 +7,7 @@ import {
   User,
 } from "pixelarticons/react";
 import { useState, useEffect, useMemo } from "react";
+import { useShallow } from "zustand/react/shallow";
 import { usePlayer } from "../hooks/usePlayer";
 import { useGame } from "../hooks/useGame";
 import { useTrade } from "../hooks/useTrade";
@@ -37,21 +38,34 @@ export function GameRoom() {
   const [leaving, setLeaving] = useState(false);
   const [rollDismissed, setRollDismissed] = useState(false);
 
-  const { player, leaveRoom, allocateAttributes } = usePlayer();
+  const { player, leaveRoom, allocateAttributes } = usePlayer(useShallow(s => ({
+    player: s.player,
+    leaveRoom: s.leaveRoom,
+    allocateAttributes: s.allocateAttributes,
+  })));
   const {
     gameState,
     messages,
     turnUpdate,
     typingPlayers,
     isAiProcessing,
-    sendAction,
-    sendRoll,
-    startCampaign,
-    emitTyping,
-    emitTypingStop,
     refetchGameState,
-  } = useGame();
-  const { dispatch } = useAuth();
+  } = useGame(useShallow(s => ({
+    gameState: s.gameState,
+    messages: s.messages,
+    turnUpdate: s.turnUpdate,
+    typingPlayers: s.typingPlayers,
+    isAiProcessing: s.isAiProcessing,
+    refetchGameState: s.refetchGameState,
+  })));
+  const { sendAction, sendRoll, startCampaign, emitTyping, emitTypingStop } = useGame(useShallow(s => ({
+    sendAction: s.sendAction,
+    sendRoll: s.sendRoll,
+    startCampaign: s.startCampaign,
+    emitTyping: s.emitTyping,
+    emitTypingStop: s.emitTypingStop,
+  })));
+  const dispatch = useAuth(s => s.dispatch);
   const {
     tradeState,
     isTradeLocked,
@@ -59,7 +73,14 @@ export function GameRoom() {
     buyItem,
     sellItem,
     endTrade,
-  } = useTrade();
+  } = useTrade(useShallow(s => ({
+    tradeState: s.tradeState,
+    isTradeLocked: s.isTradeLocked,
+    initiateTrade: s.initiateTrade,
+    buyItem: s.buyItem,
+    sellItem: s.sellItem,
+    endTrade: s.endTrade,
+  })));
   const { emitUseItem } = useInventory();
 
   const isLoadingState = !gameState && !!player.roomId;

@@ -163,7 +163,7 @@ Template files (`.env.example`) are committed for both packages — copy to `.en
 
 `auth:login` is required for all game/room operations. The backend handles reconnection race conditions: if a new socket connects before the old one's `disconnect` fires (e.g., brief network drop), `AuthService.login()` force-logs out the old socket and registers the new one. Same-socket re-login is idempotent.
 
-On socket reconnect the client restores its session: `AuthContext` re-emits `auth:login`, then `GameContext` emits `game:reconnect { roomId }`. The server reactivates the player, re-registers the socket, and rejoins the Socket.IO room (rooms are per-connection, so this is required to resume broadcasts), restores an active trade's `game:trade_state`, and broadcasts a fresh `game:state` to the room — the client applies it via `applyGameState()`, whose history diff catches up any messages missed while offline. Player identity (`roomId`/`playerId`) survives disconnects on the client, so the game room stays mounted while reconnecting; if the restore fails or the 10-second timer expires, the page state resets to login.
+On socket reconnect the client restores its session: the `authStore` re-emits `auth:login`, then the `gameStore` emits `game:reconnect { roomId }`. The server reactivates the player, re-registers the socket, and rejoins the Socket.IO room (rooms are per-connection, so this is required to resume broadcasts), restores an active trade's `game:trade_state`, and broadcasts a fresh `game:state` to the room — the client applies it via `applyGameState()`, whose history diff catches up any messages missed while offline. Player identity (`roomId`/`playerId`) survives disconnects on the client, so the game room stays mounted while reconnecting; if the restore fails or the 10-second timer expires, the page state resets to login.
 
 ## AI Integration
 
@@ -315,22 +315,22 @@ backend/src/
 
 frontend/src/
 ├── main.tsx                 # React entry point
-├── App.tsx                  # Page router (AppProviders wrapper)
+├── App.tsx                  # Page router + initStores() bootstrap (zustand)
 ├── index.css                # Tailwind + custom layers (pixel fonts, colors)
-├── contexts/
-│   ├── AppProviders.tsx     # Composes all providers (single wrapper)
-│   ├── SocketContext.tsx    # Socket.IO connection + event routing (internal)
-│   ├── AuthContext.tsx       # userId, page (useReducer), connected, error
-│   ├── PlayerContext.tsx     # player identity + room lobby operations
-│   ├── GameContext.tsx       # gameState, messages, turnUpdate, typingPlayers, isAiProcessing (resets isAiProcessing on connect/disconnect/reset)
-│   ├── TradeContext.tsx      # tradeState, isTradeLocked + trade actions
-│   └── InventoryContext.tsx  # equip/unequip/useItem/antidote actions
+├── stores/
+│   ├── initStores.ts        # Bootstrap: initSocket → initAuth → initPlayer → initGame → initTrade
+│   ├── socket.ts            # Framework-agnostic Socket.IO singleton + on/off/emit pub/sub (no React)
+│   ├── authStore.ts         # userId, page (reducer), connected, error, login/logout
+│   ├── playerStore.ts       # player identity + room lobby operations
+│   ├── gameStore.ts         # gameState, messages, turnUpdate, typingPlayers, isAiProcessing
+│   ├── tradeStore.ts        # tradeState, isTradeLocked + trade actions
+│   └── inventory.ts         # equip/unequip/useItem/antidote emit helpers (reads playerStore)
 ├── hooks/
-│   ├── useAuth.ts           # useAuth() — AuthContext consumer
-│   ├── usePlayer.ts         # usePlayer() — PlayerContext consumer
-│   ├── useGame.ts           # useGame() — GameContext consumer
-│   ├── useTrade.ts          # useTrade() — TradeContext consumer
-│   ├── useInventory.ts      # useInventory() — InventoryContext consumer
+│   ├── useAuth.ts           # useAuth(selector) — authStore selector hook
+│   ├── usePlayer.ts         # usePlayer(selector) — playerStore selector hook
+│   ├── useGame.ts           # useGame(selector) — gameStore selector hook
+│   ├── useTrade.ts          # useTrade(selector) — tradeStore selector hook
+│   ├── useInventory.ts      # useInventory() — stable inventory module functions
 │   └── useGameTurn.ts       # Turn logic hook (isMyTurn, isRollRequest, isCallPhase, actionsLocked, etc.)
 ├── routing/
 │   └── pageRouter.ts        # Page state machine (reducer + types)
@@ -396,7 +396,7 @@ frontend/src/
 Two-layer error boundary system prevents white-screen crashes:
 
 - **Root `ErrorBoundary`** (`App.tsx`) — wraps `RoomRouter` + `Toast`. Catches render errors across all pages. Shows a styled fallback with "GO TO LOBBY" button that dispatches `LEFT_ROOM` to navigate back to the lobby.
-- **GameRoom `ErrorBoundary`** (`GameRoom.tsx`) — isolates game room render errors. Adds a "RETRY" button that calls `GameContext.refetchGameState()` to re-emit `game:get_state` and apply the ACK response via `applyGameState()` to recover game state without leaving the room. "GO TO LOBBY" dispatches `LEFT_ROOM`.
+- **GameRoom `ErrorBoundary`** (`GameRoom.tsx`) — isolates game room render errors. Adds a "RETRY" button that calls the `gameStore` `refetchGameState()` action to re-emit `game:get_state` and apply the ACK response via `applyGameState()` to recover game state without leaving the room. "GO TO LOBBY" dispatches `LEFT_ROOM`.
 - **Loading overlay** — while `gameState` is null (during `game:get_state` initial fetch, reconnection, or `refetchGameState` in flight), `GameRoom.tsx` renders a full-screen loading overlay with an animated crystal pulse and "SUMMONING THE REALM..." text, matching the `WaitingRoom` AI processing pattern. Player identity survives disconnects, so the overlay stays up on reconnect until `game:reconnect` broadcasts a fresh `game:state`; then the chat layout renders normally.
 - **Error reporting** — all caught errors are logged to console via `componentDidCatch`.
 - The `ErrorBoundary` class component is in `components/Layout/ErrorBoundary.tsx`. Props: `onRetry?` (reset + retry), `onGoToLobby?` (navigate to lobby).

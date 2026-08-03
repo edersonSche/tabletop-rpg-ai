@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { Logout, Box as BoxIcon } from "pixelarticons/react";
+import { useShallow } from "zustand/react/shallow";
 import { usePlayer } from "../hooks/usePlayer";
 import { useGame } from "../hooks/useGame";
 import type { CharacterKit } from "../types/game.types";
@@ -101,8 +102,13 @@ function getRecommendedKit(
 }
 
 export function CharacterCreation() {
-  const { createCharacter, player, backToLobby, fetchKits } = usePlayer();
-  const { gameState } = useGame();
+  const { createCharacter, player, backToLobby, fetchKits } = usePlayer(useShallow(s => ({
+    createCharacter: s.createCharacter,
+    player: s.player,
+    backToLobby: s.backToLobby,
+    fetchKits: s.fetchKits,
+  })));
+  const gameState = useGame(s => s.gameState);
   const [name, setName] = useState("");
   const [loading, setLoading] = useState(false);
   const [attributes, setAttributes] = useState<Attributes>(defaultAttributes);
