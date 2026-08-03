@@ -48,7 +48,6 @@ export function GameRoom() {
     currentLocation,
     messages,
     turnUpdate,
-    typingPlayers,
     isAiProcessing,
     refetchGameState,
   } = useGame(useShallow(s => ({
@@ -56,7 +55,6 @@ export function GameRoom() {
     currentLocation: s.currentLocation,
     messages: s.messages,
     turnUpdate: s.turnUpdate,
-    typingPlayers: s.typingPlayers,
     isAiProcessing: s.isAiProcessing,
     refetchGameState: s.refetchGameState,
   })));
@@ -236,10 +234,7 @@ export function GameRoom() {
             <MessageList messages={messages} isProcessing={isAiProcessing} />
 
             <div className="px-4">
-              <TypingIndicator
-                typingPlayers={typingPlayers}
-                playerId={player.playerId}
-              />
+              <TypingIndicator playerId={player.playerId} />
             </div>
 
             <div className="flex items-center gap-2 px-3 pb-3 pt-1">

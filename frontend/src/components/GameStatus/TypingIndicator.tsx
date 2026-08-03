@@ -1,11 +1,12 @@
-import { memo } from 'react';
+import { memo } from "react";
+import { useGame } from "../../hooks/useGame";
 
 interface TypingIndicatorProps {
   typingPlayers: Map<string, string>;
   playerId: string;
 }
 
-export const TypingIndicator = memo(function TypingIndicator({ typingPlayers, playerId }: TypingIndicatorProps) {
+const TypingIndicatorCore = memo(function TypingIndicatorCore({ typingPlayers, playerId }: TypingIndicatorProps) {
   const others = Array.from(typingPlayers.entries()).filter(([id]) => id !== playerId);
 
   if (others.length === 0) return null;
@@ -21,3 +22,8 @@ export const TypingIndicator = memo(function TypingIndicator({ typingPlayers, pl
     </div>
   );
 });
+
+export function TypingIndicator({ playerId }: { playerId: string }) {
+  const typingPlayers = useGame((s) => s.typingPlayers);
+  return <TypingIndicatorCore typingPlayers={typingPlayers} playerId={playerId} />;
+}

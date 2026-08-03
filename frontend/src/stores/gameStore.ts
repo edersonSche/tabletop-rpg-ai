@@ -191,11 +191,15 @@ export function initGame(): () => void {
   };
 
   const handleTyping = (data: { playerId: string; username: string }) => {
-    useGameStore.setState((state) => ({ typingPlayers: new Map(state.typingPlayers).set(data.playerId, data.username) }));
+    useGameStore.setState((state) => {
+      if (state.typingPlayers.get(data.playerId) === data.username) return state;
+      return { typingPlayers: new Map(state.typingPlayers).set(data.playerId, data.username) };
+    });
   };
 
   const handleTypingStop = (data: { playerId: string }) => {
     useGameStore.setState((state) => {
+      if (!state.typingPlayers.has(data.playerId)) return state;
       const next = new Map(state.typingPlayers);
       next.delete(data.playerId);
       return { typingPlayers: next };
