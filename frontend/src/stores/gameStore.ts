@@ -37,6 +37,7 @@ function processHistoryEntries(history: GameState['history'], players: GameState
 
 interface GameStateData {
   gameState: GameState | null;
+  currentLocation: string | null;
   messages: Message[];
   turnUpdate: TurnUpdate | null;
   typingPlayers: Map<string, string>;
@@ -54,13 +55,14 @@ export type { GameStateData };
 
 export const useGameStore = create<GameStateData>()((set, get) => ({
   gameState: null,
+  currentLocation: null,
   messages: [],
   turnUpdate: null,
   typingPlayers: new Map(),
   isAiProcessing: false,
 
   applyGameState: (data: GameState) => {
-    set({ gameState: data });
+    set({ gameState: data, currentLocation: data.currentLocation });
     if (data.gameStarted) useAuthStore.getState().dispatch({ type: 'CAMPAIGN_STARTED' });
     if (data.history) {
       const prevLength = lastHistoryLength;
@@ -131,6 +133,7 @@ export const useGameStore = create<GameStateData>()((set, get) => ({
       if (response?.error === 'Room not found') {
         set({
           gameState: null,
+          currentLocation: null,
           turnUpdate: null,
           messages: [{ type: 'system', content: 'Campaign is no longer available. Returning to lobby.', timestamp: Date.now() }],
         });
@@ -151,6 +154,7 @@ export function initGame(): () => void {
         if (response && !response.success) {
           useGameStore.setState({
             gameState: null,
+            currentLocation: null,
             turnUpdate: null,
             messages: [{ type: 'system', content: 'Campaign is no longer available. Returning to lobby.', timestamp: Date.now() }],
           });
@@ -161,7 +165,7 @@ export function initGame(): () => void {
   };
 
   const handleDisconnect = () => {
-    useGameStore.setState({ gameState: null, turnUpdate: null, isAiProcessing: false });
+    useGameStore.setState({ gameState: null, currentLocation: null, turnUpdate: null, isAiProcessing: false });
   };
 
   const handleNarration = (data: NarrationResponse) => {
@@ -169,7 +173,7 @@ export function initGame(): () => void {
     lastHistoryLength = data.historyLength;
     const location = data.location;
     if (location !== undefined) {
-      useGameStore.setState((state) => (state.gameState ? { gameState: { ...state.gameState, currentLocation: location } } : state));
+      useGameStore.setState({ currentLocation: location });
     }
   };
 
@@ -263,7 +267,7 @@ export function initGame(): () => void {
   };
 
   const handleDisband = () => {
-    useGameStore.setState({ gameState: null, turnUpdate: null, messages: [], isAiProcessing: false });
+    useGameStore.setState({ gameState: null, currentLocation: null, turnUpdate: null, messages: [], isAiProcessing: false });
   };
 
   const unsubscribeRoom = usePlayerStore.subscribe((state, prevState) => {
@@ -271,7 +275,7 @@ export function initGame(): () => void {
     const next = state.player.roomId;
     if (prev && prev !== next) {
       lastHistoryLength = 0;
-      useGameStore.setState({ gameState: null, turnUpdate: null, messages: [], typingPlayers: new Map(), isAiProcessing: false });
+      useGameStore.setState({ gameState: null, currentLocation: null, turnUpdate: null, messages: [], typingPlayers: new Map(), isAiProcessing: false });
     }
   });
 

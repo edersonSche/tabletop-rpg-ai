@@ -45,6 +45,7 @@ export function GameRoom() {
   })));
   const {
     gameState,
+    currentLocation,
     messages,
     turnUpdate,
     typingPlayers,
@@ -52,6 +53,7 @@ export function GameRoom() {
     refetchGameState,
   } = useGame(useShallow(s => ({
     gameState: s.gameState,
+    currentLocation: s.currentLocation,
     messages: s.messages,
     turnUpdate: s.turnUpdate,
     typingPlayers: s.typingPlayers,
@@ -223,7 +225,7 @@ export function GameRoom() {
           {/* Main Chat Area */}
           <div className="flex-1 flex flex-col bg-panel-950 bg-noise">
             <CampaignStatusBar
-              location={gameState?.currentLocation || null}
+              location={currentLocation}
               currentTurn={turnUpdate?.currentTurn || null}
               turnType={turnUpdate?.type || null}
               turnTarget={turnUpdate?.target || null}
