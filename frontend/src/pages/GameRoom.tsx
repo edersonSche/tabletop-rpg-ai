@@ -93,7 +93,6 @@ export function GameRoom() {
     isInputDisabled,
     disabledReason,
   } = useGameTurn({
-    gameState,
     turnUpdate,
     playerId: player.playerId,
     isAiProcessing,

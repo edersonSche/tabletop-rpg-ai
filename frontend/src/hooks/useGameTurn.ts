@@ -1,23 +1,14 @@
 import { useMemo } from 'react';
-import { GameState, TurnUpdate } from '../types/game.types';
+import { TurnUpdate } from '../types/game.types';
 
 interface UseGameTurnOptions {
-  gameState: GameState | null;
   turnUpdate: TurnUpdate | null;
   playerId: string;
   isAiProcessing: boolean;
   isTradeLocked?: boolean;
 }
 
-export function useGameTurn({ gameState, turnUpdate, playerId, isAiProcessing, isTradeLocked = false }: UseGameTurnOptions) {
-  const currentPlayer = useMemo(() => {
-    if (!gameState) return null;
-    const targetId = turnUpdate?.target || gameState.currentTurn;
-    if (!targetId) return null;
-    if (turnUpdate?.type === 'group_action') return null;
-    return gameState.players.find(p => p.id === targetId) || null;
-  }, [gameState, turnUpdate]);
-
+export function useGameTurn({ turnUpdate, playerId, isAiProcessing, isTradeLocked = false }: UseGameTurnOptions) {
   const isMyTurn = useMemo(() => {
     if (!turnUpdate) return true;
     const { target, type } = turnUpdate;
@@ -56,7 +47,6 @@ export function useGameTurn({ gameState, turnUpdate, playerId, isAiProcessing, i
   }, [isMyTurn, isAiProcessing]);
 
   return {
-    currentPlayer,
     canAct,
     isMyTurn,
     isRollRequest,
