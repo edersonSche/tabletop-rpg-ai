@@ -15,7 +15,7 @@ AI-powered tabletop role-playing game platform with a real-time multiplayer expe
 ┌─────────────────────────────────────────────────────────────┐
 │                    Frontend (React 19 + Vite 6)             │
 │  Login → Lobby → CharacterCreation → WaitingRoom → GameRoom │
-│  Contexts: Auth, Player, Game, Trade, Inventory              │
+│  Stores: Auth, Player, Game, Trade, Inventory               │
 └───────────────────────┬─────────────────────────────────────┘
                         │  WebSocket (Socket.IO)
                         ▼
@@ -322,7 +322,7 @@ frontend/src/
 │   ├── socket.ts            # Framework-agnostic Socket.IO singleton + on/off/emit pub/sub (no React)
 │   ├── authStore.ts         # userId, page (reducer), connected, error, login/logout
 │   ├── playerStore.ts       # player identity + room lobby operations
-│   ├── gameStore.ts         # gameState, messages, turnUpdate, typingPlayers, isAiProcessing
+│   ├── gameStore.ts         # gameState, currentLocation, messages, turnUpdate, typingPlayers, isAiProcessing
 │   ├── tradeStore.ts        # tradeState, isTradeLocked + trade actions
 │   └── inventory.ts         # equip/unequip/useItem/antidote emit helpers (reads playerStore)
 ├── hooks/
@@ -331,7 +331,7 @@ frontend/src/
 │   ├── useGame.ts           # useGame(selector) — gameStore selector hook
 │   ├── useTrade.ts          # useTrade(selector) — tradeStore selector hook
 │   ├── useInventory.ts      # useInventory() — stable inventory module functions
-│   └── useGameTurn.ts       # Turn logic hook (isMyTurn, isRollRequest, isCallPhase, actionsLocked, etc.)
+│   └── useGameTurn.ts       # Turn logic hook (isMyTurn, isRollRequest, isCallPhase, actionsLocked, etc.; pure — no gameState dependency)
 ├── routing/
 │   └── pageRouter.ts        # Page state machine (reducer + types)
 ├── pages/
@@ -448,6 +448,9 @@ All 22 `ui/` components plus 9 leaf components are wrapped with `React.memo` to 
 - **Context consumers** — `Header`, `Toast` (decoupled from parent page re-renders)
 - **Pure props** — `LocationBadge`, `PlayerCard`, `TypingIndicator` (primitive or stable reference props)
 - **Array props** — `CampaignStatusBar`, `TurnIndicator`, `PlayerCircles`, `PlayerList` (stable references via `gameState?.players ?? []` — the array reference only changes when `gameState` actually updates, not on unrelated context changes like `messages`/`typingPlayers`/`isAiProcessing`)
+- **Stable `gameState` reference** — narration patches `currentLocation` as a **separate store field** (never by spreading a new `gameState` object), so `gameState?.players ?? []` stays reference-stable across narrations and the memo'd array-prop components above skip re-renders on every narration.
+- **Typing decoupling** — `handleTyping`/`handleTypingStop` return the unchanged state when the content is identical, so `useShallow` bails and the memo'd `TypingIndicatorCore` never receives a new `Map` for equal content. `TypingIndicator` subscribes to `typingPlayers` internally (thin wrapper around a memo'd core), and `GameRoom` no longer selects `typingPlayers` — typing events re-render only the indicator, not the whole page.
+- **Conditional modal mounting** — `CharacterSheet` is mounted only when open (`{showSheet && <CharacterSheet/>}`) instead of always-mounted with an `isOpen` flag, avoiding render cost while closed.
 
 No custom comparators needed — default shallow comparison is sufficient. New pure leaf components should follow this pattern.
 
