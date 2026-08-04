@@ -434,6 +434,8 @@ export class GameService {
       currentTurn: room.currentTurn,
       turnType: room.turnType,
       turnTarget: room.turnTarget,
+      turnSkill: room.turnSkill,
+      turnDc: room.turnDc,
       currentLocation: room.currentLocation,
       gameStarted: room.gameStarted,
       creatorId: room.creatorId,

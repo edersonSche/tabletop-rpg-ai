@@ -7,6 +7,7 @@ import {
   User,
 } from "pixelarticons/react";
 import { useState, useEffect, useMemo } from "react";
+import { useShallow } from "zustand/react/shallow";
 import { usePlayer } from "../hooks/usePlayer";
 import { useGame } from "../hooks/useGame";
 import { useTrade } from "../hooks/useTrade";
@@ -37,21 +38,34 @@ export function GameRoom() {
   const [leaving, setLeaving] = useState(false);
   const [rollDismissed, setRollDismissed] = useState(false);
 
-  const { player, leaveRoom, allocateAttributes } = usePlayer();
+  const { player, leaveRoom, allocateAttributes } = usePlayer(useShallow(s => ({
+    player: s.player,
+    leaveRoom: s.leaveRoom,
+    allocateAttributes: s.allocateAttributes,
+  })));
   const {
     gameState,
+    currentLocation,
     messages,
     turnUpdate,
-    typingPlayers,
     isAiProcessing,
-    sendAction,
-    sendRoll,
-    startCampaign,
-    emitTyping,
-    emitTypingStop,
     refetchGameState,
-  } = useGame();
-  const { dispatch } = useAuth();
+  } = useGame(useShallow(s => ({
+    gameState: s.gameState,
+    currentLocation: s.currentLocation,
+    messages: s.messages,
+    turnUpdate: s.turnUpdate,
+    isAiProcessing: s.isAiProcessing,
+    refetchGameState: s.refetchGameState,
+  })));
+  const { sendAction, sendRoll, startCampaign, emitTyping, emitTypingStop } = useGame(useShallow(s => ({
+    sendAction: s.sendAction,
+    sendRoll: s.sendRoll,
+    startCampaign: s.startCampaign,
+    emitTyping: s.emitTyping,
+    emitTypingStop: s.emitTypingStop,
+  })));
+  const dispatch = useAuth(s => s.dispatch);
   const {
     tradeState,
     isTradeLocked,
@@ -59,7 +73,14 @@ export function GameRoom() {
     buyItem,
     sellItem,
     endTrade,
-  } = useTrade();
+  } = useTrade(useShallow(s => ({
+    tradeState: s.tradeState,
+    isTradeLocked: s.isTradeLocked,
+    initiateTrade: s.initiateTrade,
+    buyItem: s.buyItem,
+    sellItem: s.sellItem,
+    endTrade: s.endTrade,
+  })));
   const { emitUseItem } = useInventory();
 
   const isLoadingState = !gameState && !!player.roomId;
@@ -72,7 +93,6 @@ export function GameRoom() {
     isInputDisabled,
     disabledReason,
   } = useGameTurn({
-    gameState,
     turnUpdate,
     playerId: player.playerId,
     isAiProcessing,
@@ -202,7 +222,7 @@ export function GameRoom() {
           {/* Main Chat Area */}
           <div className="flex-1 flex flex-col bg-panel-950 bg-noise">
             <CampaignStatusBar
-              location={gameState?.currentLocation || null}
+              location={currentLocation}
               currentTurn={turnUpdate?.currentTurn || null}
               turnType={turnUpdate?.type || null}
               turnTarget={turnUpdate?.target || null}
@@ -213,10 +233,7 @@ export function GameRoom() {
             <MessageList messages={messages} isProcessing={isAiProcessing} />
 
             <div className="px-4">
-              <TypingIndicator
-                typingPlayers={typingPlayers}
-                playerId={player.playerId}
-              />
+              <TypingIndicator playerId={player.playerId} />
             </div>
 
             <div className="flex items-center gap-2 px-3 pb-3 pt-1">
@@ -240,12 +257,14 @@ export function GameRoom() {
           </div>
         </div>
 
-        <CharacterSheet
-          player={me}
-          isOpen={showSheet}
-          onClose={() => setShowSheet(false)}
-          disabled={actionsLocked}
-        />
+        {showSheet && (
+          <CharacterSheet
+            player={me}
+            isOpen={showSheet}
+            onClose={() => setShowSheet(false)}
+            disabled={actionsLocked}
+          />
+        )}
 
         <CharacterListModal
           players={gameState?.players || []}

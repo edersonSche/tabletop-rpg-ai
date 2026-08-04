@@ -15,7 +15,7 @@ AI-powered tabletop role-playing game platform with a real-time multiplayer expe
 ┌─────────────────────────────────────────────────────────────┐
 │                    Frontend (React 19 + Vite 6)             │
 │  Login → Lobby → CharacterCreation → WaitingRoom → GameRoom │
-│  Contexts: Auth, Player, Game, Trade, Inventory              │
+│  Stores: Auth, Player, Game, Trade, Inventory               │
 └───────────────────────┬─────────────────────────────────────┘
                         │  WebSocket (Socket.IO)
                         ▼
@@ -124,6 +124,7 @@ Template files (`.env.example`) are committed for both packages — copy to `.en
 | `game:typing` | `GameGateway` | `{ roomId, playerId, username }` |
 | `game:typing_stop` | `GameGateway` | `{ roomId, playerId }` |
 | `game:get_state` | `GameGateway` | `{ roomId }` |
+| `game:reconnect` | `GameGateway` | `{ roomId }` (reactivates player + rejoins room after socket reconnect) |
 | `game:allocate_attributes` | `GameGateway` | `{ roomId, playerId, allocations }` |
 | `game:equip` | `GameGateway` | `{ roomId, playerId, itemId, slot }` |
 | `game:unequip` | `GameGateway` | `{ roomId, playerId, slot }` |
@@ -142,9 +143,9 @@ Template files (`.env.example`) are committed for both packages — copy to `.en
 |-------|---------|
 | `player:registered` | `{ playerId }` |
 | `game:state` | `GameState` (full room state) |
-| `game:narration` | `{ narration, next, state }` |
+| `game:narration` | `{ narration, location, historyLength }` (delta — no full state) |
 | `game:player_action` | `{ type, playerId, characterName, message }` |
-| `game:turn` | `{ currentTurn, type, target }` |
+| `game:turn` | `{ currentTurn, type, target, skill, dc }` |
 | `game:message` | `{ type, content, characterName? }` |
 | `game:error` | `{ message }` |
 | `game:typing` | `{ playerId, username }` |
@@ -156,9 +157,13 @@ Template files (`.env.example`) are committed for both packages — copy to `.en
 | `game:condition_tick` | `{ players: [{ id, hp, maxHp, ac, activeConditions, tickResult }] }` |
 | `game:antidote_result` | `{ success, conditionRemoved? }` |
 
+> **Note:** `game:narration` is a delta — it carries only `{ narration, location, historyLength }`. HP/AC/conditions arrive via `game:condition_tick`, turn state (with `skill`/`dc`) via `game:turn`, and a full `GameState` is only pushed via `game:state` on meaningful events (start, equip/use item, trade, join/leave, reconnect). The delta's `location`/`historyLength` let the client patch its state and skip already-received history, keeping per-turn payload flat (~1-3KB) regardless of session length. `GameState` includes `turnSkill`/`turnDc` so reconnects stay consistent with the last `game:turn`.
+
 ### Authentication & Reconnection
 
 `auth:login` is required for all game/room operations. The backend handles reconnection race conditions: if a new socket connects before the old one's `disconnect` fires (e.g., brief network drop), `AuthService.login()` force-logs out the old socket and registers the new one. Same-socket re-login is idempotent.
+
+On socket reconnect the client restores its session: the `authStore` re-emits `auth:login`, then the `gameStore` emits `game:reconnect { roomId }`. The server reactivates the player, re-registers the socket, and rejoins the Socket.IO room (rooms are per-connection, so this is required to resume broadcasts), restores an active trade's `game:trade_state`, and broadcasts a fresh `game:state` to the room — the client applies it via `applyGameState()`, whose history diff catches up any messages missed while offline. Player identity (`roomId`/`playerId`) survives disconnects on the client, so the game room stays mounted while reconnecting; if the restore fails or the 10-second timer expires, the page state resets to login.
 
 ## AI Integration
 
@@ -166,11 +171,11 @@ The backend uses a **provider pattern** with two available providers:
 
 - **`AiModule`** configures `AI_CONFIG` via a factory and selects the active provider dynamically based on the `AI_PROVIDER` env var (`"opencode"` or `"openrouter"`). Invalid values cause a startup error. Exports `AiService`, `AI_PROVIDER`, and `AI_CONFIG`.
 - **`AiService`** dispatches to the configured provider. Also exposes `onRoomReady()` and `onRoomEmpty()` lifecycle methods for session management. Does not inject `AI_CONFIG` — auth/config validation is each provider's responsibility. Wraps every provider call with a **30s timeout** and retries once on timeout, and validates/sanitizes every AI response against `AIResponseSchema` (Zod) via `sanitizeResponse()` — invalid responses are recovered field-by-field by `recoverResponse()` (with a `console.warn` per bad field), defaulting narration to empty, `next` to `group_action`, and `call_roll` skill/DC to `dexterity`/10.
-- **`OpencodeProvider`** — `@Injectable()` class configured via `OnModuleInit()` with dynamic ESM import (`await import('@opencode-ai/sdk')`). Stateful: tracks sessions per room via `createOpencodeClient()`, incremental prompts, auto-recovers from session errors. Uses `@opencode-ai/sdk` (ESM-only) with `baseUrl` and optional auth headers. Implements `validateConfig()` which requires `AI_MODEL` and `AI_BASE_URL` (does not require `AI_API_KEY`). Retries transient failures (408/429/5xx/network) up to 2 extra attempts with exponential backoff before falling back; session errors (400/404/410 or `NotFoundError`/`BadRequest` body) auto-recreate the session and resend the full prompt.
+- **`OpencodeProvider`** — `@Injectable()` class configured via `OnModuleInit()` with dynamic ESM import (`await import('@opencode-ai/sdk')`). Stateful: tracks sessions per room via `createOpencodeClient()`, incremental prompts, auto-recovers from session errors. Session priming is **deduped by a context fingerprint** (players + location + summary) — `onRoomReady()` skips re-sending the system prompt + phase contexts when unchanged, and primes with `noReply: true` so no model response is consumed. Uses `@opencode-ai/sdk` (ESM-only) with `baseUrl` and optional auth headers. Implements `validateConfig()` which requires `AI_MODEL` and `AI_BASE_URL` (does not require `AI_API_KEY`). Retries transient failures (408/429/5xx/network) up to 2 extra attempts with exponential backoff before falling back; session errors (400/404/410 or `NotFoundError`/`BadRequest` body) auto-recreate the session and resend the full prompt.
 - **`OpenRouterProvider`** — `@Injectable()` class configured via `OnModuleInit()` with dynamic ESM import (`await import('@openrouter/sdk')`). Stateless: no sessions, full prompt sent per call via `buildFullPrompt()`. Uses `@openrouter/sdk` (ESM-only) with `serverURL` constructor option. Implements `validateConfig()` which requires `AI_API_KEY`, `AI_MODEL`, and `AI_BASE_URL`. If a model does not support `response_format: json_object`, the provider automatically retries without JSON mode and extracts JSON from free text via `parseResponse()`. Supports `AI_TRADE_MODEL` env var for a separate model during the trade phase. Transient failures (408/429/5xx/524/529/network) are retried up to 2 extra attempts with backoff on the primary model (429 honors `Retry-After`, capped at 5s), then a single `openrouter/free` fallback attempt.
 - **Fallback** — if a provider's `generate()` still throws after timeouts/retries, `AiService` catches the error and returns a static fallback narration.
 
-The system prompt supports **English**, **Portuguese (Brazil)**, and **Spanish** narration. The AI responds in strict JSON with `narration`, required `summary` (structured narrative memory: SCENE/EVENTS/NPCS/THREATS/STATUS), mandatory `location`, optional `conditions` (narrative conditions with effects on players), optional `merchants` (array of merchants with items/prices using unified `statValue`/`statOperation`), and `next` (with `type`, `target`, `skill`, `dc`). Responses are validated against `AIResponseSchema` (Zod) — `effects` arrays are capped at 5 and `dc` is constrained to an int 1-50. Narration supports **Markdown** formatting rendered via `react-markdown`.
+The system prompt supports **English**, **Portuguese (Brazil)**, and **Spanish** narration. The AI responds in strict JSON with `narration`, required `summary` (structured narrative memory: SCENE/EVENTS/NPCS/THREATS/STATUS), mandatory `location`, optional `conditions` (narrative conditions with effects on players), optional `merchants` (array of merchants with items/prices using unified `statValue`/`statOperation`), and `next` (with `type`, `target`, `skill`, `dc`). Responses are validated against `AIResponseSchema` (Zod) — `effects` arrays are capped at 5 and `dc` is constrained to an int 1-50. Narration supports **Markdown** formatting rendered via `react-markdown`. The `group_action`/`call_player`/`call_roll` phase prompts embed compact JSON response examples (placeholders only) to steer the output structure.
 
 The AI has a **summary-based memory system**: every response must include a `summary` field structured as SCENE/EVENTS/NPCS/THREATS/STATUS, which replaces the entire previous summary. This summary serves as the AI's long-term context — no separate summarization step is needed. History is capped at 200 entries (oldest truncated automatically) and is limited per game phase (8 entries for group_action, 5 for call_player, 4 for call_roll, 3 for trade) to stay within token budgets.
 
@@ -178,9 +183,9 @@ AI context now includes a `gamePhase` field (`group_action`, `call_player`, `cal
 
 **Disconnect vs in-flight AI** — `handleDisconnect` is fully synchronous and lock-free by design: it never blocks or steals an in-flight AI lock, and its trade branch (`removeFromTrade`) requires `isTradeLocked`, which can never be true while the turn lock is held across an `await`. The real race — a disconnect setting `active = false` while the AI holds a stale snapshot — is handled at apply time: `validateAiResponseTarget()` coerces `call_player`/`call_roll` targets pointing to inactive players to `group_action`, `processConditions()` skips inactive targets, and `TurnManager.canPlayerAct()` treats a turn whose target is inactive or missing as open. As a final safety net, `handleDisconnect` resets the turn state (`currentTurn`/`turnTarget`/`turnType`/`turnSkill`/`turnDc`) when it points at the departing player — so a disconnect during `await aiService.generate()` can never freeze the room.
 
-When a player initiates trade via `game:initiate_trade`, the AI generates merchant data in the `merchants` field of the response. Each merchant includes an inventory of 3-8 items with prices and effects (stat modifiers and/or hp formulas). Location must be known — `"unknown location"` disables trading. The `gamePhase` is set to `trade` during trade prompts, limiting history to 3 recent entries. The trade prompt enforces language consistency (`english`/`portuguese`/`spanish`) and requires that weapons, armor, shields, potions, and antidotes always include mechanical effects — other item types may have empty effects.
+When a player initiates trade via `game:initiate_trade`, the AI generates merchant data in the `merchants` field of the response. Each merchant includes an inventory of 3-8 items with prices and effects (stat modifiers and/or hp formulas). Location must be known — `"unknown location"` disables trading. The `gamePhase` is set to `trade` during trade prompts, limiting history to 3 recent entries. Narration language is enforced globally by the system prompt — the trade prompt no longer repeats per-language instructions (removed as redundant token waste). It requires that weapons, armor, shields, potions, and antidotes always include mechanical effects — other item types may have empty effects.
 
-The **OpenCode provider** manages **per-room sessions**: created when a character is made or campaign is resumed (`onRoomReady()`), and deleted when the last player leaves or the campaign is deleted (`onRoomEmpty()`). 404/410 errors auto-recreate sessions. Incremental prompts use `buildTargetPlayerContext()` to show target player attributes when in `call_player`/`call_roll` phase. The OpenRouter provider is stateless and skips these lifecycle hooks.
+The **OpenCode provider** manages **per-room sessions**: created when a character is made or campaign is resumed (`onRoomReady()`), and deleted when the last player leaves or the campaign is deleted (`onRoomEmpty()`). 404/410 errors auto-recreate sessions. Incremental prompts use `buildTargetPlayerContext()` to show target player attributes when in `call_player`/`call_roll` phase. `onRoomReady()` re-primes a session only when the context fingerprint (players + location + summary) changed — unchanged rooms skip re-sending the full context. The OpenRouter provider is stateless and skips these lifecycle hooks.
 
 ## Character Creation
 
@@ -310,23 +315,23 @@ backend/src/
 
 frontend/src/
 ├── main.tsx                 # React entry point
-├── App.tsx                  # Page router (AppProviders wrapper)
+├── App.tsx                  # Page router + initStores() bootstrap (zustand)
 ├── index.css                # Tailwind + custom layers (pixel fonts, colors)
-├── contexts/
-│   ├── AppProviders.tsx     # Composes all providers (single wrapper)
-│   ├── SocketContext.tsx    # Socket.IO connection + event routing (internal)
-│   ├── AuthContext.tsx       # userId, page (useReducer), connected, error
-│   ├── PlayerContext.tsx     # player identity + room lobby operations
-│   ├── GameContext.tsx       # gameState, messages, turnUpdate, typingPlayers, isAiProcessing (resets isAiProcessing on connect/disconnect/reset)
-│   ├── TradeContext.tsx      # tradeState, isTradeLocked + trade actions
-│   └── InventoryContext.tsx  # equip/unequip/useItem/antidote actions
+├── stores/
+│   ├── initStores.ts        # Bootstrap: initSocket → initAuth → initPlayer → initGame → initTrade
+│   ├── socket.ts            # Framework-agnostic Socket.IO singleton + on/off/emit pub/sub (no React)
+│   ├── authStore.ts         # userId, page (reducer), connected, error, login/logout
+│   ├── playerStore.ts       # player identity + room lobby operations
+│   ├── gameStore.ts         # gameState, currentLocation, messages, turnUpdate, typingPlayers, isAiProcessing
+│   ├── tradeStore.ts        # tradeState, isTradeLocked + trade actions
+│   └── inventory.ts         # equip/unequip/useItem/antidote emit helpers (reads playerStore)
 ├── hooks/
-│   ├── useAuth.ts           # useAuth() — AuthContext consumer
-│   ├── usePlayer.ts         # usePlayer() — PlayerContext consumer
-│   ├── useGame.ts           # useGame() — GameContext consumer
-│   ├── useTrade.ts          # useTrade() — TradeContext consumer
-│   ├── useInventory.ts      # useInventory() — InventoryContext consumer
-│   └── useGameTurn.ts       # Turn logic hook (isMyTurn, isRollRequest, isCallPhase, actionsLocked, etc.)
+│   ├── useAuth.ts           # useAuth(selector) — authStore selector hook
+│   ├── usePlayer.ts         # usePlayer(selector) — playerStore selector hook
+│   ├── useGame.ts           # useGame(selector) — gameStore selector hook
+│   ├── useTrade.ts          # useTrade(selector) — tradeStore selector hook
+│   ├── useInventory.ts      # useInventory() — stable inventory module functions
+│   └── useGameTurn.ts       # Turn logic hook (isMyTurn, isRollRequest, isCallPhase, actionsLocked, etc.; pure — no gameState dependency)
 ├── routing/
 │   └── pageRouter.ts        # Page state machine (reducer + types)
 ├── pages/
@@ -391,8 +396,8 @@ frontend/src/
 Two-layer error boundary system prevents white-screen crashes:
 
 - **Root `ErrorBoundary`** (`App.tsx`) — wraps `RoomRouter` + `Toast`. Catches render errors across all pages. Shows a styled fallback with "GO TO LOBBY" button that dispatches `LEFT_ROOM` to navigate back to the lobby.
-- **GameRoom `ErrorBoundary`** (`GameRoom.tsx`) — isolates game room render errors. Adds a "RETRY" button that calls `GameContext.refetchGameState()` to re-emit `game:get_state` and recover game state without leaving the room. "GO TO LOBBY" dispatches `LEFT_ROOM`.
-- **Loading overlay** — while `gameState` is null (during `game:get_state` initial fetch or reconnection), `GameRoom.tsx` renders a full-screen loading overlay with an animated crystal pulse and "SUMMONING THE REALM..." text, matching the `WaitingRoom` AI processing pattern. Once state arrives, the chat layout renders normally.
+- **GameRoom `ErrorBoundary`** (`GameRoom.tsx`) — isolates game room render errors. Adds a "RETRY" button that calls the `gameStore` `refetchGameState()` action to re-emit `game:get_state` and apply the ACK response via `applyGameState()` to recover game state without leaving the room. "GO TO LOBBY" dispatches `LEFT_ROOM`.
+- **Loading overlay** — while `gameState` is null (during `game:get_state` initial fetch, reconnection, or `refetchGameState` in flight), `GameRoom.tsx` renders a full-screen loading overlay with an animated crystal pulse and "SUMMONING THE REALM..." text, matching the `WaitingRoom` AI processing pattern. Player identity survives disconnects, so the overlay stays up on reconnect until `game:reconnect` broadcasts a fresh `game:state`; then the chat layout renders normally.
 - **Error reporting** — all caught errors are logged to console via `componentDidCatch`.
 - The `ErrorBoundary` class component is in `components/Layout/ErrorBoundary.tsx`. Props: `onRetry?` (reset + retry), `onGoToLobby?` (navigate to lobby).
 
@@ -443,6 +448,9 @@ All 22 `ui/` components plus 9 leaf components are wrapped with `React.memo` to 
 - **Context consumers** — `Header`, `Toast` (decoupled from parent page re-renders)
 - **Pure props** — `LocationBadge`, `PlayerCard`, `TypingIndicator` (primitive or stable reference props)
 - **Array props** — `CampaignStatusBar`, `TurnIndicator`, `PlayerCircles`, `PlayerList` (stable references via `gameState?.players ?? []` — the array reference only changes when `gameState` actually updates, not on unrelated context changes like `messages`/`typingPlayers`/`isAiProcessing`)
+- **Stable `gameState` reference** — narration patches `currentLocation` as a **separate store field** (never by spreading a new `gameState` object), so `gameState?.players ?? []` stays reference-stable across narrations and the memo'd array-prop components above skip re-renders on every narration.
+- **Typing decoupling** — `handleTyping`/`handleTypingStop` return the unchanged state when the content is identical, so `useShallow` bails and the memo'd `TypingIndicatorCore` never receives a new `Map` for equal content. `TypingIndicator` subscribes to `typingPlayers` internally (thin wrapper around a memo'd core), and `GameRoom` no longer selects `typingPlayers` — typing events re-render only the indicator, not the whole page.
+- **Conditional modal mounting** — `CharacterSheet` is mounted only when open (`{showSheet && <CharacterSheet/>}`) instead of always-mounted with an `isOpen` flag, avoiding render cost while closed.
 
 No custom comparators needed — default shallow comparison is sufficient. New pure leaf components should follow this pattern.
 

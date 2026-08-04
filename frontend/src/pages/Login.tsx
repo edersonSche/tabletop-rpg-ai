@@ -1,10 +1,16 @@
 import { useState } from "react";
+import { useShallow } from "zustand/react/shallow";
 import { useAuth } from "../hooks/useAuth";
 import { Card, PanelTitle, Button, ErrorText, TextField } from "../components/ui";
 import logo from "../assets/logo.png";
 
 export function Login() {
-  const { login, connected, error, setError } = useAuth();
+  const { login, connected, error, setError } = useAuth(useShallow(s => ({
+    login: s.login,
+    connected: s.connected,
+    error: s.error,
+    setError: s.setError,
+  })));
   const [userId, setUserId] = useState("");
   const [loading, setLoading] = useState(false);
 

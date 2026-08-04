@@ -71,11 +71,13 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     this.server.to(roomId).emit('game:state', state);
   }
 
-  private emitNarrationText(roomId: string, narration: string, next: AIResponse['next']): void {
+  private emitNarrationText(roomId: string, narration: string): void {
+    const room = this.gameService.getRoomContext(roomId);
+    if (!room) return;
     this.server.to(roomId).emit('game:narration', {
       narration,
-      next,
-      state: this.gameService.getState(roomId),
+      location: room.currentLocation,
+      historyLength: room.history.length,
     });
   }
 
@@ -84,19 +86,21 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   private emitNarration(roomId: string, response: AIResponse, tickResults: TickResult[]): void {
-    this.server.to(roomId).emit('game:narration', {
-      narration: response.narration,
-      next: response.next,
-      state: this.gameService.getState(roomId),
-    });
-
     const room = this.gameService.getRoomContext(roomId);
     if (!room) return;
+
+    this.server.to(roomId).emit('game:narration', {
+      narration: response.narration,
+      location: room.currentLocation,
+      historyLength: room.history.length,
+    });
 
     this.server.to(roomId).emit('game:turn', {
       currentTurn: room.currentTurn,
       type: room.turnType,
       target: room.turnTarget,
+      skill: room.turnSkill,
+      dc: room.turnDc,
     });
 
     if (tickResults.length > 0) {
@@ -210,6 +214,35 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
   }
 
+  @SubscribeMessage('game:reconnect')
+  @UsePipes(new ZodValidationPipe(GameStateSchema))
+  handleReconnect(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: unknown,
+  ) {
+    const { roomId } = data as { roomId: string };
+
+    const userId = this.authService.getUserId(client.id);
+    if (!userId) return { success: false, error: 'Not authenticated' };
+
+    const existing = this.playerService.findPlayerByUserId(roomId, userId);
+    if (!existing) {
+      return { success: false, error: 'No character found in this campaign.' };
+    }
+
+    this.playerService.reactivatePlayer(roomId, existing.id);
+    this.authService.registerPlayer(client.id, existing.id, existing.name, roomId);
+    client.join(roomId);
+
+    if (this.gameService.isTradeLocked(roomId)) {
+      this.emitTradeStateToAll(roomId);
+    }
+
+    this.emitGameState(roomId);
+
+    return { success: true };
+  }
+
   @SubscribeMessage('game:action')
   @UsePipes(new ZodValidationPipe(GameActionSchema))
   async handleAction(
@@ -306,9 +339,8 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
       if (response.narration) {
         this.emitNarration(roomId, response, tickResults);
-      } else {
-        this.emitGameState(roomId);
       }
+      this.emitGameState(roomId);
 
       this.campaignStore.saveFromMemory(roomId);
       return { success: true };
@@ -567,7 +599,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       const response = await this.gameService.initiateTrade(roomId, playerId);
 
       if (response.narration) {
-        this.emitNarrationText(roomId, response.narration, response.next);
+        this.emitNarrationText(roomId, response.narration);
       }
 
       if (response.merchantsReady) {
@@ -712,7 +744,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
       if (allDone) {
         if (this.gameService.hasMerchants(roomId)) {
-          this.emitNarrationText(roomId, 'The party finishes their business with the local merchants.', { type: 'group_action' });
+          this.emitNarrationText(roomId, 'The party finishes their business with the local merchants.');
         }
       } else {
         this.emitTradeStateToAll(roomId);
